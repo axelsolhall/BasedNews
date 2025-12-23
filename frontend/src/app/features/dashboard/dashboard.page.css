@@ -1,0 +1,9 @@
+.page {
+  background: var(--card);
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.page h2 {
+  margin-top: 0;
+}

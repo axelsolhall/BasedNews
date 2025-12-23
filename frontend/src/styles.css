@@ -1,0 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600&family=Source+Code+Pro:wght@400&display=swap');
+
+:root {
+  --bg: #0f1115;
+  --card: #1a1f2a;
+  --accent: #23c483;
+  --accent-2: #f0c929;
+  --text: #f5f6f7;
+  --muted: #a9b1bd;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  font-family: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  background: radial-gradient(1200px 600px at 10% 0%, #1b2735 0%, var(--bg) 60%);
+}
+
+a {
+  color: inherit;
+}
