@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "countries": {
+    "CountryName": [
+      {
+        "id": "outlet-id",
+        "name": "Outlet Name",
+        "type": "public|private|other",
+        "homepage": "https://example.com/",
+        "feeds": [
+          "https://example.com/rss"
+        ]
+      }
+    ]
+  }
+}
