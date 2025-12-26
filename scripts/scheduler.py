@@ -8,7 +8,7 @@ import time
 TASKS = [
     {
         "name": "ingest_feeds",
-        "cmd": "python scripts/ingest_feeds.py",
+        "cmd": "python scripts/ingest_feeds.py --discover",
         "interval_minutes": 720,
         "run_on_start": True,
     }

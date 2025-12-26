@@ -1,7 +1,7 @@
 .page {
-  background: var(--card);
-  padding: 20px;
-  border-radius: 12px;
+  background: var(--color-surface);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
 }
 
 .page h2 {

@@ -1,0 +1,57 @@
+<section class="page">
+  <app-card title="Developer Panel">
+    <div class="tab-bar">
+      <button class="tab" [class.active]="activeTab === 'ingestion'" (click)="setTab('ingestion')">
+        Ingestion
+      </button>
+      <button class="tab" [class.active]="activeTab === 'matching'" (click)="setTab('matching')">
+        Matching
+      </button>
+    </div>
+
+    <div class="tab-content" *ngIf="activeTab === 'ingestion'">
+      <app-card variant="raised">
+        <div class="filter-bar">
+          <input
+            class="filter-input"
+            type="search"
+            placeholder="Search outlets or countries..."
+            [value]="searchQuery"
+            #searchInput
+            (input)="onSearchChange(searchInput.value)"
+          />
+          <app-button>Refresh</app-button>
+        </div>
+        <div class="muted">
+          Search query: {{ searchQuery || 'none' }}
+        </div>
+        <div class="country-grid">
+          <app-card
+            class="country-card"
+            variant="outlined"
+            *ngFor="let country of countries"
+          >
+            <div class="country-title">
+              <span class="flag" [ngClass]="flagClass(country.country)"></span>
+              <span>{{ country.country }}</span>
+            </div>
+            <ul class="outlet-list">
+              <li class="outlet-row" *ngFor="let outlet of country.outlets">
+                <span class="outlet-name">{{ outlet.name }}</span>
+                <ng-container *ngIf="outletSeries(country.country, outlet.id) as series">
+                  <svg class="sparkline" viewBox="0 0 90 24" aria-hidden="true">
+                    <polyline [attr.points]="sparklinePoints(series.counts)"></polyline>
+                  </svg>
+                </ng-container>
+              </li>
+            </ul>
+          </app-card>
+        </div>
+      </app-card>
+    </div>
+
+    <div class="tab-content" *ngIf="activeTab === 'matching'">
+      <p>Matching diagnostics will go here.</p>
+    </div>
+  </app-card>
+</section>

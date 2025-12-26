@@ -8,6 +8,25 @@ GroundNews-style news intelligence project. Ingest global news, cluster related 
 - Analyze and display bias and geographic coverage.
 - Provide a clean UI to explore events, sources, and bias changes.
 
+## Core Idea
+Backend data science:
+- Collect news from many outlets and countries.
+- Match articles about the same event across outlets.
+- Use LLM pairwise comparisons to position outlets on a left/right (liberal/conservative) axis.
+- Prioritize comparisons that reduce uncertainty (information gain) to minimize LLM calls.
+- Assign each outlet an (x, y) position on a political plane.
+
+Frontend product:
+- Landing page centers on a world map.
+- The map highlights one event covered by enough countries to be meaningful.
+- Each country is colored by the mean bias score of outlets that covered that event.
+- A deeper navigation area supports search, filtering, and bias exploration.
+- A developer panel shows ingestion health and matching diagnostics.
+
+Developer panel (priority):
+- Ingestion: per-country per-outlet article counts by day (last 7 days).
+- Matching: show which events are matched across outlets and countries.
+
 ## MVP Scope (Scandinavia)
 - Countries: Norway, Sweden, Denmark.
 - Sources: top 5 outlets per country (curated list stored in `data/outlets.json`).
@@ -18,41 +37,38 @@ GroundNews-style news intelligence project. Ingest global news, cluster related 
 - Python for ML/AI tasks (clustering, bias scoring, NLP pipelines).
 
 ## Roadmap
-- [ ] 2) Data ingestion pipeline
-  - [ ] Inventory sources (RSS, public APIs, scrapers) by country.
-  - [ ] Build ingestion service with dedupe and scheduling.
-  - [ ] Normalize article metadata (title, author, outlet, publish time, language, region).
-  - [ ] Method: Spring Boot ingestion service + PostgreSQL; optional Python ETL scripts.
-- [ ] 3) Event clustering / story mapping
-  - [ ] Define clustering objective and evaluation metrics.
-  - [ ] Build embeddings pipeline (multilingual).
-  - [ ] Cluster articles into events; store event graph.
-  - [ ] Method: multilingual embeddings (sentence transformers) + FAISS; periodic batch jobs; store results in DB.
-- [ ] 4) Bias and coverage analysis
-  - [ ] Choose bias signals (outlet labels, sentiment, framing).
-  - [ ] Create bias scoring rubric and explainability notes.
-  - [ ] Compute geographic coverage gaps per event.
-  - [ ] Method: Python NLP pipeline + curated outlet metadata table.
-- [ ] 5) Backend APIs
-  - [ ] Design data model (Article, Outlet, Event, Region, BiasScore).
-  - [ ] Implement REST/GraphQL endpoints for event browse and detail.
-  - [ ] Add search and filtering (country, topic, bias, date).
+- [ ] 1) Data foundation
+  - [ ] Finalize outlet list in `data/outlets.json`.
+  - [ ] Ingest RSS feeds with full-text extraction.
+  - [ ] Persist dedupe cache and run scheduler.
+  - [ ] Method: Python ingestion + SQLite cache.
+- [ ] 2) Event matching
+  - [ ] Define event similarity criteria and evaluation set.
+  - [ ] Build multilingual embeddings pipeline.
+  - [ ] Cluster articles into events and store event graph.
+  - [ ] Method: Python (sentence transformers) + FAISS; batch jobs.
+- [ ] 3) Bias scoring (LLM-assisted)
+  - [ ] Define political axis rubric and prompt.
+  - [ ] Select pairwise comparisons by information gain.
+  - [ ] Compute outlet bias positions (x, y) with minimal comparisons.
+  - [ ] Method: LLM comparisons + Bayesian updates or Elo-style ranking.
+- [ ] 4) Backend APIs
+  - [ ] Define data model (Article, Outlet, Event, BiasScore).
+  - [ ] Implement APIs for status, events, and dev panel metrics.
   - [ ] Method: Spring Boot + PostgreSQL; OpenAPI for contracts.
-- [ ] 6) Frontend experience
-  - [ ] Build event feed with clustering summaries.
-  - [ ] Create event detail view (timeline, outlets, map, bias distribution).
-  - [ ] Add interactive filters and comparison views.
-  - [ ] Method: Angular + D3/Mapbox or Leaflet for maps.
-- [ ] 7) Infrastructure and ops
-  - [ ] Set up local dev environment and CI.
-  - [ ] Containerize services and schedule jobs.
-  - [ ] Monitor data freshness and pipeline errors.
-  - [ ] Method: Docker + GitHub Actions; cron or workflow scheduler.
-- [ ] 8) Demo and polish
-  - [ ] Seed dataset for demo.
-  - [ ] Write README usage + architecture docs.
-  - [ ] Prepare recruiter-friendly demo script.
-  - [ ] Method: scripted demo + screenshots/GIFs.
+- [ ] 5) Frontend (dev panel first)
+  - [ ] Build reusable UI components (cards, tables, charts, filters).
+  - [ ] Dev panel: ingestion counts by outlet/day and matching diagnostics.
+  - [ ] Method: Angular + charting library (e.g., Chart.js).
+- [ ] 6) Frontend (product)
+  - [ ] Landing page map with event-focused coloring.
+  - [ ] Event detail view with outlets and bias distribution.
+  - [ ] Search and filter experience for events and outlets.
+  - [ ] Method: Angular + Leaflet/Mapbox for map.
+- [ ] 7) Infrastructure and demo
+  - [ ] Package services and schedule jobs.
+  - [ ] Add monitoring for ingestion freshness.
+  - [ ] Prepare a recruiter-ready demo dataset and walkthrough.
 
 ## Local Dev
 Backend (Spring Boot):

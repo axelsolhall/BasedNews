@@ -1,0 +1,12 @@
+.btn {
+  background: var(--color-accent);
+  color: #0a0d12;
+  border: none;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn:hover {
+  background: var(--color-accent-hover);
+}

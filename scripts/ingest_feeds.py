@@ -115,12 +115,97 @@ def text_or_none(el):
     return text
 
 
+def clean_text(value):
+    if not value:
+        return None
+    text = value.replace("\r\n", "\n").replace("\r", "\n")
+    text = re.sub(r"[ \t]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    text = text.strip()
+    return text or None
+
+
+def looks_like_structured_payload(text):
+    if not text:
+        return True
+    stripped = text.lstrip()
+    if stripped.startswith("{") and "\"@context\"" in text:
+        return True
+    if "<" in text and ">" in text:
+        return True
+    if "css-" in text and "{" in text and "}" in text:
+        return True
+    return False
+
+
+def extract_jsonld_text(html_text):
+    scripts = re.findall(
+        r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',
+        html_text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    if not scripts:
+        return None
+
+    texts = []
+
+    def collect(node):
+        if isinstance(node, list):
+            for item in node:
+                collect(item)
+            return
+        if not isinstance(node, dict):
+            return
+
+        node_type = node.get("@type")
+        if isinstance(node_type, list):
+            types = [t for t in node_type if isinstance(t, str)]
+        elif isinstance(node_type, str):
+            types = [node_type]
+        else:
+            types = []
+
+        types_lower = {t.lower() for t in types}
+        if "liveblogposting" in types_lower:
+            updates = node.get("liveBlogUpdate") or []
+            if isinstance(updates, dict):
+                updates = [updates]
+            for update in updates:
+                if isinstance(update, dict):
+                    body = update.get("articleBody")
+                    if body:
+                        texts.append(body)
+
+        body = node.get("articleBody")
+        if body:
+            texts.append(body)
+
+        for key in ("mainEntity", "mainEntityOfPage", "itemListElement"):
+            collect(node.get(key))
+
+    for script in scripts:
+        script = script.strip()
+        if not script:
+            continue
+        try:
+            data = json.loads(script)
+        except json.JSONDecodeError:
+            continue
+        collect(data)
+
+    combined = clean_text("\n\n".join(texts))
+    return combined
+
+
 def fetch_article_text(url):
     try:
         html_bytes, _ = fetch_url(url, timeout=20)
     except Exception:
         return None
     html_text = html_bytes.decode("utf-8", errors="ignore")
+    jsonld_text = extract_jsonld_text(html_text)
+    if jsonld_text:
+        return jsonld_text
     extracted = trafilatura.extract(
         html_text,
         output_format="txt",
@@ -131,7 +216,10 @@ def fetch_article_text(url):
     )
     if not extracted:
         return None
-    return extracted.strip()
+    extracted = clean_text(extracted)
+    if looks_like_structured_payload(extracted):
+        return None
+    return extracted
 
 
 def normalize_item(item, outlet, country, feed_url, full_text=None):
@@ -157,6 +245,16 @@ def ensure_dir(path):
     if not path:
         return
     os.makedirs(path, exist_ok=True)
+
+def safe_dir_name(value):
+    safe = re.sub(r"[^\w\s-]", "", value, flags=re.UNICODE).strip()
+    safe = re.sub(r"\s+", "-", safe)
+    return safe or "unknown"
+
+def append_metrics(path, record):
+    ensure_dir(os.path.dirname(path))
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=True) + "\n")
 
 
 def init_cache(path):
@@ -231,11 +329,11 @@ def main():
     parser.add_argument("--out", default="data/raw")
     parser.add_argument("--discover", action="store_true")
     parser.add_argument("--cache", default="data/ingest_cache.sqlite")
+    parser.add_argument("--metrics", default="data/metrics/ingest_counts.jsonl")
     args = parser.parse_args()
 
     config = load_config(args.config)
-    date_dir = dt.datetime.now(dt.UTC).strftime("%Y%m%d")
-    out_dir = os.path.join(args.out, date_dir)
+    run_at = utc_now_iso()
 
     total = 0
     all_errors = []
@@ -243,15 +341,28 @@ def main():
     try:
         for country, outlets in config["countries"].items():
             for outlet in outlets:
+                country_dir = os.path.join(args.out, safe_dir_name(country))
                 count, errors = ingest_outlet(
-                    outlet, country, out_dir, args.discover, cache_conn
+                    outlet, country, country_dir, args.discover, cache_conn
                 )
                 total += count
                 all_errors.extend(errors)
+                append_metrics(
+                    args.metrics,
+                    {
+                        "retrieved_at": run_at,
+                        "country": country,
+                        "outlet_id": outlet.get("id"),
+                        "outlet_name": outlet.get("name"),
+                        "count": count,
+                        "error_count": len(errors),
+                        "error_sample": errors[0] if errors else None
+                    },
+                )
     finally:
         cache_conn.close()
 
-    print(f"Ingested {total} articles into {out_dir}")
+    print(f"Ingested {total} articles into {args.out}")
     if all_errors:
         print("Errors:")
         for err in all_errors:

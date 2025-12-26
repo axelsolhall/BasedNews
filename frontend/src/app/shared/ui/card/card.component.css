@@ -1,0 +1,22 @@
+.card {
+  background: var(--color-surface);
+  padding: var(--space-5);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.25);
+}
+
+.card__header {
+  font-size: var(--text-lg);
+  margin-bottom: var(--space-3);
+}
+
+.card--raised {
+  background: #202635;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.card--outlined {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: none;
+}

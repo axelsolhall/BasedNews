@@ -1,0 +1,9 @@
+.tag {
+    background: rgba(35, 196, 131, 0.15);
+    color: var(--color-accent);
+    padding: var(--space-1) var(--space-3);
+    border-radius: 9999px;
+    font-size: var(--text-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}

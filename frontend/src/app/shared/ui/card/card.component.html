@@ -1,0 +1,8 @@
+<section
+  class="card"
+  [class.card--raised]="variant === 'raised'"
+  [class.card--outlined]="variant === 'outlined'"
+>
+  <header class="card__header" *ngIf="title">{{ title }}</header>
+  <ng-content></ng-content>
+</section>

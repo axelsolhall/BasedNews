@@ -10,6 +10,13 @@ const routes: Routes = [
       )
   },
   {
+    path: 'dev',
+    loadChildren: () =>
+      import('./features/dev-panel/dev-panel.module').then(
+        (m) => m.DevPanelModule
+      )
+  },
+  {
     path: '**',
     redirectTo: ''
   }

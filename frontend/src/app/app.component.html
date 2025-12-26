@@ -1,7 +1,13 @@
 <div class="app-shell">
   <header class="app-header">
-    <h1>BasedNews</h1>
-    <span class="tag">Frontend Skeleton</span>
+    <div class="brand">
+      <h1>BasedNews</h1>
+      <span class="tag">Frontend Skeleton</span>
+    </div>
+    <nav class="app-nav">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Home</a>
+      <a routerLink="/dev" routerLinkActive="active">Dev</a>
+    </nav>
   </header>
   <main class="app-content">
     <router-outlet></router-outlet>
