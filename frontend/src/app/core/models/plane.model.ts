@@ -32,3 +32,12 @@ export interface RealFrames {
   meta: { source: string; experiment: string; model: string; prompt: string; calls: number; cost_usd: number };
   real: PlaneFrame[];
 }
+
+/** 4.2 Export (pipeline/export/run.py): one fit from all verdicts of the current prompt. Not validated (meta.validated). */
+export interface LatestFit {
+  meta: {
+    source: string; kind: string; validated: boolean; prompt: string; models: string[]; rating_model: string;
+    calls: number; decisive_verdicts: number; first_call: string; last_call: string; fitted_at: string; commit: string;
+  };
+  frame: { calls: number; cost_usd?: number; outlets: FramePoint[]; countries: FramePoint[] };
+}

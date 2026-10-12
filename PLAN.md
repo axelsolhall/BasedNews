@@ -54,10 +54,11 @@ in `pipeline/contracts.py`.
 | M7 | **judge** | comparison requests → `judgments` (forced-choice verdict per axis, A46) + full call log (A51) | fixed eval set: order-swap consistency, test–retest, cross-model agreement, $/call |
 | M8 | **rate** | judgments → `positions` (mean, sd per axis; hierarchical, outlets over articles, ADR-009) | simulator recovery; credible-interval coverage; correlation with declared affiliations |
 | M9 | **aggregate** | positions + coverage → country positions, story spectra, blindspots | invariants (weights sum to 1, sd shrinks with data); spot-check viewer |
-| M10 | **publish** | aggregates → static JSON for the site + Parquet history | schema check; payload under ~100 kB per view |
+| M10 | **publish** | aggregates → static JSON for the site (`pipeline/export/`) + Parquet history (`pipeline/retention/`) | schema check; payload under ~100 kB per view |
 
-Orchestration: `python -m pipeline.<module>.run` (and `.eval`), each module idempotent and runnable alone; in
-production one Step Functions step per module (ADR-010).
+Orchestration: `python -m pipeline.<module>.run` (and `.eval`), each module idempotent and runnable alone. The job
+runner `python -m pipeline.job <step|job>` runs the same modules with a record and an eval gate per step (A53); in
+production one Step Functions step per module, each a container of the same image (ADR-010).
 M6→M7→M8 form the **active-learning loop** (plan → judge → update → plan…), bounded by a daily LLM budget.
 
 ## 3. Serving (ADR-010)
@@ -87,4 +88,4 @@ M6→M7→M8 form the **active-learning loop** (plan → judge → update → pl
 | P3b | **Positions over time (must)** | change graphs per outlet and country with uncertainty bands (A22) |
 | P4 | World map; M9 aggregate from the reference tier | Map shows 10 countries with sd under target |
 | P5 | Frontend product pages + prerendering/SEO | Country/outlet/event pages working locally |
-| P6 | AWS production deploy, security & ops baseline | Public HTTPS URL, monitored, budget-capped (next: docs/DEPLOY.md) |
+| P6 | AWS production deploy, security & ops baseline | Public HTTPS URL, monitored, budget-capped. 🟧 runner, export, retention, SQLite-in-S3, image done 2026-10-12; Terraform next (docs/DEPLOY.md) |

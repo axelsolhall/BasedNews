@@ -50,10 +50,31 @@ def country_points(econ: AxisPosterior, social: AxisPosterior,
     return pts
 
 
+SITE_DIGITS = 3   # ADR-010 payload budget: 3 decimals is far below the ovals' size, and halves the gzip size
+
+
+def compact(obj, digits: int = SITE_DIGITS):
+    """Round every float (numpy included) for files the browser downloads."""
+    if isinstance(obj, (float, np.floating)):
+        return round(float(obj), digits)
+    if isinstance(obj, (np.integer,)):
+        return int(obj)
+    if isinstance(obj, dict):
+        return {k: compact(v, digits) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [compact(v, digits) for v in obj]
+    return obj
+
+
+def dumps_site(obj) -> str:
+    """JSON for the site: rounded floats, no whitespace."""
+    return json.dumps(compact(obj), separators=(",", ":"), allow_nan=False)
+
+
 def export_json(path: Path | str, world: list[PlanePoint], outlets: list[PlanePoint], meta: dict | None = None) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
-    Path(path).write_text(json.dumps({
+    Path(path).write_text(dumps_site({
         "meta": {"oval_sd_multiplier": OVAL_SD_MULTIPLIER, **(meta or {})},
         "countries": [asdict(p) for p in world],
         "outlets": [asdict(p) for p in outlets],
-    }, indent=2))
+    }))

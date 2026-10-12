@@ -3,6 +3,7 @@ import json
 from types import SimpleNamespace as NS
 
 import numpy as np
+import pytest
 
 from pipeline.embed.backend import OpenAIEncoder
 from pipeline.embed.calibrate import qmap
@@ -61,6 +62,41 @@ def test_openai_encoder_normalises_and_keeps_order():
     V = enc.encode(["a", "bbbb"])
     assert np.allclose(np.linalg.norm(V, axis=1), 1.0)
     assert V[1][0] > V[0][0]                                                    # row order follows the input
+
+
+class CountingEmb:
+    def __init__(self):
+        self.calls = []
+
+    def create(self, model, input, **kw):
+        self.calls.append((model, list(input), kw))
+        return NS(data=[NS(index=i, embedding=[float(len(t)), 1.0, 0.5]) for i, t in enumerate(input)],
+                  usage=NS(total_tokens=5 * len(input)))
+
+
+def test_openai_encoder_cache_pays_once_per_text_with_the_asked_size():
+    from pipeline import store
+    conn = store.connect(":memory:")
+    emb = CountingEmb()
+    enc = OpenAIEncoder("openai:text-embedding-3-small@512", KEYED, client=NS(embeddings=emb), conn=conn, cache=True)
+    V1 = enc.encode(["a", "bb", "a"])
+    assert emb.calls == [("text-embedding-3-small", ["a", "bb"], {"dimensions": 512})]      # deduplicated, sized
+    V2 = enc.encode(["bb", "ccc"])
+    assert emb.calls[-1][1] == ["ccc"] and np.allclose(V2[0], V1[1])                       # "bb" from the cache
+    usage = conn.execute("SELECT SUM(input_tokens), COUNT(*) FROM api_usage WHERE kind = 'embedding'").fetchone()
+    assert tuple(usage) == (15, 2)                                                         # every paid batch logged
+    assert conn.execute("SELECT COUNT(*) FROM text_vectors").fetchone()[0] == 3
+
+
+def test_openai_encoder_stops_at_the_monthly_cap():
+    from pipeline import store
+    from pipeline.settings import Settings
+    conn = store.connect(":memory:")
+    store.log_usage(conn, "openai", "gpt", "judge", 0, 0, 12.5)
+    enc = OpenAIEncoder("openai:text-embedding-3-small", Settings(openai_api_key="k", monthly_ai_usd=12.0),
+                        client=NS(embeddings=CountingEmb()), conn=conn)
+    with pytest.raises(RuntimeError, match="cap"):
+        enc.encode(["a"])
 
 
 def test_threshold_mapping_is_exact_on_the_same_model_and_follows_a_shift():

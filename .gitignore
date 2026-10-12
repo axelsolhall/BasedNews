@@ -42,6 +42,8 @@ data/*
 !data/outlet_aliases.json
 # similarity thresholds per embedding model
 !data/embedding_profiles.json
+# labelled evaluation pairs: article ids and labels only, no text (E7, E7b, 2.3)
+!data/eval/
 *.sqlite
 *.sqlite-*
 *.db
@@ -70,6 +72,8 @@ frontend/.angular/
 npm-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+# the export job's output for `ng serve` (pipeline/export/run.py); production uploads it to the site bucket
+frontend/src/data/
 # unused sensitivity variant of the animation (not loaded by the site)
 frontend/src/assets/plane-frames-750k.json
 

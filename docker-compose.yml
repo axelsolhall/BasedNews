@@ -1,0 +1,25 @@
+# The production job image, run locally (ADR-010: local + production, no staging).
+#   GIT_SHA=$(git rev-parse --short=12 HEAD) docker compose build
+#   docker compose run --rm job list
+#   BASEDNEWS_STATE=file://$PWD/data/state uv run python -m pipeline.job push-db   # once, on the host: seed the copy
+#   docker compose run --rm job refresh          # ingest → normalize → embed → stories, against that copy
+#   docker compose run --rm job history
+# The stand-in bucket is a folder (data/state) with the same rules as S3: download → run → upload on success,
+# conditional on the version (pipeline/job/storage.py). Exported site files land in frontend/src/data for `ng serve`.
+services:
+  job:
+    build:
+      context: .
+      args:
+        GIT_SHA: ${GIT_SHA:-local}        # embeddings come from the OpenAI API (A45, A56): no local model in the image
+    image: basednews-job:local
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      BASEDNEWS_STATE: file:///state
+      BASEDNEWS_SITE_BUCKET: file:///site
+      BASEDNEWS_PUBLISH_POSITIONS: "1"          # local only; production decides this separately (A54)
+    volumes:
+      - ./data/state:/state
+      - ./frontend/src/data:/site

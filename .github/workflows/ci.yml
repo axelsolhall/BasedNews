@@ -1,4 +1,5 @@
-# CI: unit tests + lint for the pipeline, production build of the site. No secrets, no AWS, no paid calls.
+# CI: unit tests + lint for the pipeline, the job image (built, not pushed), production build of the site.
+# No secrets, no AWS, no paid calls.
 # Deployment (image → ECR, site → S3, terraform apply) is added with the infrastructure (ADR-010, docs/DEPLOY.md).
 name: ci
 
@@ -19,6 +20,15 @@ jobs:
       - run: uv sync
       - run: uv run python -m pytest -q
       - run: uvx ruff check pipeline tests --select F
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --build-arg GIT_SHA=${GITHUB_SHA::12} -t basednews-job .
+      - run: docker run --rm basednews-job list
+      - run: docker run --rm --entrypoint python basednews-job -c "import pipeline.job.storage, pipeline.retention.run, pipeline.export.run, pipeline.measure.run"
+      - run: docker images basednews-job --format 'image size {{.Size}}'
 
   site:
     runs-on: ubuntu-latest

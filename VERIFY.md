@@ -3,10 +3,18 @@
 Things the maintainer confirms by hand. Each block: what to run, what "good" looks like, tick when satisfied.
 
 ## Open now
-- [ ] OpenAI dashboard: a monthly hard limit (e.g. $12) — before any scheduled run (docs/DEPLOY.md, step 1).
+- [x] OpenAI: prepaid credits, auto-reload capped at $10/month (checked 2026-10-12, docs/DEPLOY.md step 1).
+- [ ] Infra build 2.1–2.5 (2026-10-12): see "5 · Operate" at the end — three decisions are open (A54 publishing,
+      legacy tables, retention window).
 - [ ] Next paid run (needs a go): repeat the pre-registered US/UK check on fresh stories (H7), then
       `uv run python -m pipeline.judge.calllog` → every paid call logged (A51).
-- [ ] Embeddings to OpenAI (≈ $0.03, needs a go) — see "3 · Measure" below.
+- [x] Embeddings (2026-10-12): OpenAI @512 is the default (A56), story threshold 0.56 from the unbiased test E7b
+      (docs/experiments/e7b_results.md). E7's MiniLM comparison is withdrawn (biased set).
+- [ ] Optional: spot-check 10 of Claude's 270 blind E7b labels (`data/eval/e7b_labels.jsonl`; the pair texts:
+      `uv run python -m pipeline.experiments.e7b show --n 10`).
+- [ ] The next normalize run fills the headline vector cache once (≈ $0.003) and every refresh then embeds new
+      articles (≈ $0.01/day): both count toward the monthly cap. Needs a go for the first run.
+- [ ] Delete the experiment's 1536 vectors (44 MB of the database; $0.02 to rebuy)? Needs your OK (deletes data).
 - [ ] Optional: spot-check 10 of Claude's same-event labels (2.3).
 - [ ] Open from E4: social length lean 0.73; Fox News reading slightly liberal (docs/experiments/e4b_results.md).
 
@@ -104,4 +112,25 @@ Re-verify at the OpenAI embedding switch (A45): re-run the 2.1/2.2/2.3 evals on 
   the log, simulated verdicts not logged (`tests/test_calllog.py`, 4 tests). Simulated measure loop runs end to end.
 - [ ] After the next paid run: `uv run python -m pipeline.judge.calllog` → "N of N paid calls have a full log ✅",
   integrity ✅, storage per call a few kB.
+
+## 5 · Operate — job runner, export, retention, SQLite-in-S3, Docker (built 2026-10-12)
+Verified by Claude: 65 unit tests pass (`tests/test_job.py`, `test_storage.py`, `test_retention.py`: records, gates,
+exit codes, key redaction, a crash inside a write transaction, conditional upload against a second writer, lake before
+delete, push-db never overwrites). On a copy of the real database: `export` (693 v4 calls, 2.6 kB gzip, gate OK),
+`stories` (gate OK: 701 multi-outlet stories, largest story 0.8 %), `retention --apply` (107 → 93 MB, lake 2.9 MB,
+a second run has nothing to do), `measure` without a budget is refused. The site builds with and without the export.
+- [ ] `uv run python -m pipeline.job list` and `uv run python -m pipeline.job export`, then `bash scripts/start.sh` →
+      the plane has a **Latest fit** button with the "not validated" banner. Good: 10 countries, ovals, no text.
+- [ ] `uv run python -m pipeline.job retention` (dry run) → the plan reads sensibly; nothing changes.
+- [ ] `uv run python -m pipeline.job history` → one line per step with status and the gate's numbers.
+- [x] Docker (Claude, 2026-10-12): slim and ML images build; through compose against a copy in `data/state`, export,
+      stories and embed ran, passed their gates, uploaded the database and their records; `history` reads the stored
+      copy. torch is the CPU build (no CUDA). Try it: `docker compose run --rm job history`. CI builds the slim image.
+- [ ] Decide A54: should the export go public on the deployed site (labelled "not validated"), or stay private until
+      validation? Default: private (`BASEDNEWS_PUBLISH_POSITIONS` unset).
+- [ ] Decide: the backup and legacy tables (`articles_legacy` 25 MB, `articles_text_backup` 3 MB,
+      `articles_shared_text` 2 MB) — keep, move to the lake, or drop? Retention leaves them alone.
+- [ ] Note: 300 v4 measure calls (2026-10-11 16:31–16:33) have no saved fit after them: that run stopped before its
+      final fit. The export refits from all verdicts, so the site is unaffected; the retention refit check (A52) can
+      compare again after the next measure run saves positions.
 

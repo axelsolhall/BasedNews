@@ -1,0 +1,23 @@
+{
+ "experiment": "E7 — OpenAI embeddings for story matching: 512 vs 1536 dimensions vs the local MiniLM baseline",
+ "written_at": "2026-10-12T17:18:34Z, before any E7 embedding call",
+ "why": "The maintainer chose the OpenAI API for embeddings (A56). The open question is the vector size: 512 keeps the hot database small (A52), 1536 is the model's full size. MiniLM (384 dimensions, local) is today's baseline, calibrated 2026-10-11.",
+ "models": {
+  "baseline": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2 (384 d, local, free)",
+  "A": "openai:text-embedding-3-small@512 (dimensions=512 requested from the API)",
+  "B": "openai:text-embedding-3-small@1536 (full size)"
+ },
+ "data": "The 7-day story window as of the run (2.3 input: canonical articles, one vector per article = mean over headline versions, A35), and the 200 labelled article pairs in data/eval (100 'band' pairs sampled around MiniLM's similarity threshold, 100 'deployed' pairs that MiniLM's clustering put together; all 200 inside the window; labelled by Claude).",
+ "budget_usd": {"expected": 0.05, "hard_stop": 0.10},
+ "procedure": "pipeline.embed.calibrate for A and for B (each: embed the 14-day window, sweep the story threshold 0.30–0.90 on the labelled pairs with average-linkage clustering, quantile-map the 2.1 thresholds). Then pipeline.experiments.e7 (free) on the stored vectors.",
+ "primary_metric": "Pair-level recall at the operating point calibrate selects: the threshold with the highest recall whose precision is at least MiniLM's precision at its own threshold 0.60 (A47). Same procedure for every model, so the in-sample threshold choice favours all of them equally.",
+ "questions": {
+  "Q1": "Does B reach at least MiniLM's recall at MiniLM's precision? Report recall, precision, F1 per model with 95 % bootstrap intervals (2,000 resamples of the labelled pairs).",
+  "Q2_decision": "Is A within 0.03 recall of B? Paired bootstrap of recall(A) − recall(B) at each model's selected threshold. Decision rule: keep 512 unless B's recall is higher by more than 0.03 AND the 95 % interval of the difference excludes 0; then take 1536.",
+  "Q3_exploratory": "Dimension curve, free: truncate B's stored vectors to 64, 128, 256, 512, 768, 1024 dimensions, re-normalise, re-sweep. Does recall at MiniLM's precision stay flat down to 256?",
+  "Q4_exploratory": "Is the API's 512-d output the same as B truncated to 512 and re-normalised? Mean cosine between the two per article; expected > 0.999."
+ },
+ "also_reported": ["tokens and cost per model", "bytes per vector and per 30-day window (≈ 48,000 articles)", "the quantile-mapped 2.1 thresholds per model", "best F1 over the sweep per model"],
+ "limitations_known_in_advance": "The labelled pairs were selected using MiniLM (its similarity band and its clusters), so pairs MiniLM rated as clearly different are absent: recall of a new model on stories MiniLM missed completely cannot be measured here. 200 pairs give wide intervals (≈ ±0.07 on recall). Labels are Claude's; the maintainer's spot-check of 10 is still open (VERIFY.md).",
+ "rules": "No change to the clustering method, the label set or the threshold grid after seeing results without a new pre-registration. No claims (pipeline phase); method findings may go to docs/FINDINGS.md."
+}

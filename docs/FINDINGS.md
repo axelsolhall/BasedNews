@@ -61,3 +61,28 @@ week of verdicts.
 
 **Reproduce.** `uv run python -m pipeline.sim.eval_articles` (E5); `uv run python -m pytest tests/test_hierarchical.py`;
 model `pipeline/rate/hierarchical.py`; planner `pipeline/plan/planner.py::plan_joint_hier`; decision ADR-009; A49.
+
+---
+
+## F2 — An evaluation set chosen by one model decides the comparison; 512 dimensions match 1536
+
+**Question (E7, E7b, pre-registered).** For clustering articles into stories (2.3): how many dimensions of
+`text-embedding-3-small` are needed, and is it better than the local MiniLM the pipeline was built on?
+
+**Evidence.**
+- **Size (E7, 200 labelled pairs):** 512 vs 1536 recall difference +0.015 [−0.015, +0.044], AUC 0.852 vs 0.855. The
+  API's 512-d output equals the 1536 vector truncated and re-normalised (mean cosine 0.99999); quality is flat down to
+  256 dimensions. A 30-day window takes 98 MB at 512 vs 295 MB at 1536.
+- **Model, on a set chosen by MiniLM (E7):** at MiniLM's precision, recall 0.42 (OpenAI) vs 0.83 (MiniLM). Every pair
+  had been sampled from MiniLM's similarity band or its clusters.
+- **Model, on a set neither chose (E7b):** 40 random anchors, the top 4 of each model pooled, 270 pairs labelled blind.
+  OpenAI is ahead on every measure: AUC 0.965 vs 0.925 (difference +0.04 [+0.002, +0.10]), precision@1 0.43 vs 0.35,
+  clustering F1 0.71 vs 0.60.
+- **Size again, on the unbiased set (E7b addendum):** 1536 vs 512 AUC 0.964 vs 0.963, difference +0.001
+  [−0.003, +0.008]; clustering F1 0.73 vs 0.70 with overlapping intervals.
+
+**Method lessons.**
+1. A labelled set built with model A (its band, its clusters) cannot rank A against B; it can even reverse the
+   ranking. Comparisons need pooled, blind evaluation with equal depth, or random sampling.
+2. A similarity threshold does not transfer between embedding models; re-choose the operating point on the fair set.
+3. Shortened OpenAI embeddings are free to test: buy the full vector once and truncate locally.

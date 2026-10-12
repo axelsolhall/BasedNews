@@ -11,7 +11,6 @@ Every visual is watermarked SIMULATED: real outlet names, invented positions.
 from __future__ import annotations
 
 import argparse
-import json
 import warnings
 from collections import defaultdict
 from pathlib import Path
@@ -20,7 +19,7 @@ import numpy as np
 from scipy.stats import norm, spearmanr
 
 from pipeline import store
-from pipeline.aggregate.plane import _contrast_stats
+from pipeline.aggregate.plane import _contrast_stats, dumps_site
 from pipeline.judge.render import render_article
 from pipeline.plan.planner import Candidate, PlannerConfig, plan_joint
 from pipeline.rate.model import BradleyTerryLaplace
@@ -249,7 +248,7 @@ def main():
 
     fr = {"meta": {"source": "simulation-semireal", "watermark": WATERMARK, "event_run": run_id, "budget_tokens": args.budget},
           "random": res["random"][1], "cost_aware": res["cost_aware"][1]}
-    Path(args.frames_out).write_text(json.dumps(fr, default=float))
+    Path(args.frames_out).write_text(dumps_site(fr))                   # rounded: ADR-010 payload budget
     gif(res["random"][1], res["cost_aware"][1], "countries", f"reports/e3_world{args.tag}.gif")
     slug = args.country.lower().replace(" ", "_")
     gif(res["random"][1], res["cost_aware"][1], "outlets", f"reports/e3_country_{slug}{args.tag}.gif", title_filter=args.country)

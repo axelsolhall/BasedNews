@@ -598,5 +598,74 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   re-judging is limited to recent stories. That is one config value.
 - **Estimates:** from 2 days of live ingest (≈ 1,600 articles/day, which may include a first-pull burst); re-measure
   after a month.
-- **Status:** accepted in principle 2026-10-11; window length open
+- **Built 2026-10-12** (`pipeline/retention/run.py`, dry run unless `--apply`): window 30 days, the latest 2 story runs
+  kept; pruned articles keep their row and get `pruned_at`, so "no text" is never mistaken for "not an article"
+  (normalize skips them, the ingest eval leaves them out of its text share). The call log's request blobs leave the
+  database only for closed months whose lake file was read back and every hash checked; the `lake_files` table is the
+  index. The backup and legacy tables are reported, not touched (VERIFY.md). On a copy of today's database: 107 → 93 MB,
+  lake 2.9 MB.
+- **Status:** accepted in principle 2026-10-11; built 2026-10-12; window length open
+
+### A56 — OpenAI embeddings at 512 dimensions, with a vector cache by text (2026-10-12)
+- **Rule:** the maintainer chose the OpenAI API for embeddings (2026-10-12), so the job image carries no local model
+  (0.43 GB instead of 2.2 GB). The model is `openai:text-embedding-3-small@512`: the API shortens the vectors to 512
+  dimensions. 2.1 normalize keeps every vector it buys in `text_vectors` by text hash, so an hourly run pays only for
+  new headlines and texts; entries unused for 30 days are dropped by retention (A52). Every batch is logged in
+  `api_usage` and refused once the monthly cap is reached (A48).
+- **Why:** normalize compares every headline on each run. Without the cache that is ≈ 9,000 titles an hour now and
+  ≈ 50,000 once the 30-day window is full: up to ≈ $10/month spent re-buying the same vectors. 1,536 dimensions would
+  make the 30-day window ≈ 0.3 GB of vectors alone; 512 keeps it ≈ 0.1 GB (hot database target 0.5 GB, A52), at a small
+  loss in retrieval quality that the calibration (A47) measures on our own labelled pairs.
+- **Depends:** 2.1, 2.2, 2.3 thresholds (A47 profile per model name), retention, the image.
+- **Test:** `tests/test_judge.py` (cache pays once per text, size requested, usage logged, cap refusal); the calibration
+  run (paid, ≈ $0.03) reports precision and recall against MiniLM.
+- **If wrong:** another size or model is a new name (`@1024`, `-large`) and a new calibration; vectors are stored per
+  model name, so nothing mixes.
+- **E7 (2026-10-12, $0.045):** 512 matches 1536 (recall +0.015 [−0.015, +0.044]; the API's 512 = 1536 truncated). Against
+  MiniLM at MiniLM's precision, recall 0.42 vs 0.83, but the label set was chosen with MiniLM; threshold-free on its
+  least biased part the models tie. The A47 rule's threshold (0.62) would halve story recall; ≈ 0.44 trades precision
+  for recall. Default not switched yet (docs/experiments/e7_results.md).
+- **E7b (2026-10-12, free, the unbiased re-test):** 40 random anchors, both models' top 4 pooled, 270 pairs labelled
+  blind. OpenAI @512 ahead on every measure (AUC 0.965 vs 0.925; clustering F1 0.71 vs 0.60 at threshold 0.56 vs
+  0.60). E7's MiniLM comparison is withdrawn. Default switched; story threshold 0.56 (pre-registered rule).
+- **Status:** accepted 2026-10-12 (size from E7, model and threshold from E7b)
+
+### A53 — A job step's output goes on only if a few eval numbers are in range (2026-10-12)
+- **Rule:** after each step the job runner (`pipeline/job/`) runs a gate: a few numbers from the module's eval, each
+  against one threshold in `pipeline/job/gates.py`. A failed gate stops the job; in production the database is then
+  not uploaded, so later steps and the site keep the last good data. Every step leaves a record (commit, arguments,
+  table counts before and after, the gate's numbers, error and traceback) in `job_runs` and as JSON.
+- **Thresholds** (measured on 2026-10-12 in brackets): usable outlets ≥ 80 % (99 %); newest live article ≤ 6 h old,
+  outlets active in 72 h ≥ 75 % (99 %); normalize removes ≤ 5 % of articles in one run; embedding coverage of the story
+  window ≥ 98 % (100 %); largest story ≤ 5 % of the window (0.8 %), ≥ 100 multi-outlet stories (701); measure: every
+  paid call logged (A51), ≤ 20 % failed calls, spend ≤ budget + $0.02, positions saved; export: the payload check;
+  retention: database ≤ 1 GB, integrity ok, refit reproduces the stored positions.
+- **Why:** a failure should name the step and the number, and bad data should never reach the next step or the site.
+- **Depends:** every module's output tables; ADR-010's "eval as a gate".
+- **Test:** `tests/test_job.py`; on real data the gates passed on a copy of the database (VERIFY.md, 5 · Operate).
+- **If wrong:** a threshold that blocks good runs, or passes bad ones, is a one-line change in `gates.py`; the record
+  shows the measured value, so the new threshold can be set from data.
+- **Status:** open (thresholds from one day of data; revisit after a month)
+
+### A54 — The latest fit is exported every run but published only by the maintainer's decision (2026-10-12)
+- **Rule:** the export (4.2) always writes `plane-latest.json`, labelled `validated: false`. The production job uploads
+  it to the public site only when `BASEDNEWS_PUBLISH_POSITIONS=1`; locally it shows under "Latest fit".
+- **Why:** positions are results only after validation (no claims during the pipeline phase). Building the file every
+  run keeps the export tested without making anything public.
+- **Depends:** 4.2 export, the job's storage wrapper, the site's "Latest fit" view.
+- **Test:** `tests/test_storage.py` (not uploaded unless the flag is 1).
+- **If wrong:** one environment value in the task definition.
+- **Status:** open — the maintainer decides before the first deploy (VERIFY.md)
+
+### A55 — One writer at a time for the SQLite file in S3 (2026-10-12)
+- **Rule:** Step Functions runs one execution at a time (the queue of ADR-010). As a second guard the upload is
+  conditional: S3 accepts it only if the stored object is still the version the step downloaded (If-Match on the
+  ETag); otherwise the step exits 4 and nothing is overwritten. The WAL is folded into the file and `quick_check` must
+  pass before the upload; the first upload (`push-db`) never overwrites. S3 versioning keeps earlier versions.
+- **Why:** two jobs that both download, change and upload would silently lose one job's work.
+- **Depends:** `pipeline/job/storage.py`, the Step Functions concurrency setting (Terraform, 2.6), S3 conditional writes.
+- **Test:** `tests/test_storage.py` (a second writer uploads mid-step → exit 4, theirs kept); the S3 adapter against a
+  fake client. Not yet run against real S3 (first deploy, VERIFY.md).
+- **If wrong:** if jobs must run in parallel or the file passes ~1 GB, move to Postgres behind `store.py` (ADR-010).
+- **Status:** open (first real check at the first deploy)
 

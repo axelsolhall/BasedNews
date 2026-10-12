@@ -67,7 +67,7 @@ visible, not authorised. Capture new wants/bugs here before a session ends.
 ## P4–P6 — see PLAN.md §5
 - [x] Country list decided: A15
 - [x] Budget decided: A16 (~$25/month). Name kept (A14).
-- [ ] AWS account + domain purchase — executable: no (needs the maintainer)
+- [x] AWS account set up 2026-10-12 (root MFA, Identity Center admin, $10 budget). Domain deferred.
 - [x] Bug fixed 2026-10-11: backfill hung >1.5 h inside one slow download → 90 s wall-clock deadline per request
 - [x] Bug fixed 2026-10-11: backfill held the SQLite write lock across slow downloads → live ingest of 20 new outlets crashed ('database is locked'); France had 1 of 5 reference outlets. Now commits per article.
 - [x] (fixed 2026-10-11, A39) Bug found 2026-10-11 (M1 eval): bild newest item is −1.9 h old (future) → feed likely gives local time without offset and we read it as UTC; shifts Bild ~2 h in M5's 72 h window — executable: yes
@@ -156,21 +156,27 @@ uncertainty, drawn as change graphs. Today every verdict is pooled into one fit.
 - [ ] Same treatment for embedding calls: log model snapshot + request hash per batch (vectors are already stored) — executable: no
 
 ## Infrastructure (2026-10-11: "an actual task of value") — ADR-010, A52
-In build order; nothing here is executable until the maintainer marks it.
-- [ ] Switch embeddings to OpenAI first (keeps the image small, no torch) — needs the maintainer's go (≈ $0.03 calibration)
-- [ ] Job runner `pipeline.job <stage>`: `runs` row (commit, counts, eval numbers, error and traceback), structured JSON logs, the eval as a gate, exit codes — executable: no
-- [ ] Retention job (A52) with a dry-run; prune old story runs — executable: no
-- [ ] Export job: positions and trends → JSON for the site, under about 100 kB per view; slim the animation files — executable: no
-- [ ] Dockerfile + docker compose (the same image runs locally) — executable: no
-- [ ] SQLite-in-S3 wrapper: download, run, upload on success, single writer — executable: no
-- [ ] Terraform (state in S3 with locking): S3 (site + private), CloudFront, Route 53, ECR, ECS Fargate, Step Functions, EventBridge, SSM, CloudWatch, Budgets — executable: no
+In build order. The maintainer marked the job runner, retention, export, Docker and SQLite-in-S3 executable on 2026-10-12;
+the rest waits.
+- [x] (decided 2026-10-12, A56) Embeddings via the OpenAI API, 512 dimensions, vector cache for normalize, monthly cap enforced; image without torch
+- [x] (E7, 2026-10-12, $0.045) Calibrated `openai:text-embedding-3-small` at 512 and 1536: 512 = 1536; vs MiniLM undecided (biased label set) — docs/experiments/e7_results.md
+- [x] (E7b, 2026-10-12, free) Unbiased pooled test → OpenAI @512 adopted as the default, story threshold 0.56 — docs/experiments/e7b_results.md
+- [x] (done 2026-10-12, A53) Job runner `python -m pipeline.job <step|job>`: a record per step in `job_runs` + JSON (commit, args, counts before/after, gate numbers, error and traceback), JSON-line logs, eval gates, exit codes 0–4, paid steps need a budget — `pipeline/job/`, `tests/test_job.py`
+- [x] (done 2026-10-12, A52) Retention with a dry run by default: Parquet lake (monthly, read back and hash-checked) before any delete; old text and embeddings, story runs but the latest 2, archived call-log blobs; VACUUM; refit check — `pipeline/retention/`, `tests/test_retention.py`
+- [x] (done 2026-10-12, A54) Export: the current fit → `plane-latest.json` (2.6 kB gzip) with a payload check; site "Latest fit" view; animation files rounded (1.3 MB → 67 kB gzip). Trends join it with the trend model — `pipeline/export/`
+- [x] (done 2026-10-12) Dockerfile (one image, optional CPU-only MiniLM via WITH_ML=1, commit baked in, non-root), allow-list .dockerignore, docker compose against a local stand-in bucket (`data/state`). Built and run: export, stories, embed and history through compose; slim image ≈ 0.7 GB unpacked (≈ 430 MB compressed), ML image ≈ 2.2 GB (torch CPU + MiniLM 0.46 GB)
+- [ ] Smaller image: matplotlib is only for reports and could leave the job image — executable: no
+- [x] (done 2026-10-12, A55) SQLite-in-S3: download → run → upload only on success, conditional on the downloaded version (If-Match), WAL folded + quick_check, records always uploaded, lake before database, `push-db` for the first upload — `pipeline/job/storage.py`, `tests/test_storage.py` (fake bucket, fake S3 client)
+- [x] (2026-10-12) CI builds the slim image on every push and imports every job module in it (the check for the Dockerfile)
+- [ ] Decide arm64 (Fargate Graviton, ≈ 20 % cheaper) vs amd64 for the task — with the Terraform — executable: no
+- [ ] Site deploy must not delete `data/` in the site bucket (the export's files live there) — part of the CI deploy
+- [ ] Terraform (state in S3 with locking): S3 (site + private), CloudFront (default address; domain later), ECR, ECS Fargate, Step Functions, EventBridge, SSM, CloudWatch, Budgets — executable: no
 - [ ] GitHub Actions: tests → image → ECR → site deploy → infrastructure apply, with OIDC — executable: no
 - [ ] Alarms: failed execution, spend → email — executable: no
 - [ ] History lake: monthly Parquet export (verdicts, positions, runs, call-log archive) to S3 + Athena table definitions; DuckDB query example in docs — executable: no
 - [ ] OpenTelemetry in the job runner → Grafana Cloud free tier (traces per job and step, pipeline metrics); token in SSM — executable: no
 - [ ] CI: `terraform plan` on pull requests, tflint + checkov — executable: no
-- [ ] Maintainer: choose and buy the domain (Route 53) — needs the maintainer
+- [ ] Later: choose and buy a domain (Route 53), then add the certificate (us-east-1) and alias — needs the maintainer
 - [x] Decided 2026-10-11: drop the Spring Boot API, Terraform, eu-north-1 (Stockholm)
 - [x] (done 2026-10-11) Removed `backend/` and the Ingestion/Dev pages; `scripts/start.sh` starts the site only; CI workflow (tests, lint, site build)
-- [ ] Maintainer: an AWS account and a domain
 

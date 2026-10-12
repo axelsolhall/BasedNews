@@ -19,7 +19,7 @@ aggregates. When a deploy fails, the logs must say which step failed, on which c
 | failure diagnosis | read the server logs | one execution per run with one step per module, a `runs` row per step, eval gates |
 
 ## Decision
-- **Site:** Angular built to static files on S3 + CloudFront, plus a domain on Route 53.
+- **Site:** Angular built to static files on S3 + CloudFront, served on CloudFront's own HTTPS address until a domain is bought.
 - **Published data:** JSON written by an export job next to the site. Only aggregates; article text never leaves the
   private side (A10).
 - **Compute:** one Docker image (ECR), one command per module, run as ECS Fargate tasks. Tasks exist only while a job
@@ -28,8 +28,8 @@ aggregates. When a deploy fails, the logs must say which step failed, on which c
   - hourly: ingest → normalize → embed → stories;
   - weekly: measure → aggregate → export → CloudFront invalidation.
 
-  Step Functions runs one execution at a time, so the SQLite file has a single writer. The backfill takes its turn in
-  the same queue.
+  Step Functions runs one execution at a time, so the SQLite file has a single writer; the upload is also conditional
+  on the version that was downloaded (A55). The backfill takes its turn in the same queue.
 - **Storage:**
   - the hot SQLite database in a private S3 bucket, versioned, with old versions expired;
   - backups and run reports in the same private bucket;
@@ -37,7 +37,8 @@ aggregates. When a deploy fails, the logs must say which step failed, on which c
 - **Secrets:** the OpenAI key in SSM Parameter Store, handed to the task at start, never stored in the image.
 - **Failure → fix:**
   - the image is tagged with its git commit, and every run records it;
-  - each step writes a `runs` row: commit, stage, counts in and out, eval numbers, error and traceback;
+  - each step writes a record: commit, step, counts before and after, the gate's numbers, error and traceback
+    (`job_runs`, and as JSON in the private bucket even when the step fails; built 2026-10-12, A53);
   - each step's module eval is a gate, so bad data stops the run and the site keeps its last good data;
   - logs are structured JSON in CloudWatch;
   - a failed execution or a spend alarm sends an email; AWS Budgets and the OpenAI hard limit back the spend caps (A48).
@@ -63,7 +64,8 @@ aggregates. When a deploy fails, the logs must say which step failed, on which c
   - Monthly Parquet partitions of verdicts, positions, `runs` rows and the call-log archive (A51, A52).
   - Queried with Athena (pay per scan, pennies) or DuckDB locally.
   - The hot database keeps verdicts too while they are small; the lake is the permanent, append-only copy.
-- **Domain:** bought and managed in Route 53. Name to be chosen.
+- **Domain:** deferred (2026-10-12). Launch on the free `*.cloudfront.net` address. Later: register in Route 53, issue
+  the certificate in us-east-1, add the alias; nothing else changes.
 - **Environments:** local (docker compose, the same image) and production. No staging; pull requests run
   `terraform plan` and the tests instead.
 - **Observability:**

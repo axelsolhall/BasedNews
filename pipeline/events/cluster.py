@@ -52,7 +52,16 @@ def cluster(V: np.ndarray, hours: np.ndarray, cfg: ClusterConfig) -> np.ndarray:
         roots = [find(i) for i in range(n)]
         _, labels = np.unique(roots, return_inverse=True)
         return labels
+    return cut(average_linkage(V, hours, cfg, S), cfg.threshold)
+
+
+def average_linkage(V: np.ndarray, hours: np.ndarray, cfg: ClusterConfig, S: np.ndarray | None = None) -> np.ndarray:
+    """The average-linkage tree; `cut` it at any threshold without recomputing (threshold sweeps, E7)."""
+    S = time_aware_similarity(V, hours, cfg) if S is None else S
     D = np.clip(1.0 - S, 0.0, 2.0)
     np.fill_diagonal(D, 0.0)
-    Z = linkage(squareform(D, checks=False), method="average")
-    return fcluster(Z, t=1.0 - cfg.threshold, criterion="distance") - 1
+    return linkage(squareform(D, checks=False), method="average")
+
+
+def cut(Z: np.ndarray, threshold: float) -> np.ndarray:
+    return fcluster(Z, t=1.0 - threshold, criterion="distance") - 1

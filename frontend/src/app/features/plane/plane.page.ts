@@ -1,8 +1,8 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { PlaneFrame, PlaneFrames, PlanePoint, RealFrames } from '../../core/models';
+import { LatestFit, PlaneFrame, PlaneFrames, PlanePoint, RealFrames } from '../../core/models';
 
-type Strategy = 'cost_aware' | 'random' | 'real';
+type Strategy = 'cost_aware' | 'random' | 'real' | 'latest';
 
 @Component({
   selector: 'app-plane-page',
@@ -12,6 +12,7 @@ type Strategy = 'cost_aware' | 'random' | 'real';
 export class PlanePage implements OnInit, OnDestroy {
   frames: PlaneFrames | null = null;
   real: RealFrames | null = null;                 // E4: the first run with the real judge (no truth to show)
+  latest: LatestFit | null = null;               // 4.2 export: the current fit, not validated (only if published)
   strategy: Strategy = 'real';
   index = 0;
   playing = false;
@@ -33,13 +34,20 @@ export class PlanePage implements OnInit, OnDestroy {
       next: (r) => { this.real = r; if (this.strategy === 'real') this.index = this.series.length - 1; },
       error: () => { this.real = null; if (this.strategy === 'real') this.setStrategy('cost_aware'); }
     });
+    // the export job's file next to the site (pipeline/export/run.py); absent until positions are published (A54)
+    this.http.get<LatestFit>('data/plane-latest.json').subscribe({
+      next: (l) => (this.latest = l),
+      error: () => (this.latest = null)
+    });
   }
 
-  get isReal(): boolean { return this.strategy === 'real'; }
+  get isReal(): boolean { return this.strategy === 'real' || this.strategy === 'latest'; }
+  get isLatest(): boolean { return this.strategy === 'latest'; }
 
   ngOnDestroy(): void { this.stop(); }
 
   get series(): PlaneFrame[] {
+    if (this.strategy === 'latest') return this.latest ? [{ ...this.latest.frame, tokens: 0 }] : [];
     if (this.strategy === 'real') return this.real ? this.real.real : [];
     return this.frames ? this.frames[this.strategy] : [];
   }

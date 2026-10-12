@@ -17,10 +17,10 @@ for next.
 | Stage | State |
 |---|---|
 | **1 · Collect** | 🟩 Done, signed off 2026-10-11. Live RSS ingest plus a sparse 10-year archive sample; the sample is about half fetched (2021–2025 pending) and resumes where it stopped. |
-| **2 · Clean & understand** | 🟩 Done, signed off 2026-10-11. Embeddings run locally (MiniLM). The OpenAI backend is built and waits for its calibration run (A45, A47). |
+| **2 · Clean & understand** | 🟩 Done, signed off 2026-10-11. Embeddings come from the OpenAI API since 2026-10-12 (512 dimensions, A56, chosen by the unbiased test E7b); MiniLM stays as the local baseline. |
 | **3 · Measure** | 🟩 Method complete for one snapshot: article-aware planner, judge prompt v4, hierarchical rating. 2,126 judge calls on real story pairs so far. Validation against an external rating is pre-registered and in progress (E4–E6). ⬜ **Positions over time not built yet (a must, see What's left).** |
-| **4 · Serve** | 🟧 Prototype. The site replays a simulated demo and the first real run (E4, whose prompt and model are now replaced). The Spring Boot API is dropped; the site will read static JSON (ADR-010). |
-| **5 · Operate** | ⬜ Not built. Runs are started by hand. Scheduling and deployment (Docker, Postgres, AWS) are open. |
+| **4 · Serve** | 🟧 Prototype. The site replays a simulated demo and the first real run (E4, whose prompt and model are now replaced). The export (4.2) writes the current fit as static JSON; the site shows it locally as "Latest fit", labelled not validated. Publishing it is the maintainer's decision (A54). |
+| **5 · Operate** | 🟧 Job runner with a record and an eval gate per step, retention with a Parquet lake, SQLite-in-S3 and the Docker image are built (ADR-010). The AWS side (Terraform, schedules, alarms) is next; runs are still started by hand. |
 
 What remains is listed under [What's left](#whats-left).
 
@@ -48,7 +48,7 @@ flowchart TB
   end
   subgraph S5["<b>5 · Operate</b>"]
     direction LR
-    s51["<b>5.1 Schedule</b><br/>refresh + weekly measure"] ~~~ s52["<b>5.2 Deploy</b><br/>Docker · Postgres · AWS"]
+    s51["<b>5.1 Schedule</b><br/>refresh + weekly measure"] ~~~ s52["<b>5.2 Deploy</b><br/>Docker · S3 · AWS"]
   end
   S1 --> S2 --> S3 --> S4
   S4 ~~~ S5
@@ -276,12 +276,13 @@ Turn outlet positions into what a reader sees: country positions and ovals (4.1)
   posterior covariance.
 - **In → out:** a posterior → plane points (outlets, countries, ovals).
 - **Check:** `uv run python -m pipeline.aggregate.preview` (oval coverage close to 1 − e^(−k²/2)).
-- **Gap:** only the E4 replay (`pipeline.experiments.e4_frames`) writes real points for the site. A general export
-  of the current `positions` fit does not exist yet.
-
-### 4.2 Export (not built yet)
-- **Will do:** write the current fit and the trends as small JSON files next to the site, under about 100 kB per view
-  compressed. Only aggregates; article text never leaves the private side (A10).
+### 4.2 Export · `pipeline/export/`
+- **Does:** refits the article-level model from every real verdict of the current prompt and writes
+  `plane-latest.json` (countries and outlets with ovals) for the site. Only aggregates: no text, titles or URLs (A10).
+- **Out:** `frontend/src/data/` locally (git-ignored, served by `ng serve` at `/data/`); in production the job uploads
+  it next to the site, only if the maintainer turns publishing on (A54).
+- **Check:** `uv run python -m pipeline.export.run --check`: valid JSON, finite numbers, every country present, gzip
+  size under 100 kB (today about 3 kB). Trends join this file once the trend model exists.
 
 ### 4.3 Site · `frontend/` (Angular)
 - **Does:** world plane → click a country → its outlets; play the measurement over time. Run with
@@ -291,7 +292,8 @@ Turn outlet positions into what a reader sees: country positions and ovals (4.1)
   - a replay of E4, the first real run, which used prompt v3 and the flat model, both since replaced.
 
   Both are labelled on the page.
-- **Data:** the plane reads static JSON from `frontend/src/assets` today; the export step (4.2) will write it.
+- **Data:** static JSON: the demo and the E4 replay from `frontend/src/assets` (rounded to 3 decimals, under 70 kB
+  compressed each), the latest fit from `data/` (4.2).
 - **Never serves article text** (A10).
 
 ### What a reader will get
@@ -318,6 +320,8 @@ outcome. They are **exploratory, not claims**. What they changed:
 | E4c | Why did single outlets disagree? Respecting noise, no prompt tuning toward expected answers | found article reuse → F1, hierarchical model | [e4c_diagnosis](docs/experiments/e4c_diagnosis.md) |
 | E5 | Simulation: does reusing articles break the flat model's intervals? | hierarchical model adopted (ADR-009) | [e5_article_effects](reports/e5_article_effects.md) |
 | E6 | Fresh stories with v4, the hierarchical model and the article-aware planner | to be repeated out of sample on next week's stories | [e6_results](docs/experiments/e6_results.md) |
+| E7 | OpenAI embeddings for story matching: 512 vs 1536 dimensions | 512 is enough; its MiniLM comparison was invalid (test set chosen by MiniLM) and withdrawn | [e7_results](docs/experiments/e7_results.md) |
+| E7b | The unbiased re-test: random anchors, both models' top candidates pooled, labelled blind | OpenAI @512 adopted for embeddings, story threshold 0.56 | [e7b_results](docs/experiments/e7b_results.md) |
 
 A50 states what is measured: framing of the **same event**, not which stories an outlet chooses to cover. External
 ratings include both, so agreement with them has a ceiling below 1. Disagreement is something to explain, not a
@@ -377,17 +381,19 @@ all verdicts are pooled into one fit. What it takes:
 <details>
 <summary><b>Details: the rest (operate · serve · validate · method follow-ups)</b></summary>
 
-**5 · Operate (⬜)**
-- One refresh command (sources → ingest → normalize → embed → stories), run on a schedule, plus a weekly measure
-  run with a fixed budget. Today the steps run by hand, or on the laptop via `scripts/overnight.sh`.
+**5 · Operate (🟧)**
+- Built: `python -m pipeline.job` runs one step or a job (refresh, daily, weekly, maintenance), writes a record per
+  step (commit, counts, gate numbers, error and traceback) and stops at the first failure. Retention (A52) archives to
+  monthly Parquet files before it deletes anything. The Docker image runs the same commands (`docker compose`).
+- Next: Terraform for AWS, the CI deploy, alarms and OpenTelemetry ([docs/DEPLOY.md](docs/DEPLOY.md), step 2.6–2.8).
 - Finish the history backfill (data, not code): `uv run python -m pipeline.backfill.run --years 10 --per-snapshot 4`.
 - Deployment ([ADR-010](docs/decisions/ADR-010-deployment.md)): scheduled container jobs on AWS in Stockholm, a
   static site on a CDN, a small hot database kept in S3, a Parquet history lake, OpenTelemetry to Grafana's free tier,
   all described in Terraform. Principle: free until free doesn't work. The data window is bounded (A52): bulky inputs are deleted once
-  processed, verdicts are kept. Needs: an AWS account and a domain.
+  processed, verdicts are kept. Launches on the CloudFront address; a domain comes later.
 
 **4 · Serve (🟧)**
-- Export the current fit (`positions`) and trends as static JSON (4.2). It replaces the E4 replay and the demo file.
+- Trends in the export (4.2) once the trend model exists; decide when the latest fit goes public (A54).
 - Site copy ("relative to the average of N outlets"), reference vs extra tier on the plane, country positions from the
   reference tier only. The maintainer chooses the public oval size (A25).
 
@@ -447,6 +453,14 @@ uv run --group ml python -m pipeline.events.run                     # 2.3 storie
 uv run python -m pipeline.measure.run --dry-run                     # first prompt + cost estimate, no calls
 uv run python -m pipeline.measure.run --budget-usd 1                # 3: plan → judge → rate → positions
 uv run python -m pipeline.judge.eval --pairs 60                     # 3.2 judge reliability (after any prompt/model change)
+
+# the same steps through the job runner: one record + one gate per step, stops at the first failure (5.1)
+uv run python -m pipeline.job list                                  # steps and jobs
+uv run --group ml python -m pipeline.job refresh                    # ingest → normalize → embed → stories
+uv run python -m pipeline.job export                                # 4.2 the current fit → frontend/src/data
+uv run python -m pipeline.job retention                             # A52 dry run: what would be archived and deleted
+uv run python -m pipeline.job history                               # what ran, what failed, why
+docker compose run --rm job list                                    # the production image, locally
 
 uv run python -m pipeline.signoff --stage collect                   # stage sign-off scorecard
 bash scripts/start.sh                                               # site :4200

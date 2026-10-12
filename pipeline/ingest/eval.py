@@ -12,7 +12,8 @@ from pipeline import store
 from pipeline.sources.registry import load_outlets
 
 # Pass criteria per active outlet (shared with pipeline.ingest.report). Text and date checks look at live-ingest
-# articles only: they judge the ingest that runs from now on, not archive or pre-pipeline data.
+# articles only: they judge the ingest that runs from now on, not archive or pre-pipeline data, and not articles
+# whose text retention has already deleted (A52).
 LIVE_SINCE = "2026-10-01"     # pipeline RSS ingest started 2026-10-10; everything ingested earlier is legacy
 MIN_RECENT_72H = 5
 MIN_ANY_TEXT_PCT = 90
@@ -34,7 +35,7 @@ def main():
                SUM(live AND published LIKE '____-__-__T%Z') dated,
                COUNT(DISTINCT lower(title)) uniq_titles,
                AVG(LENGTH(full_text)) avg_len
-        FROM (SELECT *, (text_source NOT LIKE 'wayback-%' AND ingested_at >= ?) live FROM articles
+        FROM (SELECT *, (text_source NOT LIKE 'wayback-%' AND ingested_at >= ? AND pruned_at IS NULL) live FROM articles
               WHERE canonical_id IS NULL AND kind IS NULL)          -- copies and non-articles excluded (A34, A38)
         GROUP BY outlet_id""", (since, LIVE_SINCE))}
 

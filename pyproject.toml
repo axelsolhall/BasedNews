@@ -9,6 +9,8 @@ dependencies = [
     "matplotlib>=3.8",
     "trafilatura>=1.8",
     "openai>=1.40",
+    "pyarrow>=17",
+    "boto3>=1.35.50",
 ]
 
 [dependency-groups]

@@ -11,7 +11,9 @@ Per call (table `judge_call_log`, one row per attempt-group, also for calls that
 - context: measure run id, batch, the planner's score at pick time, estimated cost, the two outlets' positions and sds
   per axis when the pair was picked, story run, budget left, spreads (τ, σ_a);
 - code fingerprint (hash of the judge's source files) and SDK version.
-`judge_calls` / `judgments` stay the lean tables the model fits from; this table is the archive.
+`judge_calls` / `judgments` stay the lean tables the model fits from; this table is the archive. After ≈ 30 days the
+retention job (A52) moves the request blob to the Parquet lake (`data/lake/judge_call_log/`) and sets `request_z` to NULL
+here; the hash stays, so the lake copy can still be checked against it.
 """
 from __future__ import annotations
 
@@ -27,9 +29,13 @@ JUDGE_SOURCES = ("prompt.py", "render.py", "blind.py", "client.py")
 _KEY = re.compile(r"sk-[A-Za-z0-9_\-]{6,}")
 
 
+def redact(text: str) -> str:
+    """Never let an API key reach a log (provider errors and tracebacks can echo part of it)."""
+    return _KEY.sub("sk-***", str(text))
+
+
 def scrub(text: str) -> str:
-    """Never let an API key reach the log (provider errors can echo part of it)."""
-    return _KEY.sub("sk-***", str(text))[:1000]
+    return redact(text)[:1000]
 
 
 def to_jsonable(obj):
@@ -84,11 +90,24 @@ def load(conn, call_id: str) -> dict:
     if r is None:
         return {}
     out = dict(r)
-    out["request"] = unpack_request(out.pop("request_z"))
+    blob = out.pop("request_z")
+    out["request"] = unpack_request(blob) if blob is not None else None      # None: archived to the lake (A52)
+    out["request_archived"] = blob is None
     out["response"] = json.loads(out.pop("response_json") or "null")
     out["context"] = json.loads(out["context"] or "{}")
     out["errors"] = json.loads(out["errors"] or "[]")
     return out
+
+
+def coverage(conn, since: str, purpose: str = "measure") -> dict:
+    """Paid calls since `since` and how many have a log row; failed calls logged in the same window."""
+    paid = conn.execute("SELECT COUNT(*) FROM judge_calls WHERE purpose = ? AND model != 'simulated' AND at >= ?",
+                        (purpose, since)).fetchone()[0]
+    logged = conn.execute("""SELECT COUNT(*) FROM judge_calls c JOIN judge_call_log l USING(call_id)
+                             WHERE c.purpose = ? AND c.at >= ?""", (purpose, since)).fetchone()[0]
+    failed = conn.execute("SELECT COUNT(*) FROM judge_call_log WHERE status != 'ok' AND started_at >= ?",
+                          (since,)).fetchone()[0]
+    return {"paid_calls": paid, "logged": logged, "failed": failed}
 
 
 def main():
@@ -105,13 +124,17 @@ def main():
     failed = conn.execute("SELECT COUNT(*) FROM judge_call_log WHERE status != 'ok'").fetchone()[0]
     print(f"- since {first}: {logged} of {paid} paid calls have a full log ({'✅' if logged == paid else '❌ gap'});"
           f" {failed} failed calls logged")
-    bad = 0
+    bad = archived = 0
     for r in conn.execute("SELECT request_sha256, request_z FROM judge_call_log"):
+        if r["request_z"] is None:
+            archived += 1
+            continue
         bad += hashlib.sha256(zlib.decompress(r["request_z"])).hexdigest() != r["request_sha256"]
-    size = conn.execute("SELECT SUM(LENGTH(request_z) + COALESCE(LENGTH(response_json), 0) + LENGTH(context))"
-                        " FROM judge_call_log").fetchone()[0] or 0
+    size = conn.execute("SELECT SUM(COALESCE(LENGTH(request_z), 0) + COALESCE(LENGTH(response_json), 0)"
+                        " + LENGTH(context)) FROM judge_call_log").fetchone()[0] or 0
     n = conn.execute("SELECT COUNT(*) FROM judge_call_log").fetchone()[0]
-    print(f"- integrity: {n - bad} of {n} stored requests match their hash {'✅' if not bad else '❌'}"
+    print(f"- integrity: {n - archived - bad} of {n - archived} stored requests match their hash {'✅' if not bad else '❌'}"
+          f"{f' ({archived} moved to the lake, A52)' if archived else ''}"
           f" · storage {size / 1e6:.1f} MB ({size / max(n, 1) / 1e3:.1f} kB per call)")
     lat = [r[0] for r in conn.execute("SELECT latency_ms FROM judge_call_log WHERE latency_ms IS NOT NULL ORDER BY 1")]
     if lat:

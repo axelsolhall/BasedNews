@@ -1,0 +1,10 @@
+# Allow-list: only what the job image needs. Never .env, never the database, never the site.
+*
+!pyproject.toml
+!uv.lock
+!pipeline/
+!data/outlets.json
+!data/outlet_aliases.json
+!data/embedding_profiles.json
+**/__pycache__
+**/*.pyc

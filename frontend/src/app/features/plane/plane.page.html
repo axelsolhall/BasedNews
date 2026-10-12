@@ -1,5 +1,10 @@
 <section class="page">
-  <div class="banner real" *ngIf="isReal">
+  <div class="banner real" *ngIf="isLatest">
+    <b>REAL JUDGE — LATEST FIT, NOT VALIDATED</b> ({{ latest?.meta?.calls }} calls, prompt {{ latest?.meta?.prompt }},
+    article-level model, fitted {{ latest?.meta?.fitted_at | slice: 0 : 10 }}). An instrument check, not a result:
+    positions become results only after validation. Positions are relative to the average outlet.
+  </div>
+  <div class="banner real" *ngIf="isReal && !isLatest">
     <b>REAL JUDGE — FIRST RUN</b> (E4: {{ real?.meta?.calls }} calls, gpt-5.4-mini, prompt {{ real?.meta?.prompt }}).
     An instrument check, not a result. The prompt and the rating model have since been replaced (prompt v4, article-level
     model); updated positions are published once they are validated. Positions are relative to the average outlet.
@@ -19,15 +24,18 @@
       <button [class.on]="strategy === 'cost_aware'" (click)="setStrategy('cost_aware')">Active (uncertainty per token)</button>
       <button [class.on]="strategy === 'random'" (click)="setStrategy('random')">Random pairs</button>
       <button [class.on]="strategy === 'real'" (click)="setStrategy('real')" *ngIf="real">Real run (E4)</button>
+      <button [class.on]="strategy === 'latest'" (click)="setStrategy('latest')" *ngIf="latest">Latest fit</button>
     </div>
-    <button class="play" (click)="play()">{{ playing ? '❚❚ Pause' : '▶ Play' }}</button>
-    <input type="range" min="0" [max]="series.length - 1" [(ngModel)]="index" (input)="stop()" />
+    <button class="play" (click)="play()" *ngIf="!isLatest">{{ playing ? '❚❚ Pause' : '▶ Play' }}</button>
+    <input type="range" *ngIf="!isLatest" min="0" [max]="series.length - 1" [(ngModel)]="index" (input)="stop()" />
     <span class="stat" *ngIf="frame && !isReal">{{ (frame.tokens / 1000) | number: '1.0-0' }}k tokens · {{ frame.calls }} judge calls</span>
-    <span class="stat" *ngIf="frame && isReal">{{ frame.calls }} judge calls · ${{ frame.cost_usd | number: '1.2-2' }}</span>
+    <span class="stat" *ngIf="frame && isReal && !isLatest">{{ frame.calls }} judge calls · ${{ frame.cost_usd | number: '1.2-2' }}</span>
+    <span class="stat" *ngIf="frame && isLatest">{{ frame.calls }} judge calls · {{ latest?.meta?.decisive_verdicts }} decisive verdicts</span>
     <label class="truth" *ngIf="!isReal"><input type="checkbox" [(ngModel)]="showTruth" /> show simulated truth (× and error line)</label>
   </div>
   <p class="hint" *ngIf="!country && !isReal">Press play: ovals shrink toward the truth as comparisons are bought. Click a country to see its outlets.</p>
-  <p class="hint" *ngIf="!country && isReal">Press play: the first 338 calls were US + UK pairs only, then all countries. Ovals are ±1 sd. Click a country to see its outlets.</p>
+  <p class="hint" *ngIf="!country && isLatest">One fit from every verdict of the current prompt. Ovals are ±1 sd. Click a country to see its outlets.</p>
+  <p class="hint" *ngIf="!country && isReal && !isLatest">Press play: the first 338 calls were US + UK pairs only, then all countries. Ovals are ±1 sd. Click a country to see its outlets.</p>
   <p class="error" *ngIf="error">{{ error }}</p>
   <app-bias-plane *ngIf="frame" [points]="points" [multiplier]="1" [clickable]="!country" [showTruth]="showTruth && !isReal"
                   [fixedRange]="range" (pointSelected)="open($event)"></app-bias-plane>

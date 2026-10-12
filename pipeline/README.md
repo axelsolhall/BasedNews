@@ -16,12 +16,17 @@ One subpackage per module, each with `run` and `eval` entry points (PLAN.md §2)
 | 3.2 Judge | M7 | `judge/` | ✅ OpenAI, prompt v4; full call log (A51) | `pipeline.judge.eval --pairs 60`, `pipeline.judge.calllog` |
 | 3.3 Rate | M8 | `rate/` | ✅ hierarchical (`hierarchical.py`); flat model kept as baseline (`model.py`) | `pytest`, `pipeline.sim.eval_articles` |
 | 3 loop | — | `measure/` | ✅ budget-capped | `pipeline.measure.run --dry-run` |
-| 4.1 Aggregate | M9 | `aggregate/` | 🟧 no export of the current fit to the site yet | `pipeline.aggregate.preview` |
+| 4.1 Aggregate | M9 | `aggregate/` | ✅ outlets and countries on the plane | `pipeline.aggregate.preview` |
+| 4.2 Export | — | `export/` | ✅ current fit → `plane-latest.json` (A54: publishing is a decision) | `pipeline.export.run --check` |
+| 5.1 Jobs | — | `job/` | ✅ runner: a record and a gate per step, exit codes | `pipeline.job history`, `tests/test_job.py` |
+| 5.2 State | — | `job/storage.py` | ✅ SQLite-in-S3, conditional upload (A55); tested on a fake bucket | `tests/test_storage.py` |
+| A52 Retention | — | `retention/` | ✅ dry run by default; Parquet lake before any delete | `pipeline.retention.run`, `tests/test_retention.py` |
 
 Also:
 - `sim/`: simulators for E1–E3 and E5.
 - `experiments/`: analyses of the real-data experiments (E4, E4b, E6).
 - `signoff.py`: stage scorecards.
+- `version.py`: the git commit every record and export carries (the image sets it at build time).
 - `net.py`: shared HTTP: one honest User-Agent, timeouts, robots.txt and TDM opt-out checks (A10).
 
 Run any of them with `uv run python -m pipeline.<package>.<entry>`. Add `--group ml` for normalize, embed and events

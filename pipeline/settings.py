@@ -2,7 +2,7 @@
 
     OPENAI_API_KEY              required for the OpenAI judge (3.2) and OpenAI embeddings (2.2)
     BASEDNEWS_JUDGE_MODEL       default gpt-5.4-mini (A11, A45)
-    BASEDNEWS_EMBED_MODEL       default: the local MiniLM until the OpenAI profile is calibrated (A45, A47)
+    BASEDNEWS_EMBED_MODEL       default openai:text-embedding-3-small@512 (A56, E7b); MiniLM stays as the local baseline
     BASEDNEWS_MONTHLY_AI_USD    hard cap across judge + embeddings, from the api_usage log (A48)
 Prices are USD per 1 M tokens, checked 2026-10-11 — verify on https://openai.com/api/pricing before relying on them.
 """
@@ -38,7 +38,7 @@ class Settings:
     openai_api_key: str = field(default="", repr=False)
     judge_model: str = "gpt-5.4-mini"
     judge_reasoning_effort: str = "low"           # dropped automatically if the model rejects it
-    embed_model: str = MINILM
+    embed_model: str = "openai:text-embedding-3-small@512"     # A56: chosen 2026-10-12 after E7b
     monthly_ai_usd: float = 12.0                  # ~$25/month total minus hosting (A16)
 
     @property

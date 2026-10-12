@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 from pipeline import store
-from pipeline.aggregate.plane import _contrast_stats
+from pipeline.aggregate.plane import _contrast_stats, dumps_site
 from pipeline.experiments.e4 import A
 from pipeline.rate.model import BradleyTerryLaplace
 from pipeline.sources.registry import load_outlets, reference_groups
@@ -60,9 +60,9 @@ def main():
             x, sx = _contrast_stats(posts["econ"], w); y, sy = _contrast_stats(posts["social"], w)
             c_pts.append({"id": country, "label": country, "country": country, "x": x, "y": y, "sd_x": sx, "sd_y": sy})
         frames.append({"tokens": tokens, "calls": stop, "cost_usd": round(cost, 4), "outlets": o_pts, "countries": c_pts})
-    OUT.write_text(json.dumps({"meta": {"source": "real", "experiment": "E4", "model": "gpt-5.4-mini", "prompt": "v3",
+    OUT.write_text(dumps_site({"meta": {"source": "real", "experiment": "E4", "model": "gpt-5.4-mini", "prompt": "v3",
                                         "since": args.since, "calls": len(calls), "cost_usd": round(cost, 2)},
-                               "real": frames}, default=float))
+                               "real": frames}))
     print(f"wrote {OUT}: {len(frames)} frames, {len(calls)} calls, ${cost:.2f}")
 
 

@@ -103,7 +103,7 @@ def main():
     prof = profile(MODEL)                                  # thresholds belong to the embedding model (A47)
     cfg = NormalizeConfig(same_summary=prof["same_summary"], same_title=prof["same_title"],
                           owns_text=prof["owns_text"], margin=prof["owns_margin"])
-    model = get_encoder(MODEL, conn=conn)
+    model = get_encoder(MODEL, conn=conn, cache=True)       # A56: an hourly run pays only for new texts
     run_id, now = utc_now_iso(), utc_now_iso()
 
     # 1. decide everything first: reads + model only, so no write lock is held while encoding (backfill runs alongside)
@@ -160,7 +160,8 @@ def main():
 
     # 1b. non-articles and walls (A38): rules on titles, then the model only for texts with a wall phrase
     kinds = [(kind_of(r["title"], r["summary"], r["url"], r["full_text"]), r["id"]) for r in
-             conn.execute("SELECT id, title, summary, url, full_text FROM articles WHERE canonical_id IS NULL AND kind IS NULL")]
+             conn.execute("""SELECT id, title, summary, url, full_text FROM articles
+                             WHERE canonical_id IS NULL AND kind IS NULL AND pruned_at IS NULL""")]   # A52: no text ≠ no article
     kinds = [(k, i) for k, i in kinds if k]
     cand = [r for r in conn.execute("""SELECT id, title, full_text FROM articles
                                        WHERE canonical_id IS NULL AND kind IS NULL AND full_text IS NOT NULL""")

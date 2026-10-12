@@ -1,10 +1,12 @@
-"""Storage for module outputs (dev: SQLite at data/basednews.sqlite).
+"""Storage for module outputs (SQLite at data/basednews.sqlite, or the path in BASEDNEWS_DB).
 
-A18: SQLite in dev, Postgres in production behind these same functions. Keep SQL here, not in modules.
+A18: SQLite behind these functions; Postgres later if needed. Keep SQL here, not in modules. In production the file is
+downloaded from S3 before a job step and uploaded after it succeeds (ADR-010, `pipeline/job/storage.py`).
 """
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 
 import numpy as np
@@ -14,6 +16,11 @@ from pathlib import Path
 from pipeline.contracts import Article, FeedHealth, HeadlineVersion
 
 DEFAULT_DB = Path("data/basednews.sqlite")
+
+
+def default_db() -> Path:
+    """The database every module opens: BASEDNEWS_DB if set (job runner, containers, tests), else DEFAULT_DB."""
+    return Path(os.environ.get("BASEDNEWS_DB") or DEFAULT_DB)
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS articles (
@@ -65,17 +72,33 @@ CREATE TABLE IF NOT EXISTS headlines (
     article_id TEXT NOT NULL, title TEXT NOT NULL, first_seen TEXT, url TEXT, how TEXT NOT NULL,
     PRIMARY KEY (article_id, title)
 );
+CREATE TABLE IF NOT EXISTS text_vectors (
+    model TEXT NOT NULL, text_sha1 TEXT NOT NULL, vector BLOB NOT NULL, used_at TEXT NOT NULL,
+    PRIMARY KEY (model, text_sha1)
+);
+CREATE TABLE IF NOT EXISTS lake_files (
+    table_name TEXT NOT NULL, month TEXT NOT NULL, rows INTEGER NOT NULL, sha256 TEXT NOT NULL, written_at TEXT NOT NULL,
+    PRIMARY KEY (table_name, month)
+);
+CREATE TABLE IF NOT EXISTS job_runs (
+    run_id TEXT NOT NULL, step TEXT NOT NULL, status TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT,
+    duration_s REAL, commit_sha TEXT, args TEXT, counts_before TEXT, counts_after TEXT, gate TEXT, error TEXT,
+    traceback TEXT, host TEXT, PRIMARY KEY (run_id, step)
+);
 """
 
 # Columns added after the first schema (A34): ALTER TABLE on first connect, so old databases keep working.
 MIGRATIONS = (("articles", "canonical_id", "TEXT"),        # NULL = canonical; else the article this row is a copy of
               ("embeddings", "input_hash", "TEXT"),        # hash of the text M4 embedded; changes trigger a re-embed
               ("articles", "kind", "TEXT"),                # NULL = article; 'rundown' | 'page' | 'headline_only' (A38)
-              ("articles", "genre", "TEXT"))               # 'news' | 'opinion' (2.1, A43)
+              ("articles", "genre", "TEXT"),               # 'news' | 'opinion' (2.1, A43)
+              ("articles", "pruned_at", "TEXT"))           # text and summary deleted by retention at (A52)
 
 
-def connect(path: Path | str = DEFAULT_DB) -> sqlite3.Connection:
-    Path(path).parent.mkdir(parents=True, exist_ok=True)
+def connect(path: Path | str | None = None) -> sqlite3.Connection:
+    path = path or default_db()
+    if str(path) != ":memory:":
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(path, timeout=120)          # wait up to 2 min for a concurrent writer
     conn.execute("PRAGMA journal_mode=WAL")             # readers never block; live ingest + backfill can run together
     conn.row_factory = sqlite3.Row
@@ -151,6 +174,23 @@ def latest_health(conn) -> dict[str, FeedHealth]:
 
 def log_run(conn, module: str, started_at: str, payload: dict) -> None:
     conn.execute("INSERT INTO runs VALUES (?,?,?)", (module, started_at, json.dumps(payload)))
+
+
+# ---- job runs (5.1, ADR-010): one row per job step, written by pipeline.job ------------------------
+JOB_RUN_JSON = ("args", "counts_before", "counts_after", "gate")
+
+
+def save_job_run(conn, rec: dict) -> None:
+    row = {k: (json.dumps(rec.get(k)) if k in JOB_RUN_JSON else rec.get(k)) for k in
+           ("run_id", "step", "status", "started_at", "finished_at", "duration_s", "commit_sha", "args", "counts_before",
+            "counts_after", "gate", "error", "traceback", "host")}
+    conn.execute(f"INSERT OR REPLACE INTO job_runs ({', '.join(row)}) VALUES ({', '.join('?' * len(row))})",
+                 tuple(row.values()))
+
+
+def recent_job_runs(conn, n: int = 20) -> list[dict]:
+    rows = conn.execute("SELECT * FROM job_runs ORDER BY started_at DESC, rowid DESC LIMIT ?", (n,)).fetchall()
+    return [{k: (json.loads(r[k]) if k in JOB_RUN_JSON and r[k] else r[k]) for k in r.keys()} for r in rows]
 
 
 # ---- embeddings (M4) ---------------------------------------------------------------

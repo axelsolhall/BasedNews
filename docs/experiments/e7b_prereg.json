@@ -1,0 +1,15 @@
+{
+ "experiment": "E7b — unbiased re-test of story matching: MiniLM vs OpenAI text-embedding-3-small@512 (free, stored vectors)",
+ "written_at": "2026-10-12T17:31:28Z, before sampling or labelling",
+ "why": "E7's 200 labelled pairs were selected with MiniLM (its similarity band and its clusters), so they cannot rank MiniLM against another model. E7's MiniLM-vs-OpenAI conclusion is withdrawn; this test replaces it.",
+ "design": "Pooled evaluation with equal depth (the standard way to compare retrieval systems without favouring one). 1) 40 anchor articles drawn uniformly at random (seed 2026) from the 7-day story window (canonical articles with both vectors) — no model involved. 2) For each anchor, the 4 most similar articles from OTHER outlets within the 72 h clustering window, by each model's time-aware similarity (the similarity 2.3 clusters on). 3) The pool = the union of both models' candidates. 4) Every pooled pair is labelled same story / different story, blind: pairs shuffled, no model names, no scores. Labeller: Claude (the maintainer may spot-check).",
+ "label_definition": "Same story = both articles report the same specific event or development (A02), not merely the same topic.",
+ "metrics": {
+  "M1_retrieval": "Per model: precision@1 and @4 (share of its candidates that are same-story), and recall@4 = its same-story candidates / all same-story pairs in the pool. 95 % intervals by bootstrap over anchors (2,000 resamples).",
+  "M2_clustering": "Per model, on the pooled pairs: precision and recall of 2.3's cluster co-membership at its threshold (MiniLM 0.60; OpenAI over the sweep 0.30–0.80).",
+  "M3_threshold_free": "AUC of each model's similarity on the pooled pairs."
+ },
+ "decision": "The maintainer chose OpenAI @512 (A56). Its story threshold = the threshold with the highest F1 on the pooled pairs among those with precision ≥ 0.90. MiniLM is reported for comparison only.",
+ "limitations_known_in_advance": "Recall is relative to the pool: a same-story pair neither model ranks in its top 4 is not counted. 40 anchors give wide intervals. Labels by Claude.",
+ "rules": "No change to anchors, depth or label definition after seeing results. No claims; method findings may go to FINDINGS.md."
+}
