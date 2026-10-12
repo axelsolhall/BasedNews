@@ -1,0 +1,13 @@
+{
+ "experiment": "E6 — fresh stories, prompt v4, article-aware planner + hierarchical model (A49)",
+ "written_at": "2026-10-11T16:30:00Z, before any E6 measurement call",
+ "budget_usd": {"total_hard_stop": 1.50, "us_uk_first_up_to": 0.50, "rest": "all countries via the planner"},
+ "questions": {
+  "Q1_planner": "Does the article-aware planner spread verdicts over more distinct articles than E4's flat planner (E4 all-countries part, v3, calls after 2026-10-11T14:08:14Z)? Metrics per run: mean and max uses per judged article, share of calls that reuse an article already judged in the run, distinct articles per 100 calls. Expected: lower mean and max uses, more distinct articles per 100 calls. Descriptive only — prompt and stories differ.",
+  "Q2_fresh_allsides": "Out of sample for v4: hierarchical fit on E6 calls only, social axis, Spearman with the same 14 AllSides ratings (docs/experiments/e4_prereg.json). Target >= 0.6. If fewer than 10 rated outlets have >= 5 decisive verdicts in E6: 'undecided (too little data)'. Secondary: all v4 data (E4b + E6).",
+  "Q3_contrasts": "Same 20 contrasts as E4, hierarchical fit on all v4 data: >= 80 % of decided confirmed (P > 0.8 confirmed, < 0.2 contradicted).",
+  "Q4_split_half": "US/UK, all v4 data, hierarchical, mean Spearman over 30 random halvings (by call). Exploratory target >= 0.5."
+ },
+ "also_reported": ["ICC per axis", "judge order bias β", "'na' share per axis", "cost per decisive verdict"],
+ "rules": "No prompt change during or after the run on the basis of these results without a new pre-registration. No claims (pipeline phase)."
+}

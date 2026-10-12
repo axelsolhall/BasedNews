@@ -1,0 +1,14 @@
+{
+ "challenger": "gpt-5.4-nano",
+ "reference": "gpt-5.4-mini",
+ "pairs": 40,
+ "cost_usd": 0.0181,
+ "agreement_with_reference": {
+  "econ": 0.825,
+  "social": 0.7
+ },
+ "reference_retest_agreement": {
+  "econ": 0.775,
+  "social": 0.8
+ }
+}

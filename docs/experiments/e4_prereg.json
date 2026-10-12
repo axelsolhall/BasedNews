@@ -1,0 +1,30 @@
+{
+ "experiment": "E4 — first real measurement: does the judge measure the leaning people already agree on?",
+ "written_at": "2026-10-11T14:10:00Z, before any measurement call (judge prompt v3, gpt-5.4-mini)",
+ "budget_usd": {"us_uk_dense": 1.20, "all_countries_planner": 0.65, "nano_check": 0.15, "hard_stop_total": 2.00},
+ "allsides": {
+  "source": "AllSides Media Bias Ratings (2024 chart and outlet pages), retrieved 2026-10-11; Left=-2, Lean Left=-1, Center=0, Lean Right=1, Right=2",
+  "ratings": {"nyt": -1, "washingtonpost": -1, "politico": -1, "abcnews": -1, "cbsnews": -1, "nbcnews": -1, "npr": -1,
+              "nypost": 1, "foxnews": 2, "breitbart": 2, "guardian": -2, "skynews": -1, "bbc": 0, "dailymail": 1},
+  "not_rated": ["telegraph", "gbnews"]
+ },
+ "contrasts": [
+  ["US", "social", "breitbart", "nyt"], ["US", "social", "foxnews", "npr"], ["US", "social", "nypost", "washingtonpost"],
+  ["UK", "social", "gbnews", "guardian"], ["UK", "social", "dailymail", "guardian"], ["UK", "social", "telegraph", "guardian"],
+  ["DE", "social", "bild", "taz"], ["DE", "social", "welt", "taz"], ["DE", "social", "faz", "sz"],
+  ["FR", "social", "lefigaro", "liberation"], ["FR", "social", "lefigaro", "lemonde"],
+  ["ES", "social", "okdiario", "eldiario"], ["ES", "social", "abc-es", "elpais"], ["ES", "social", "elmundo", "elpais"],
+  ["IT", "social", "libero", "repubblica"], ["IT", "social", "libero", "lastampa"],
+  ["SE", "econ", "svd", "aftonbladet"], ["NO", "econ", "aftenposten", "dagbladet"],
+  ["DK", "econ", "berlingske", "politiken"], ["DK", "social", "jyllands-posten", "politiken"]
+ ],
+ "contrast_rule": "first outlet further toward + (economic RIGHT / CONSERVATIVE) than the second. From the posterior: confirmed if P(first > second) > 0.8, contradicted if < 0.2, else undecided (too little data). Finland left out: no consensus contrast.",
+ "hypotheses_and_targets": {
+  "H_allsides": "Spearman between AllSides and our SOCIAL position for the 14 rated outlets >= 0.6 (primary). Secondary, reported but not tested: econ axis, and the mean of both.",
+  "H_contrasts": ">= 80 % of DECIDED contrasts confirmed (one-sided sign test reported).",
+  "H_split_half": "Two random halves of the US/UK judgments (by call, seed 0): Spearman of the 16 US/UK outlets' social positions >= 0.7.",
+  "H_nano": "gpt-5.4-nano agrees with gpt-5.4-mini on the same 40 pairs (same order and question) at least as often as mini agrees with itself on a retest minus 0.10 (mini retest 2026-10-11: 0.80 econ / 0.78 social)."
+ },
+ "also_reported": ["cost per usable verdict", "share of 'na' per axis", "judge order bias beta per axis", "outlet sd distribution", "plane picture (outlets and countries)"],
+ "decided_in_advance": "Spend the full budget even if early checks look bad (Axel). No claims from this experiment (pipeline phase); it validates the instrument."
+}

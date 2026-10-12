@@ -1,0 +1,310 @@
+{
+ "_doc": "Self-references masked in each outlet's own articles before the judge reads them (A42). Case-sensitive, whole words, optional genitive (s, 's, :s, :n). The homepage domain is always added. Ambiguous names use safe forms only: BILD not Bild (picture), SPIEGEL not Spiegel (mirror), WELT not die Welt (the world), la Repubblica not della Repubblica, IS:n not IS (Islamic State), 20minutos not 20 minutos.",
+ "aliases": {
+  "nrk": [
+   "NRK"
+  ],
+  "vg": [
+   "VG",
+   "VGTV"
+  ],
+  "aftenposten": [
+   "Aftenposten"
+  ],
+  "dagbladet": [
+   "Dagbladet",
+   "Dinside"
+  ],
+  "tv2-no": [
+   "TV 2",
+   "TV2"
+  ],
+  "nettavisen": [
+   "Nettavisen"
+  ],
+  "svt": [
+   "SVT Nyheter",
+   "SVT"
+  ],
+  "aftonbladet": [
+   "Aftonbladet"
+  ],
+  "dn": [
+   "Dagens Nyheter",
+   "DN"
+  ],
+  "svd": [
+   "Svenska Dagbladet",
+   "SvD"
+  ],
+  "expressen": [
+   "Expressen"
+  ],
+  "tv4": [
+   "TV4 Nyheterna",
+   "TV4"
+  ],
+  "dr": [
+   "DR Nyheder",
+   "DR"
+  ],
+  "tv2-dk": [
+   "TV 2",
+   "TV2"
+  ],
+  "politiken": [
+   "Politiken"
+  ],
+  "berlingske": [
+   "Berlingske"
+  ],
+  "jyllands-posten": [
+   "Jyllands-Posten"
+  ],
+  "ekstrabladet": [
+   "Ekstra Bladet"
+  ],
+  "bt": [
+   "B.T.",
+   "BT"
+  ],
+  "yle": [
+   "Yleisradio",
+   "Yle",
+   "YLE"
+  ],
+  "hs": [
+   "Helsingin Sanomat",
+   "Helsingin Sanomien",
+   "HS"
+  ],
+  "is": [
+   "Ilta-Sanomat",
+   "Ilta-Sanomien",
+   "IS:n",
+   "IS:lle",
+   "IS:ssä",
+   "IS:stä"
+  ],
+  "iltalehti": [
+   "Iltalehti",
+   "Iltalehden",
+   "Iltalehdelle",
+   "IL:n",
+   "IL:lle"
+  ],
+  "mtv-fi": [
+   "MTV Uutiset",
+   "MTV Uutisten",
+   "MTV"
+  ],
+  "nyt": [
+   "The New York Times",
+   "New York Times",
+   "NYT"
+  ],
+  "foxnews": [
+   "Fox News Digital",
+   "Fox News",
+   "FOX News"
+  ],
+  "npr": [
+   "NPR"
+  ],
+  "breitbart": [
+   "Breitbart News",
+   "Breitbart"
+  ],
+  "washingtonpost": [
+   "The Washington Post",
+   "Washington Post",
+   "The Post"
+  ],
+  "nypost": [
+   "New York Post",
+   "California Post",
+   "The Post"
+  ],
+  "politico": [
+   "Politico",
+   "POLITICO"
+  ],
+  "abcnews": [
+   "ABC News",
+   "ABC"
+  ],
+  "nbcnews": [
+   "NBC News",
+   "NBC"
+  ],
+  "cbsnews": [
+   "CBS News",
+   "CBS"
+  ],
+  "bbc": [
+   "BBC News",
+   "BBC"
+  ],
+  "guardian": [
+   "The Guardian",
+   "Guardian"
+  ],
+  "telegraph": [
+   "The Daily Telegraph",
+   "The Telegraph",
+   "Telegraph"
+  ],
+  "dailymail": [
+   "Daily Mail",
+   "DailyMail.com",
+   "MailOnline",
+   "The Mail on Sunday"
+  ],
+  "skynews": [
+   "Sky News"
+  ],
+  "gbnews": [
+   "GB News"
+  ],
+  "tagesschau": [
+   "tagesschau",
+   "ARD"
+  ],
+  "spiegel": [
+   "DER SPIEGEL",
+   "SPIEGEL"
+  ],
+  "faz": [
+   "Frankfurter Allgemeine Zeitung",
+   "Frankfurter Allgemeine",
+   "F.A.Z.",
+   "F.A.S.",
+   "FAZ"
+  ],
+  "sz": [
+   "Süddeutsche Zeitung",
+   "SZ"
+  ],
+  "welt": [
+   "WELT AM SONNTAG",
+   "DIE WELT",
+   "WELT"
+  ],
+  "taz": [
+   "taz",
+   "die tageszeitung"
+  ],
+  "tonline": [
+   "t-online"
+  ],
+  "ntv": [
+   "n-tv",
+   "ntv"
+  ],
+  "bild": [
+   "BILD-Zeitung",
+   "BILD",
+   "Bild.de"
+  ],
+  "lemonde": [
+   "Le Monde"
+  ],
+  "lefigaro": [
+   "Le Figaro",
+   "Figaro"
+  ],
+  "liberation": [
+   "Libération",
+   "Libé"
+  ],
+  "france24": [
+   "France 24",
+   "FRANCE 24"
+  ],
+  "leparisien": [
+   "Le Parisien"
+  ],
+  "20minutes-fr": [
+   "20 Minutes"
+  ],
+  "tf1info": [
+   "TF1 Info",
+   "TF1info",
+   "TF1",
+   "LCI"
+  ],
+  "franceinfo": [
+   "franceinfo",
+   "France Info",
+   "France Télévisions",
+   "francetvinfo"
+  ],
+  "bfmtv": [
+   "BFMTV",
+   "BFM TV",
+   "BFM"
+  ],
+  "elpais": [
+   "El País",
+   "EL PAÍS"
+  ],
+  "elmundo": [
+   "El Mundo",
+   "EL MUNDO"
+  ],
+  "abc-es": [
+   "ABC"
+  ],
+  "lavanguardia": [
+   "La Vanguardia"
+  ],
+  "eldiario": [
+   "elDiario.es",
+   "elDiario"
+  ],
+  "20minutos": [
+   "20minutos"
+  ],
+  "okdiario": [
+   "OKDIARIO",
+   "OKDiario"
+  ],
+  "repubblica": [
+   "la Repubblica",
+   "La Repubblica"
+  ],
+  "ansa": [
+   "ANSA"
+  ],
+  "ilfatto": [
+   "Il Fatto Quotidiano",
+   "il Fatto Quotidiano",
+   "Il Fatto"
+  ],
+  "lastampa": [
+   "La Stampa"
+  ],
+  "ilsole24ore": [
+   "Il Sole 24 Ore",
+   "Il Sole 24 ORE",
+   "Sole 24 Ore"
+  ],
+  "libero": [
+   "Libero Quotidiano",
+   "Libero"
+  ],
+  "tgcom24": [
+   "Tgcom24",
+   "TgCom24",
+   "TGCOM24",
+   "Mediaset"
+  ],
+  "rainews": [
+   "RaiNews24",
+   "RaiNews",
+   "Rainews",
+   "Rai News",
+   "Rai"
+  ]
+ }
+}

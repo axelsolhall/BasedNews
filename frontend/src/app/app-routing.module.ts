@@ -5,16 +5,7 @@ const routes: Routes = [
   {
     path: '',
     loadChildren: () =>
-      import('./features/dashboard/dashboard.module').then(
-        (m) => m.DashboardModule
-      )
-  },
-  {
-    path: 'dev',
-    loadChildren: () =>
-      import('./features/dev-panel/dev-panel.module').then(
-        (m) => m.DevPanelModule
-      )
+      import('./features/plane/plane.module').then((m) => m.PlaneModule)
   },
   {
     path: '**',

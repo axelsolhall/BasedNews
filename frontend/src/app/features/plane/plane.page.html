@@ -1,0 +1,34 @@
+<section class="page">
+  <div class="banner real" *ngIf="isReal">
+    <b>REAL JUDGE — FIRST RUN</b> (E4: {{ real?.meta?.calls }} calls, gpt-5.4-mini, prompt {{ real?.meta?.prompt }}).
+    An instrument check, not a result. The prompt and the rating model have since been replaced (prompt v4, article-level
+    model); updated positions are published once they are validated. Positions are relative to the average outlet.
+  </div>
+  <div class="banner" *ngIf="!isReal">
+    <b>SIMULATED</b> — real outlets and real same-event pairs from 10 countries, but the positions are random draws
+    (standard normal per axis), not real bias. This demonstrates the method; real positions are published once validated.
+  </div>
+  <nav class="crumbs">
+    <a (click)="country = null" [class.active]="!country">World</a>
+    <ng-container *ngIf="country"> › <span class="active">{{ country }}</span></ng-container>
+  </nav>
+  <h2>{{ country ? country + ' — outlets' : 'How each country\'s national media leans' }}</h2>
+
+  <div class="controls" *ngIf="frames">
+    <div class="seg">
+      <button [class.on]="strategy === 'cost_aware'" (click)="setStrategy('cost_aware')">Active (uncertainty per token)</button>
+      <button [class.on]="strategy === 'random'" (click)="setStrategy('random')">Random pairs</button>
+      <button [class.on]="strategy === 'real'" (click)="setStrategy('real')" *ngIf="real">Real run (E4)</button>
+    </div>
+    <button class="play" (click)="play()">{{ playing ? '❚❚ Pause' : '▶ Play' }}</button>
+    <input type="range" min="0" [max]="series.length - 1" [(ngModel)]="index" (input)="stop()" />
+    <span class="stat" *ngIf="frame && !isReal">{{ (frame.tokens / 1000) | number: '1.0-0' }}k tokens · {{ frame.calls }} judge calls</span>
+    <span class="stat" *ngIf="frame && isReal">{{ frame.calls }} judge calls · ${{ frame.cost_usd | number: '1.2-2' }}</span>
+    <label class="truth" *ngIf="!isReal"><input type="checkbox" [(ngModel)]="showTruth" /> show simulated truth (× and error line)</label>
+  </div>
+  <p class="hint" *ngIf="!country && !isReal">Press play: ovals shrink toward the truth as comparisons are bought. Click a country to see its outlets.</p>
+  <p class="hint" *ngIf="!country && isReal">Press play: the first 338 calls were US + UK pairs only, then all countries. Ovals are ±1 sd. Click a country to see its outlets.</p>
+  <p class="error" *ngIf="error">{{ error }}</p>
+  <app-bias-plane *ngIf="frame" [points]="points" [multiplier]="1" [clickable]="!country" [showTruth]="showTruth && !isReal"
+                  [fixedRange]="range" (pointSelected)="open($event)"></app-bias-plane>
+</section>

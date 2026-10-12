@@ -16,7 +16,7 @@
             "browser": "src/main.ts",
             "polyfills": [],
             "tsConfig": "tsconfig.app.json",
-            "assets": [],
+            "assets": ["src/assets"],
             "styles": ["src/styles.css"],
             "scripts": []
           }

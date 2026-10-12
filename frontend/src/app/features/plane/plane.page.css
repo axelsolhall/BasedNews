@@ -1,0 +1,15 @@
+.page { padding: 8px 0; }
+.banner { background: #fef3c7; color: #92400e; padding: 8px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+.crumbs { font-size: 14px; margin-bottom: 4px; }
+.crumbs a { cursor: pointer; color: #2563eb; }
+.crumbs .active { font-weight: 600; color: #111827; }
+.hint { color: #6b7280; font-size: 13px; margin-top: 0; }
+.error { color: #b91c1c; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 6px 0 10px; }
+.seg button, .play { border: 1px solid #d1d5db; background: #fff; padding: 5px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.seg button.on { background: #1f3864; color: #fff; border-color: #1f3864; }
+.seg button:first-child { border-radius: 8px 0 0 8px; } .seg button:last-child { border-radius: 0 8px 8px 0; }
+input[type=range] { width: 260px; }
+.stat { font-size: 13px; color: #e5e7eb; min-width: 190px; }
+.truth { font-size: 13px; color: #e5e7eb; }
+.banner.real { background: #dbeafe; color: #1e3a8a; }

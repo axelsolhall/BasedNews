@@ -1,0 +1,36 @@
+<div class="plane">
+  <svg [attr.viewBox]="'0 0 ' + size + ' ' + size" role="img" aria-label="Political plane with uncertainty ovals">
+    <rect [attr.x]="pad" [attr.y]="pad" [attr.width]="size - 2 * pad" [attr.height]="size - 2 * pad" class="frame" />
+    <line [attr.x1]="pad" [attr.y1]="center" [attr.x2]="size - pad" [attr.y2]="center" class="axis" />
+    <line [attr.x1]="center" [attr.y1]="pad" [attr.x2]="center" [attr.y2]="size - pad" class="axis" />
+    <text [attr.x]="pad" [attr.y]="center - 6" class="axis-label">← Left</text>
+    <text [attr.x]="size - pad" [attr.y]="center - 6" class="axis-label end">Right →</text>
+    <text [attr.x]="center + 6" [attr.y]="pad + 14" class="axis-label">↑ Conservative</text>
+    <text [attr.x]="center + 6" [attr.y]="size - pad - 6" class="axis-label">↓ Liberal</text>
+
+    <g *ngFor="let d of drawn" [class.clickable]="clickable" (click)="select(d)"
+       (mouseenter)="hovered = d.p" (mouseleave)="hovered = null">
+      <ellipse [attr.cx]="d.cx" [attr.cy]="d.cy" [attr.rx]="d.rx" [attr.ry]="d.ry"
+               [attr.fill]="'hsla(' + d.hue + ',65%,55%,0.16)'" [attr.stroke]="'hsl(' + d.hue + ',65%,42%)'"
+               [class.hover]="hovered === d.p" class="oval" />
+      <line *ngIf="showTruth && d.tx !== undefined" class="error-line"
+            [attr.x1]="d.cx" [attr.y1]="d.cy" [attr.x2]="d.tx" [attr.y2]="d.ty"
+            [attr.stroke]="'hsl(' + d.hue + ',65%,35%)'" />
+      <circle [attr.cx]="d.cx" [attr.cy]="d.cy" r="4" [attr.fill]="'hsl(' + d.hue + ',65%,38%)'" />
+      <g *ngIf="showTruth && d.tx !== undefined" [attr.transform]="'translate(' + d.tx + ',' + d.ty + ')'" class="truth">
+        <line x1="-4" y1="-4" x2="4" y2="4" [attr.stroke]="'hsl(' + d.hue + ',65%,30%)'" />
+        <line x1="-4" y1="4" x2="4" y2="-4" [attr.stroke]="'hsl(' + d.hue + ',65%,30%)'" />
+      </g>
+      <text [attr.x]="d.cx + 7" [attr.y]="d.cy - 7" class="point-label">{{ d.p.label }}</text>
+      <title>{{ d.p.label }} — econ {{ fmt(d.p.x) }} ± {{ d.p.sd_x.toFixed(2) }}, social {{ fmt(d.p.y) }} ± {{ d.p.sd_y.toFixed(2) }}</title>
+    </g>
+  </svg>
+  <p class="legend">
+    Positions are relative: (0, 0) is the average outlet in our sample, not a political centre · dot = estimated position · oval = ±{{ multiplier }} sd per axis
+  </p>
+  <p class="readout" *ngIf="hovered">
+    <strong>{{ hovered.label }}</strong> — economic {{ fmt(hovered.x) }} ± {{ hovered.sd_x.toFixed(2) }},
+    social {{ fmt(hovered.y) }} ± {{ hovered.sd_y.toFixed(2) }}
+    <span *ngIf="hovered.kind === 'country'"> · {{ hovered.n_outlets }} outlets</span>
+  </p>
+</div>

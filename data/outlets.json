@@ -1,0 +1,1100 @@
+{
+  "version": 3,
+  "note": "A15/A17: outlet selection = major national outlets spanning the spectrum; non-Nordic feed URLs unverified until M1 health check passes.",
+  "countries": {
+    "Norway": {
+      "iso": "NO",
+      "language": "no",
+      "outlets": [
+        {
+          "id": "nrk",
+          "name": "NRK",
+          "type": "public",
+          "homepage": "https://www.nrk.no/",
+          "feeds": [
+            "https://www.nrk.no/toppsaker.rss",
+            "https://www.nrk.no/nyheter/siste.rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 53,
+          "dnr_2026_rank": 2
+        },
+        {
+          "id": "vg",
+          "name": "VG",
+          "type": "private",
+          "homepage": "https://www.vg.no/",
+          "feeds": [
+            "https://www.vg.no/rss/feed/?categories=topstory",
+            "https://www.vg.no/rss/feed/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 61,
+          "dnr_2026_rank": 1
+        },
+        {
+          "id": "aftenposten",
+          "name": "Aftenposten",
+          "type": "private",
+          "homepage": "https://www.aftenposten.no/",
+          "feeds": [
+            "https://www.aftenposten.no/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 20,
+          "dnr_2026_rank": 8
+        },
+        {
+          "id": "dagbladet",
+          "name": "Dagbladet",
+          "type": "private",
+          "homepage": "https://www.dagbladet.no/",
+          "feeds": [
+            "https://www.dagbladet.no/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 32,
+          "dnr_2026_rank": 4
+        },
+        {
+          "id": "tv2-no",
+          "name": "TV 2",
+          "type": "private",
+          "homepage": "https://www.tv2.no/",
+          "feeds": [
+            "https://www.tv2.no/rss/nyheter",
+            "https://www.tv2.no/rss/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 45,
+          "dnr_2026_rank": 3
+        },
+        {
+          "id": "nettavisen",
+          "name": "Nettavisen",
+          "type": "private",
+          "homepage": "https://www.nettavisen.no/",
+          "feeds": [
+            "https://www.nettavisen.no/service/rich-rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 29,
+          "dnr_2026_rank": 5
+        }
+      ]
+    },
+    "Sweden": {
+      "iso": "SE",
+      "language": "sv",
+      "outlets": [
+        {
+          "id": "svt",
+          "name": "SVT",
+          "type": "public",
+          "homepage": "https://www.svt.se/",
+          "feeds": [
+            "https://www.svt.se/nyheter/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 42,
+          "dnr_2026_rank": 2
+        },
+        {
+          "id": "aftonbladet",
+          "name": "Aftonbladet",
+          "type": "private",
+          "homepage": "https://www.aftonbladet.se/",
+          "feeds": [
+            "https://rss.aftonbladet.se/rss2/small/pages/sections/senastenytt/",
+            "https://rss.aftonbladet.se/rss2/small/pages/sections/nyheter/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 46,
+          "dnr_2026_rank": 1
+        },
+        {
+          "id": "dn",
+          "name": "Dagens Nyheter",
+          "type": "private",
+          "homepage": "https://www.dn.se/",
+          "feeds": [
+            "https://www.dn.se/rss/",
+            "https://www.dn.se/rss/nyheter/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 17,
+          "dnr_2026_rank": 6
+        },
+        {
+          "id": "svd",
+          "name": "Svenska Dagbladet",
+          "type": "private",
+          "homepage": "https://www.svd.se/",
+          "feeds": [
+            "https://www.svd.se/?service=rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 11,
+          "dnr_2026_rank": 9
+        },
+        {
+          "id": "expressen",
+          "name": "Expressen",
+          "type": "private",
+          "homepage": "https://www.expressen.se/",
+          "feeds": [
+            "https://feeds.expressen.se/nyheter/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 34,
+          "dnr_2026_rank": 3
+        },
+        {
+          "id": "tv4",
+          "name": "TV4 Nyheterna",
+          "type": "private",
+          "homepage": "https://www.tv4.se/",
+          "feeds": [
+            "https://www.tv4.se/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 26,
+          "dnr_2026_rank": 4
+        }
+      ]
+    },
+    "Denmark": {
+      "iso": "DK",
+      "language": "da",
+      "outlets": [
+        {
+          "id": "dr",
+          "name": "DR",
+          "type": "public",
+          "homepage": "https://www.dr.dk/",
+          "feeds": [
+            "https://www.dr.dk/nyheder/service/feeds/allenyheder"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 47,
+          "dnr_2026_rank": 1
+        },
+        {
+          "id": "tv2-dk",
+          "name": "TV 2 Denmark",
+          "type": "private",
+          "homepage": "https://nyheder.tv2.dk/",
+          "feeds": [
+            "https://feeds.services.tv2.dk/api/feeds/nyheder/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 45,
+          "dnr_2026_rank": 2
+        },
+        {
+          "id": "politiken",
+          "name": "Politiken",
+          "type": "private",
+          "homepage": "https://politiken.dk/",
+          "feeds": [
+            "https://politiken.dk/rss/senestenyt.rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 10,
+          "dnr_2026_rank": 7
+        },
+        {
+          "id": "berlingske",
+          "name": "Berlingske",
+          "type": "private",
+          "homepage": "https://www.berlingske.dk/",
+          "feeds": [
+            "https://www.berlingske.dk/content/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 9,
+          "dnr_2026_rank": 9
+        },
+        {
+          "id": "jyllands-posten",
+          "name": "Jyllands-Posten",
+          "type": "private",
+          "homepage": "https://jyllands-posten.dk/",
+          "feeds": [
+            "https://feeds.jp.dk/jp/seneste",
+            "https://feeds.jp.dk/jp/topnyheder"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 9,
+          "dnr_2026_rank": 10
+        },
+        {
+          "id": "ekstrabladet",
+          "name": "Ekstra Bladet",
+          "type": "private",
+          "homepage": "https://ekstrabladet.dk/",
+          "feeds": [
+            "https://ekstrabladet.dk/rssfeed/all/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 27,
+          "dnr_2026_rank": 3
+        },
+        {
+          "id": "bt",
+          "name": "B.T.",
+          "type": "private",
+          "homepage": "https://www.bt.dk/",
+          "feeds": [
+            "https://www.bt.dk/bt/seneste/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 23,
+          "dnr_2026_rank": 4
+        }
+      ]
+    },
+    "Finland": {
+      "iso": "FI",
+      "language": "fi",
+      "outlets": [
+        {
+          "id": "yle",
+          "name": "Yle",
+          "type": "public",
+          "homepage": "https://yle.fi/",
+          "feeds": [
+            "https://feeds.yle.fi/uutiset/v1/majorHeadlines/YLE_UUTISET.rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 43,
+          "dnr_2026_rank": 3
+        },
+        {
+          "id": "hs",
+          "name": "Helsingin Sanomat",
+          "type": "private",
+          "homepage": "https://www.hs.fi/",
+          "feeds": [
+            "https://www.hs.fi/rss/tuoreimmat.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 27,
+          "dnr_2026_rank": 5
+        },
+        {
+          "id": "is",
+          "name": "Ilta-Sanomat",
+          "type": "private",
+          "homepage": "https://www.is.fi/",
+          "feeds": [
+            "https://www.is.fi/rss/tuoreimmat.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 58,
+          "dnr_2026_rank": 1
+        },
+        {
+          "id": "iltalehti",
+          "name": "Iltalehti",
+          "type": "private",
+          "homepage": "https://www.iltalehti.fi/",
+          "feeds": [
+            "https://www.iltalehti.fi/rss/uutiset.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 53,
+          "dnr_2026_rank": 2
+        },
+        {
+          "id": "mtv-fi",
+          "name": "MTV Uutiset",
+          "type": "private",
+          "homepage": "https://www.mtvuutiset.fi/",
+          "feeds": [
+            "https://www.mtvuutiset.fi/api/feed/rss/uutiset_uusimmat"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 28,
+          "dnr_2026_rank": 4
+        }
+      ]
+    },
+    "United States": {
+      "iso": "US",
+      "language": "en",
+      "outlets": [
+        {
+          "id": "nyt",
+          "name": "The New York Times",
+          "type": "private",
+          "homepage": "https://www.nytimes.com/",
+          "feeds": [
+            "https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 13,
+          "dnr_2026_rank": 5
+        },
+        {
+          "id": "foxnews",
+          "name": "Fox News",
+          "type": "private",
+          "homepage": "https://www.foxnews.com/",
+          "feeds": [
+            "https://moxie.foxnews.com/google-publisher/latest.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 17,
+          "dnr_2026_rank": 1
+        },
+        {
+          "id": "npr",
+          "name": "NPR",
+          "type": "public",
+          "homepage": "https://www.npr.org/",
+          "feeds": [
+            "https://feeds.npr.org/1001/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 8,
+          "dnr_2026_rank": 13
+        },
+        {
+          "id": "breitbart",
+          "name": "Breitbart",
+          "type": "private",
+          "homepage": "https://www.breitbart.com/",
+          "feeds": [
+            "https://feeds.feedburner.com/breitbart"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": null,
+          "dnr_2026_rank": null
+        },
+        {
+          "id": "washingtonpost",
+          "name": "The Washington Post",
+          "type": "private",
+          "homepage": "https://www.washingtonpost.com/",
+          "feeds": [
+            "https://feeds.washingtonpost.com/rss/politics",
+            "https://feeds.washingtonpost.com/rss/national"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 8,
+          "dnr_2026_rank": 14
+        },
+        {
+          "id": "nypost",
+          "name": "New York Post",
+          "type": "private",
+          "homepage": "https://nypost.com/",
+          "feeds": [
+            "https://nypost.com/news/feed/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": null,
+          "dnr_2026_rank": null
+        },
+        {
+          "id": "politico",
+          "name": "Politico",
+          "type": "private",
+          "homepage": "https://www.politico.com/",
+          "feeds": [
+            "https://rss.politico.com/politics-news.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 9,
+          "dnr_2026_rank": 7
+        },
+        {
+          "id": "abcnews",
+          "name": "ABC News",
+          "type": "private",
+          "homepage": "https://abcnews.go.com/",
+          "feeds": [
+            "https://abcnews.go.com/abcnews/topstories"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 9,
+          "dnr_2026_rank": 8
+        },
+        {
+          "id": "nbcnews",
+          "name": "NBC News",
+          "type": "private",
+          "homepage": "https://www.nbcnews.com/",
+          "feeds": [
+            "https://feeds.nbcnews.com/nbcnews/public/news"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 8,
+          "dnr_2026_rank": 9
+        },
+        {
+          "id": "cbsnews",
+          "name": "CBS News",
+          "type": "private",
+          "homepage": "https://www.cbsnews.com/",
+          "feeds": [
+            "https://www.cbsnews.com/latest/rss/main"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 8,
+          "dnr_2026_rank": 15
+        }
+      ]
+    },
+    "United Kingdom": {
+      "iso": "GB",
+      "language": "en",
+      "outlets": [
+        {
+          "id": "bbc",
+          "name": "BBC News",
+          "type": "public",
+          "homepage": "https://www.bbc.com/news",
+          "feeds": [
+            "https://feeds.bbci.co.uk/news/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 45,
+          "dnr_2026_rank": 1
+        },
+        {
+          "id": "guardian",
+          "name": "The Guardian",
+          "type": "private",
+          "homepage": "https://www.theguardian.com/",
+          "feeds": [
+            "https://www.theguardian.com/uk/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 15,
+          "dnr_2026_rank": 2
+        },
+        {
+          "id": "telegraph",
+          "name": "The Telegraph",
+          "type": "private",
+          "homepage": "https://www.telegraph.co.uk/",
+          "feeds": [
+            "https://www.telegraph.co.uk/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 6,
+          "dnr_2026_rank": 7
+        },
+        {
+          "id": "dailymail",
+          "name": "Daily Mail",
+          "type": "private",
+          "homepage": "https://www.dailymail.co.uk/",
+          "feeds": [
+            "https://www.dailymail.co.uk/articles.rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 9,
+          "dnr_2026_rank": 4
+        },
+        {
+          "id": "skynews",
+          "name": "Sky News",
+          "type": "private",
+          "homepage": "https://news.sky.com/",
+          "feeds": [
+            "https://feeds.skynews.com/feeds/rss/home.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 13,
+          "dnr_2026_rank": 3
+        },
+        {
+          "id": "gbnews",
+          "name": "GB News",
+          "type": "private",
+          "homepage": "https://www.gbnews.com/",
+          "feeds": [
+            "https://www.gbnews.com/feeds/news.rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 7,
+          "dnr_2026_rank": 6
+        }
+      ]
+    },
+    "Germany": {
+      "iso": "DE",
+      "language": "de",
+      "outlets": [
+        {
+          "id": "tagesschau",
+          "name": "tagesschau",
+          "type": "public",
+          "homepage": "https://www.tagesschau.de/",
+          "feeds": [
+            "https://www.tagesschau.de/xml/rss2"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 20,
+          "dnr_2026_rank": 1
+        },
+        {
+          "id": "spiegel",
+          "name": "Der Spiegel",
+          "type": "private",
+          "homepage": "https://www.spiegel.de/",
+          "feeds": [
+            "https://www.spiegel.de/schlagzeilen/index.rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 13,
+          "dnr_2026_rank": 5
+        },
+        {
+          "id": "faz",
+          "name": "Frankfurter Allgemeine",
+          "type": "private",
+          "homepage": "https://www.faz.net/",
+          "feeds": [
+            "https://www.faz.net/rss/aktuell/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 6,
+          "dnr_2026_rank": 16
+        },
+        {
+          "id": "sz",
+          "name": "Süddeutsche Zeitung",
+          "type": "private",
+          "homepage": "https://www.sueddeutsche.de/",
+          "feeds": [
+            "https://rss.sueddeutsche.de/rss/Topthemen"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 7,
+          "dnr_2026_rank": 14
+        },
+        {
+          "id": "welt",
+          "name": "Die Welt",
+          "type": "private",
+          "homepage": "https://www.welt.de/",
+          "feeds": [
+            "https://www.welt.de/feeds/latest.rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 11,
+          "dnr_2026_rank": 7
+        },
+        {
+          "id": "taz",
+          "name": "taz",
+          "type": "private",
+          "homepage": "https://taz.de/",
+          "feeds": [
+            "https://taz.de/!p4608;rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": null,
+          "dnr_2026_rank": null
+        },
+        {
+          "id": "tonline",
+          "name": "t-online",
+          "type": "private",
+          "homepage": "https://www.t-online.de/",
+          "feeds": [
+            "https://www.t-online.de/schlagzeilen/feed.rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 17,
+          "dnr_2026_rank": 2
+        },
+        {
+          "id": "ntv",
+          "name": "n-tv",
+          "type": "private",
+          "homepage": "https://www.n-tv.de/",
+          "feeds": [
+            "https://www.n-tv.de/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 14,
+          "dnr_2026_rank": 3
+        },
+        {
+          "id": "bild",
+          "name": "Bild",
+          "type": "private",
+          "homepage": "https://www.bild.de/",
+          "feeds": [
+            "https://www.bild.de/feed/alles.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 14,
+          "dnr_2026_rank": 4
+        }
+      ]
+    },
+    "France": {
+      "iso": "FR",
+      "language": "fr",
+      "outlets": [
+        {
+          "id": "lemonde",
+          "name": "Le Monde",
+          "type": "private",
+          "homepage": "https://www.lemonde.fr/",
+          "feeds": [
+            "https://www.lemonde.fr/rss/une.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 12,
+          "dnr_2026_rank": 4
+        },
+        {
+          "id": "lefigaro",
+          "name": "Le Figaro",
+          "type": "private",
+          "homepage": "https://www.lefigaro.fr/",
+          "feeds": [
+            "https://www.lefigaro.fr/rss/figaro_actualites.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 8,
+          "dnr_2026_rank": 14
+        },
+        {
+          "id": "liberation",
+          "name": "Libération",
+          "type": "private",
+          "homepage": "https://www.liberation.fr/",
+          "feeds": [
+            "https://www.liberation.fr/arc/outboundfeeds/rss-all/?outputType=xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": null,
+          "dnr_2026_rank": null
+        },
+        {
+          "id": "france24",
+          "name": "France 24",
+          "type": "public",
+          "homepage": "https://www.france24.com/fr/",
+          "feeds": [
+            "https://www.france24.com/fr/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": null,
+          "dnr_2026_rank": null
+        },
+        {
+          "id": "leparisien",
+          "name": "Le Parisien",
+          "type": "private",
+          "homepage": "https://www.leparisien.fr/",
+          "feeds": [
+            "https://feeds.leparisien.fr/leparisien/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 9,
+          "dnr_2026_rank": 8
+        },
+        {
+          "id": "20minutes-fr",
+          "name": "20 Minutes",
+          "type": "private",
+          "homepage": "https://www.20minutes.fr/",
+          "feeds": [
+            "https://www.20minutes.fr/feeds/rss-une.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 14,
+          "dnr_2026_rank": 2
+        },
+        {
+          "id": "tf1info",
+          "name": "TF1 Info",
+          "type": "private",
+          "homepage": "https://www.tf1info.fr/",
+          "feeds": [
+            "https://www.tf1info.fr/feeds/rss-une.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 12,
+          "dnr_2026_rank": 5
+        },
+        {
+          "id": "franceinfo",
+          "name": "franceinfo",
+          "type": "public",
+          "homepage": "https://www.francetvinfo.fr/",
+          "feeds": [
+            "https://www.francetvinfo.fr/titres.rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 11,
+          "dnr_2026_rank": 6
+        },
+        {
+          "id": "bfmtv",
+          "name": "BFMTV",
+          "type": "private",
+          "homepage": "https://www.bfmtv.com/",
+          "feeds": [
+            "https://www.bfmtv.com/rss/news-24-7/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 9,
+          "dnr_2026_rank": 9
+        }
+      ]
+    },
+    "Spain": {
+      "iso": "ES",
+      "language": "es",
+      "outlets": [
+        {
+          "id": "elpais",
+          "name": "El País",
+          "type": "private",
+          "homepage": "https://elpais.com/",
+          "feeds": [
+            "https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 15,
+          "dnr_2026_rank": 1
+        },
+        {
+          "id": "elmundo",
+          "name": "El Mundo",
+          "type": "private",
+          "homepage": "https://www.elmundo.es/",
+          "feeds": [
+            "https://e00-elmundo.uecdn.es/elmundo/rss/portada.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 12,
+          "dnr_2026_rank": 3
+        },
+        {
+          "id": "abc-es",
+          "name": "ABC",
+          "type": "private",
+          "homepage": "https://www.abc.es/",
+          "feeds": [
+            "https://www.abc.es/rss/2.0/portada/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 7,
+          "dnr_2026_rank": 16
+        },
+        {
+          "id": "lavanguardia",
+          "name": "La Vanguardia",
+          "type": "private",
+          "homepage": "https://www.lavanguardia.com/",
+          "feeds": [
+            "https://www.lavanguardia.com/rss/home.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 7,
+          "dnr_2026_rank": 15
+        },
+        {
+          "id": "eldiario",
+          "name": "elDiario.es",
+          "type": "private",
+          "homepage": "https://www.eldiario.es/",
+          "feeds": [
+            "https://www.eldiario.es/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 14,
+          "dnr_2026_rank": 2
+        },
+        {
+          "id": "20minutos",
+          "name": "20minutos",
+          "type": "private",
+          "homepage": "https://www.20minutos.es/",
+          "feeds": [
+            "https://www.20minutos.es/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 12,
+          "dnr_2026_rank": 4
+        },
+        {
+          "id": "okdiario",
+          "name": "OKDiario",
+          "type": "private",
+          "homepage": "https://okdiario.com/",
+          "feeds": [
+            "https://okdiario.com/feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 12,
+          "dnr_2026_rank": 6
+        }
+      ]
+    },
+    "Italy": {
+      "iso": "IT",
+      "language": "it",
+      "outlets": [
+        {
+          "id": "repubblica",
+          "name": "la Repubblica",
+          "type": "private",
+          "homepage": "https://www.repubblica.it/",
+          "feeds": [
+            "https://www.repubblica.it/rss/homepage/rss2.0.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 11,
+          "dnr_2026_rank": 5
+        },
+        {
+          "id": "ansa",
+          "name": "ANSA",
+          "type": "private",
+          "homepage": "https://www.ansa.it/",
+          "feeds": [
+            "https://www.ansa.it/sito/ansait_rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 17,
+          "dnr_2026_rank": 3
+        },
+        {
+          "id": "ilfatto",
+          "name": "Il Fatto Quotidiano",
+          "type": "private",
+          "homepage": "https://www.ilfattoquotidiano.it/",
+          "feeds": [
+            "https://www.ilfattoquotidiano.it/feed/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 9,
+          "dnr_2026_rank": 9
+        },
+        {
+          "id": "lastampa",
+          "name": "La Stampa",
+          "type": "private",
+          "homepage": "https://www.lastampa.it/",
+          "feeds": [
+            "https://www.lastampa.it/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": null,
+          "dnr_2026_rank": null
+        },
+        {
+          "id": "ilsole24ore",
+          "name": "Il Sole 24 Ore",
+          "type": "private",
+          "homepage": "https://www.ilsole24ore.com/",
+          "feeds": [
+            "https://www.ilsole24ore.com/rss/italia.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": 7,
+          "dnr_2026_rank": 13
+        },
+        {
+          "id": "libero",
+          "name": "Libero Quotidiano",
+          "type": "private",
+          "homepage": "https://www.liberoquotidiano.it/",
+          "feeds": [
+            "https://www.liberoquotidiano.it/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "extra",
+          "dnr_2026_online_reach_pct": null,
+          "dnr_2026_rank": null
+        },
+        {
+          "id": "tgcom24",
+          "name": "TgCom24",
+          "type": "private",
+          "homepage": "https://www.tgcom24.mediaset.it/",
+          "feeds": [
+            "https://www.tgcom24.mediaset.it/rss/homepage.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 17,
+          "dnr_2026_rank": 2
+        },
+        {
+          "id": "rainews",
+          "name": "RaiNews",
+          "type": "public",
+          "homepage": "https://www.rainews.it/",
+          "feeds": [
+            "https://www.rainews.it/rss/tutti"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 11,
+          "dnr_2026_rank": 6
+        }
+      ]
+    }
+  },
+  "reference_set": {
+    "source": "Reuters Institute Digital News Report 2026 — \"Weekly reach online\" per market",
+    "rule": "top 5 measurable domestic news brands (A29)",
+    "frozen": true
+  }
+}
