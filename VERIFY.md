@@ -2,21 +2,45 @@
 
 Things the maintainer confirms by hand. Each block: what to run, what "good" looks like, tick when satisfied.
 
-## Open now
-- [x] OpenAI: prepaid credits, auto-reload capped at $10/month (checked 2026-10-12, docs/DEPLOY.md step 1).
-- [ ] Infra build 2.1–2.5 (2026-10-12): see "5 · Operate" at the end — three decisions are open (A54 publishing,
-      legacy tables, retention window).
-- [ ] Next paid run (needs a go): repeat the pre-registered US/UK check on fresh stories (H7), then
-      `uv run python -m pipeline.judge.calllog` → every paid call logged (A51).
-- [x] Embeddings (2026-10-12): OpenAI @512 is the default (A56), story threshold 0.56 from the unbiased test E7b
-      (docs/experiments/e7b_results.md). E7's MiniLM comparison is withdrawn (biased set).
-- [ ] Optional: spot-check 10 of Claude's 270 blind E7b labels (`data/eval/e7b_labels.jsonl`; the pair texts:
-      `uv run python -m pipeline.experiments.e7b show --n 10`).
-- [ ] The next normalize run fills the headline vector cache once (≈ $0.003) and every refresh then embeds new
-      articles (≈ $0.01/day): both count toward the monthly cap. Needs a go for the first run.
-- [ ] Delete the experiment's 1536 vectors (44 MB of the database; $0.02 to rebuy)? Needs your OK (deletes data).
-- [ ] Optional: spot-check 10 of Claude's same-event labels (2.3).
+## Open now (2026-10-12)
+
+**Before the first deploy**
+- [ ] Commit and push; the `ci` run is green (tests, image, site, Terraform checks).
+- [ ] Read `terraform plan` for `infra/main` before `apply`: ≈ 58 resources to add, nothing changed or destroyed
+      (docs/DEPLOY.md step 3).
+- [ ] Decide A54: does the latest fit go public on the deployed site (labelled "not validated"), or stay private
+      until validation? Default: private.
+
+**After the first deploy** (docs/DEPLOY.md step 3)
+- [ ] The two AWS subscription emails confirmed (alerts, kill switch).
+- [ ] One refresh by hand: four step records in `runs/<execution>/`, all `ok`, gates in range; the site URL opens.
+- [ ] Switch on `refresh_enabled`; after a day, `history` shows 24 refreshes and one feed check.
+- [ ] `judge_enabled` — paid, ≤ $0.15 a day: **needs your go**.
+- [ ] After a month: compare the real AWS bill with the estimate (README, Costs) and the gate thresholds with the
+      measured values in the records (A53); decide the retention window (A52, 30 days now).
+
+**Paid, needs a go**
+- [ ] Repeat the pre-registered US/UK check on fresh stories (H7, ≈ $1), then `uv run python -m pipeline.judge.calllog`
+      → every paid call logged (A51).
+- [ ] Does the judge return token log-probabilities (one call, ≈ $0.002)?
+
+**Optional checks**
+- [ ] Spot-check 10 of Claude's 270 blind E7b labels: `uv run python -m pipeline.experiments.e7b show --n 10` and
+      `data/eval/e7b_labels.jsonl`.
+- [ ] Spot-check 10 of Claude's same-event labels (2.3).
 - [ ] Open from E4: social length lean 0.73; Fox News reading slightly liberal (docs/experiments/e4b_results.md).
+
+**Decisions that can wait**
+- [ ] The backup and legacy tables (`articles_legacy` 25 MB, `articles_text_backup` 3 MB, `articles_shared_text`
+      2 MB): keep, move to the lake, or drop? Retention leaves them alone.
+- [ ] Grafana Cloud (2.8), a domain, the public oval size (A25).
+
+**Done 2026-10-12**
+- [x] OpenAI: prepaid credits, auto-reload capped at $10/month.
+- [x] Embeddings: OpenAI @512 is the default (A56, ADR-011), story threshold 0.56 from the unbiased test E7b. E7's
+      MiniLM comparison is withdrawn (biased set). First normalize run filled the vector cache for $0.0037; a second
+      run cost $0. The experiment's 1536 vectors were deleted (database 197 → 134 MB).
+- [x] AWS account set up: root MFA, Identity Center admin, $10 budget, CLI profile `basednews`.
 
 The detailed per-module checks for stages 1–2 (P2) were superseded by the stage sign-offs below and removed.
 
@@ -81,7 +105,7 @@ Re-verify at the OpenAI embedding switch (A45): re-run the 2.1/2.2/2.3 evals on 
 - Switch projects: `~/dev/pf/scripts/stop.sh` ↔ `~/dev/BasedNews/scripts/stop.sh`.
 
 ## 3 · Measure — judge and measuring loop
-- [ ] Set a monthly hard limit in the OpenAI dashboard (e.g. $12).
+- [x] Provider-side cap: prepaid credits with a $10 monthly reload limit (2026-10-12).
 - [x] Key in `.env`, models available (gpt-5.4-mini/nano, text-embedding-3-small/large) — checked 2026-10-11.
 - [x] **Judge reliability** run 2026-10-11: v1 failed (length bias, mirror 0.20) → v2 adopted (mirror 1.00/0.91, length
       0.32/0.59, null pairs 1.00); see A46. Cost so far $0.76.
@@ -90,9 +114,8 @@ Re-verify at the OpenAI embedding switch (A45): re-run the 2.1/2.2/2.3 evals on 
 - [ ] (repeat after any prompt/model change) `uv run python -m pipeline.judge.eval --pairs 60` → `reports/m7_judge_eval_v4.md`.
       All targets met? If not: read which (order, retest, mirror, null pairs) before measuring. Optional A11 check:
       `--model gpt-5.4-nano` and compare.
-- [ ] **Embeddings** (≈ $0.03): `uv run --group ml python -m pipeline.embed.calibrate --model openai:text-embedding-3-small`
-      → precision/recall vs MiniLM and the mapped thresholds; if they look right, add
-      `BASEDNEWS_EMBED_MODEL=openai:text-embedding-3-small` to `.env` and re-run 2.1 → 2.2 → 2.3.
+- [x] **Embeddings** calibrated (E7, $0.045) and chosen by the unbiased pooled test (E7b): OpenAI @512 is the default
+      since 2026-10-12 (ADR-011).
 - [x] **Dry run:** `uv run python -m pipeline.measure.run --dry-run` → the first planned prompt and the cost estimate.
 - [x] **First measurement (E4):** `uv run python -m pipeline.measure.run --budget-usd 1` → verdict counts, median outlet sd,
       judge order bias β; spend shown against the monthly cap.
@@ -105,7 +128,7 @@ Re-verify at the OpenAI embedding switch (A45): re-run the 2.1/2.2/2.3 evals on 
 
 ## E6 — v4 + hierarchical model on fresh stories (2026-10-11, $0.49) — docs/experiments/e6_results.md
 - [x] AllSides 0.38 (E4, v3 flat) → 0.60 (all v4 data, hierarchical) ✅; split halves 0.56 ✅; new planner 115 vs 61 distinct articles per 100 calls.
-- [ ] Maintainer: spend the remaining $1.01 on other countries now, or keep it for next week's US/UK stories.
+- [x] Superseded (2026-10-12): the remaining budget goes to the daily judge (A58) and the H7 repeat, each with its own go.
 
 ## A51 — full call log (built 2026-10-11)
 - [x] Unit tests with a fake client: request stored exactly, full response, retries, failed call logged, no API key in
@@ -114,7 +137,7 @@ Re-verify at the OpenAI embedding switch (A45): re-run the 2.1/2.2/2.3 evals on 
   integrity ✅, storage per call a few kB.
 
 ## 5 · Operate — job runner, export, retention, SQLite-in-S3, Docker (built 2026-10-12)
-Verified by Claude: 65 unit tests pass (`tests/test_job.py`, `test_storage.py`, `test_retention.py`: records, gates,
+Verified by Claude: the unit tests pass (71 as of the evening of 2026-10-12) (`tests/test_job.py`, `test_storage.py`, `test_retention.py`: records, gates,
 exit codes, key redaction, a crash inside a write transaction, conditional upload against a second writer, lake before
 delete, push-db never overwrites). On a copy of the real database: `export` (693 v4 calls, 2.6 kB gzip, gate OK),
 `stories` (gate OK: 701 multi-outlet stories, largest story 0.8 %), `retention --apply` (107 → 93 MB, lake 2.9 MB,
@@ -126,6 +149,10 @@ a second run has nothing to do), `measure` without a budget is refused. The site
 - [x] Docker (Claude, 2026-10-12): slim and ML images build; through compose against a copy in `data/state`, export,
       stories and embed ran, passed their gates, uploaded the database and their records; `history` reads the stored
       copy. torch is the CPU build (no CUDA). Try it: `docker compose run --rm job history`. CI builds the slim image.
+- [ ] Infrastructure (2.6, 2.7, built 2026-10-12, not applied). Verified by Claude: `terraform validate` both stacks;
+      a read-only `plan` against the account → 58 to add, 0 to change or destroy; the four job definitions accepted by
+      AWS's Step Functions validator; checkov 0 failures (skips reasoned in `infra/.checkov.yaml`); kill-switch handler
+      unit test; S3 lock tests. Yours: read the plan before `apply` (docs/DEPLOY.md step 3).
 - [ ] Decide A54: should the export go public on the deployed site (labelled "not validated"), or stay private until
       validation? Default: private (`BASEDNEWS_PUBLISH_POSITIONS` unset).
 - [ ] Decide: the backup and legacy tables (`articles_legacy` 25 MB, `articles_text_backup` 3 MB,

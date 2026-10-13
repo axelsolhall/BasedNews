@@ -4,9 +4,11 @@
     BASEDNEWS_STATE=file:///<folder>                  a local stand-in with the same rules (docker compose, tests)
     unset                                             plain local mode: the database at BASEDNEWS_DB or data/
 
-Single writer (A55): Step Functions runs one execution at a time. As a second guard, the upload is conditional on the
-object still being the version that was downloaded (S3 If-Match on its ETag): if anything else wrote it meanwhile the
-upload is refused (exit 4) and nothing is overwritten. Before the upload the WAL is folded into the file and
+Single writer (A55): a job takes a lock object (`db/LOCK`, created only if absent) before it downloads and releases it
+after its uploads; a second job waits for it (up to LOCK_WAIT_S) instead of racing, and a lock older than LOCK_STALE_S
+(a crashed task) is taken over. As a second guard, the upload is conditional on the object still being the version that
+was downloaded (S3 If-Match on its ETag): if anything else wrote it meanwhile the upload is refused (exit 4) and nothing
+is overwritten. Before the upload the WAL is folded into the file and
 `PRAGMA quick_check` must say ok. Step records are uploaded whatever the outcome. The export's site files are uploaded
 only when the step succeeded and BASEDNEWS_PUBLISH_POSITIONS=1 (A54). Lake files written by retention are uploaded
 before the database, and if that fails the database is not uploaded (A52: nothing is deleted without its archive).
@@ -14,7 +16,9 @@ before the database, and if that fails the database is not uploaded (A52: nothin
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+import socket
 import shutil
 import sqlite3
 import tempfile
@@ -26,7 +30,11 @@ from pipeline.job import runner
 from pipeline.job.runner import EXIT_CONFLICT, EXIT_OK, EXIT_REFUSED, log
 
 DB_KEY = "db/basednews.sqlite"
-SITE_CACHE_CONTROL = "public, max-age=300"         # the export changes weekly; 5 min keeps a fix quick to show
+LOCK_KEY = "db/LOCK"
+LOCK_WAIT_S = 45 * 60              # a judge run takes minutes; an hourly refresh that meets it waits
+LOCK_STALE_S = 3 * 3600            # no job runs this long: an older lock was left by a task that died
+EXIT_BUSY = 5
+SITE_CACHE_CONTROL = "public, max-age=300"         # the export changes daily; 5 min keeps a fix quick to show
 
 
 class Conflict(RuntimeError):
@@ -68,6 +76,23 @@ class LocalBucket:
         shutil.copyfile(src, tmp)
         os.replace(tmp, p)
         return self.etag(key)
+
+    def put_bytes(self, data: bytes, key: str, if_match: str | None = None, if_none_match: bool = False) -> str:
+        tmp = Path(tempfile.mkstemp()[1])
+        tmp.write_bytes(data)
+        try:
+            return self.put(tmp, key, if_match=if_match, if_none_match=if_none_match)
+        finally:
+            tmp.unlink(missing_ok=True)
+
+    def get_bytes(self, key: str) -> tuple[bytes, str]:
+        p = self._path(key)
+        if not p.exists():
+            raise Missing(key)
+        return p.read_bytes(), self.etag(key)
+
+    def delete(self, key: str) -> None:
+        self._path(key).unlink(missing_ok=True)
 
 
 class S3Bucket:
@@ -122,6 +147,65 @@ class S3Bucket:
                     raise Conflict(f"{key}: changed since it was downloaded ({code or status})") from e
                 raise
         return resp["ETag"]
+
+
+def _s3_put_bytes(self, data: bytes, key: str, if_match: str | None = None, if_none_match: bool = False) -> str:
+    from botocore.exceptions import ClientError
+    kw = {"IfMatch": if_match} if if_match else {}
+    if if_none_match:
+        kw["IfNoneMatch"] = "*"
+    try:
+        return self.client.put_object(Bucket=self.bucket, Key=self._key(key), Body=data, **kw)["ETag"]
+    except ClientError as e:
+        code, status = self._code(e)
+        if code in ("PreconditionFailed", "ConditionalRequestConflict") or status in (409, 412):
+            raise Conflict(f"{key}: {code or status}") from e
+        raise
+
+
+def _s3_get_bytes(self, key: str) -> tuple[bytes, str]:
+    from botocore.exceptions import ClientError
+    try:
+        r = self.client.get_object(Bucket=self.bucket, Key=self._key(key))
+    except ClientError as e:
+        if self._code(e)[0] in ("NoSuchKey", "404") or self._code(e)[1] == 404:
+            raise Missing(key) from e
+        raise
+    return r["Body"].read(), r["ETag"]
+
+
+def _s3_delete(self, key: str) -> None:
+    self.client.delete_object(Bucket=self.bucket, Key=self._key(key))
+
+
+S3Bucket.put_bytes, S3Bucket.get_bytes, S3Bucket.delete = _s3_put_bytes, _s3_get_bytes, _s3_delete
+
+
+def acquire_lock(bucket, run_id: str, wait_s: float = LOCK_WAIT_S, poll_s: float = 30.0,
+                 clock=time.time, sleep=time.sleep) -> str | None:
+    """Create the lock object if absent; wait while another job holds it; take over a stale one. ETag or None."""
+    body = json.dumps({"run_id": run_id, "at": clock(), "host": socket.gethostname()}).encode()
+    deadline = clock() + wait_s
+    while True:
+        try:
+            return bucket.put_bytes(body, LOCK_KEY, if_none_match=True)
+        except Conflict:
+            try:
+                raw, etag = bucket.get_bytes(LOCK_KEY)
+                holder = json.loads(raw)
+            except Missing:
+                continue                                   # released between the two calls: try again
+            if clock() - holder.get("at", 0) > LOCK_STALE_S:
+                try:
+                    log("lock_taken_over", run_id=run_id, stale_holder=holder.get("run_id"))
+                    return bucket.put_bytes(body, LOCK_KEY, if_match=etag)
+                except Conflict:
+                    continue
+            if clock() >= deadline:
+                log("lock_busy", run_id=run_id, holder=holder.get("run_id"), waited_s=wait_s)
+                return None
+            log("lock_wait", run_id=run_id, holder=holder.get("run_id"))
+            sleep(poll_s)
 
 
 def open_bucket(url: str, client=None):
@@ -200,12 +284,18 @@ def run_with_state(state_url: str, target: str, run_id: str | None = None, extra
     os.environ["BASEDNEWS_LAKE"] = str(work / "lake")
     os.environ.setdefault("BASEDNEWS_SITE_OUT", str(work / "site"))
     run_id = run_id or runner.new_run_id()
+    lock = acquire_lock(bucket, run_id, wait_s=float(os.environ.get("BASEDNEWS_LOCK_WAIT_S", LOCK_WAIT_S)))
+    if lock is None:
+        shutil.rmtree(work, ignore_errors=True)
+        return EXIT_BUSY
     t0 = time.monotonic()
     try:
         etag = bucket.get(DB_KEY, db)
     except Missing:
         if not init:
             log("state_missing", run_id=run_id, key=DB_KEY, hint="first deploy: upload the database, or pass --init-state")
+            bucket.delete(LOCK_KEY)
+            shutil.rmtree(work, ignore_errors=True)
             return EXIT_REFUSED
         etag = None
     log("state_downloaded", run_id=run_id, etag=etag, bytes=db.stat().st_size if db.exists() else 0,
@@ -245,5 +335,6 @@ def run_with_state(state_url: str, target: str, run_id: str | None = None, extra
                 bucket.put(path, f"runs/{rec['run_id']}/{rec['step']}.json", content_type="application/json")
             except Exception as e:                          # CloudWatch still has the step's log lines
                 log("record_not_uploaded", run_id=run_id, step=rec["step"], error=str(e))
+        bucket.delete(LOCK_KEY)
         shutil.rmtree(work, ignore_errors=True)
     return code

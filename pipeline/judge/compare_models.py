@@ -38,7 +38,7 @@ def main():
     pairs = [v for v in by_pair.values() if len(v) >= 2]
     pairs = random.Random(args.seed).sample(pairs, min(args.pairs, len(pairs)))
     ans = lambda cid: {r["axis"]: r["verdict"] for r in conn.execute("SELECT axis, verdict FROM judgments WHERE call_id = ?", (cid,))}
-    _, ev, hist, _ = load_items(conn)
+    _, ev, hist, _, _ = load_items(conn)
     arts = {r["id"]: r for a in ev.values() for r in a.values()}
     judge = OpenAIJudge(load_settings(), model=args.model)
     agree_new, agree_ref, cost, n = {ax: [] for ax in P.AXES}, {ax: [] for ax in P.AXES}, 0.0, 0

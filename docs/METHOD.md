@@ -113,7 +113,7 @@ Findings only the real structure (and per-axis abstention) reveals:
 | LLM may be asymmetric (left framing read as "neutral") | ask "more right?" and "more left?" — gap measures asymmetry (A28) |
 | One global scale across countries/languages | cross-country comparisons of the same international event; stability when adding countries (A07) |
 | Laplace intervals are symmetric; extremes may be skewed | coverage of the outermost outlets on real data; MCMC check (A27) |
-| Event matching threshold set on 200 labelled pairs | more labels; re-calibrate at the OpenAI embedding switch (A20, A47) |
+| Event matching threshold set on 200 labelled pairs, chosen with MiniLM | done 2026-10-12: OpenAI threshold 0.56 from a blind pooled test (E7b, ADR-011); more anchors would narrow the intervals |
 
 
 ## Article effects (A49, ADR-009)

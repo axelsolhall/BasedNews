@@ -63,7 +63,7 @@ def figure(groups, cfg: NormalizeConfig, path: str):
     a1.text(cfg.owns_text + 0.01, a1.get_ylim()[1] * 0.92, f"owns_text {cfg.owns_text}\n+ margin {cfg.margin}",
             fontsize=8, color="#c0392b", va="top")
     a1.set_title("Containers: headline ↔ page-text similarity", fontsize=10, loc="left")
-    a1.set_xlabel("cosine similarity (multilingual MiniLM)")
+    a1.set_xlabel("cosine similarity (the embedding model of each normalize run)")
     a1.legend(fontsize=8, frameon=False)
     a2.hist(con_pairs, bins=bins, color="#e0a43a", label=f"pairs in containers (n={len(con_pairs)})")
     a2.hist(ren_pairs, bins=bins, color="#1b7f79", label=f"pairs in renamed articles (n={len(ren_pairs)})")

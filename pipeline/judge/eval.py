@@ -44,7 +44,7 @@ def main():
     args = ap.parse_args()
     settings = load_settings()
     conn = store.connect()
-    run, ev, hist, ties = load_items(conn)
+    run, ev, hist, ties, _ = load_items(conn)
 
     rng = random.Random(args.seed)
     pairs = []

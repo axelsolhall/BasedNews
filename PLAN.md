@@ -71,12 +71,15 @@ M6→M7→M8 form the **active-learning loop** (plan → judge → update → pl
 ## 4. Production on AWS (ADR-010)
 - **Shape:** scheduled container jobs (ECS Fargate) orchestrated by Step Functions; static site and data on S3 +
   CloudFront; Terraform; GitHub Actions with OIDC; region eu-north-1. Free until free doesn't work.
-- **Security baseline:** no servers and no open ports; database and secrets private (S3, SSM); least-privilege IAM
-  per job; security headers (CSP, HSTS) via CloudFront; dependency, container and Terraform scanning in CI; S3
-  versioning as backup with a tested restore; LLM spend capped in code and in the provider dashboard.
+- **Security baseline** (built 2026-10-12 unless marked): no servers and no open ports; database and secrets private
+  (S3 with public access blocked, SSM); least-privilege IAM per role, CI unable to change infrastructure (A57); HSTS and
+  the other managed security headers via CloudFront (a CSP: open); image scan on push (ECR) and Terraform scanning in
+  CI (checkov; dependency scanning: open); S3 versioning as backup (a tested restore: open, after the first deploy);
+  AI spend capped in code, by the provider's reload limit, and an AWS kill switch (A48).
 - **SEO baseline:** prerendered pages, per-page title/description/Open Graph, `sitemap.xml`, `robots.txt`.
-- **Ops:** a `runs` row per step, structured logs, CloudWatch alarms by email, OpenTelemetry to Grafana's free tier.
-  Runbook: [docs/DEPLOY.md](docs/DEPLOY.md).
+- **Ops:** a record and an eval gate per step (A53), JSON-line logs, CloudWatch alarms by email; OpenTelemetry to
+  Grafana's free tier is next (2.8). How it runs: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); runbook:
+  [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## 5. Phases
 | Phase | Delivers | Exit criterion |

@@ -19,7 +19,7 @@ class Step:
     gate: Callable | None = None                  # gates.<name>(conn, ctx) -> Gate
     paid: bool = False                            # spends AI money: refuses to run without an explicit budget (A48)
     publishes: bool = False                       # writes files for the site (uploaded only if A54 allows)
-    needs_ml: bool = False                        # needs the local MiniLM (image built WITH_ML=1) until A45's switch
+    needs_ml: bool = False                        # embeds: needs the local model only when MiniLM is configured (A56)
 
 
 STEPS: dict[str, Step] = {s.name: s for s in (
@@ -36,7 +36,7 @@ STEPS: dict[str, Step] = {s.name: s for s in (
 
 JOBS: dict[str, tuple[str, ...]] = {
     "refresh": ("ingest", "normalize", "embed", "stories"),     # hourly
-    "daily": ("sources",),                                     # feed health once a day is enough
-    "weekly": ("measure", "export"),                           # paid: the schedule carries the budget
-    "maintenance": ("retention",),                             # after the weekly job
+    "feeds": ("sources",),                                     # daily: feed health once a day is enough
+    "judge": ("measure", "export"),                            # daily, new pairs as they appear (A58); paid: carries a budget
+    "maintenance": ("retention",),                             # daily, after the judge job
 }

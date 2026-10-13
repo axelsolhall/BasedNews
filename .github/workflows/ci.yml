@@ -1,6 +1,9 @@
-# CI: unit tests + lint for the pipeline, the job image (built, not pushed), production build of the site.
-# No secrets, no AWS, no paid calls.
-# Deployment (image → ECR, site → S3, terraform apply) is added with the infrastructure (ADR-010, docs/DEPLOY.md).
+# CI and deploy (ADR-010, docs/DEPLOY.md).
+# Every push and pull request: pipeline tests + lint, the job image (arm64, as in production), the site build, and the
+# infrastructure checks (terraform fmt/validate, checkov). No secrets, no stored AWS keys.
+# On main, once the repository variables from `terraform output github_variables` are set: push the image to ECR and
+# upload the site to S3, through a narrow OIDC role. Pull requests get a read-only `terraform plan`.
+# CI never applies infrastructure: the maintainer does, by hand (A57).
 name: ci
 
 on:
@@ -10,6 +13,10 @@ on:
 
 permissions:
   contents: read
+
+env:
+  AWS_REGION: eu-north-1
+  DEPLOY: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.AWS_DEPLOY_ROLE_ARN != '' }}
 
 jobs:
   pipeline:
@@ -22,16 +29,39 @@ jobs:
       - run: uvx ruff check pipeline tests --select F
 
   image:
-    runs-on: ubuntu-latest
+    needs: pipeline
+    runs-on: ubuntu-24.04-arm
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - uses: actions/checkout@v4
       - run: docker build --build-arg GIT_SHA=${GITHUB_SHA::12} -t basednews-job .
       - run: docker run --rm basednews-job list
       - run: docker run --rm --entrypoint python basednews-job -c "import pipeline.job.storage, pipeline.retention.run, pipeline.export.run, pipeline.measure.run"
       - run: docker images basednews-job --format 'image size {{.Size}}'
+      - if: env.DEPLOY == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - if: env.DEPLOY == 'true'
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: push the image (commit tag + prod)
+        if: env.DEPLOY == 'true'
+        run: |
+          REPO=${{ vars.ECR_REPOSITORY }}
+          docker tag basednews-job $REPO:${GITHUB_SHA::12}
+          docker tag basednews-job $REPO:prod
+          docker push $REPO:${GITHUB_SHA::12}
+          docker push $REPO:prod
 
   site:
+    needs: pipeline
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     defaults:
       run:
         working-directory: frontend
@@ -44,3 +74,47 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
       - run: npx ng build
+      - if: env.DEPLOY == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: upload the site (never touches data/, which the export job owns)
+        if: env.DEPLOY == 'true'
+        run: |
+          B=dist/basednews/browser
+          S=s3://${{ vars.SITE_BUCKET }}
+          aws s3 sync $B $S --delete --exclude "data/*" --exclude "index.html" --exclude "assets/*" \
+            --cache-control "public,max-age=31536000,immutable"
+          aws s3 sync $B/assets $S/assets --delete --cache-control "public,max-age=300"
+          aws s3 cp $B/index.html $S/index.html --cache-control "no-cache"
+          aws cloudfront create-invalidation --distribution-id ${{ vars.CF_DISTRIBUTION_ID }} --paths "/index.html" "/assets/*"
+
+  infra:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~1.16"
+      - uses: astral-sh/setup-uv@v5
+      - run: terraform fmt -check -recursive infra
+      - run: |
+          for d in infra/bootstrap infra/main; do
+            terraform -chdir=$d init -backend=false -input=false
+            terraform -chdir=$d validate
+          done
+      - run: uvx checkov -d infra --config-file infra/.checkov.yaml
+      - if: github.event_name == 'pull_request' && vars.AWS_PLAN_ROLE_ARN != ''
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: terraform plan (read-only)
+        if: github.event_name == 'pull_request' && vars.AWS_PLAN_ROLE_ARN != ''
+        run: |
+          terraform -chdir=infra/main init -input=false -reconfigure -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}"
+          terraform -chdir=infra/main plan -input=false -lock=false -no-color

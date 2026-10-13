@@ -134,8 +134,11 @@ class FakeS3:
             raise ClientError({"Error": {"Code": "PreconditionFailed"}, "ResponseMetadata": {"HTTPStatusCode": 412}},
                               "PutObject")
         etag = f'"{len(self.puts)}"'
-        self.objects[Key] = (Body.read(), etag)
+        self.objects[Key] = (Body if isinstance(Body, bytes) else Body.read(), etag)
         return {"ETag": etag}
+
+    def delete_object(self, Bucket, Key):
+        self.objects.pop(Key, None)
 
 
 def test_s3_adapter_uses_conditional_writes(tmp_path):
@@ -173,3 +176,34 @@ def test_history_reads_the_stored_database(state, monkeypatch, capsys):
     monkeypatch.setenv("BASEDNEWS_DB", str(state.parent / "empty.sqlite"))
     capsys.readouterr()
     assert cli(["history"]) == 0 and "s_ok" in capsys.readouterr().out
+
+
+def test_lock_makes_a_second_job_wait_and_is_released(state, monkeypatch):
+    b = storage.LocalBucket(state)
+    clock = [1000.0]
+    held = storage.acquire_lock(b, "first", wait_s=0, clock=lambda: clock[0])
+    assert held and (state / storage.LOCK_KEY).exists()
+    waits = []
+    assert storage.acquire_lock(b, "second", wait_s=60, poll_s=30, clock=lambda: clock[0],
+                                sleep=lambda s: (waits.append(s), clock.__setitem__(0, clock[0] + s))) is None
+    assert waits == [30, 30]                                          # waited, then gave up
+    clock[0] += storage.LOCK_STALE_S + 1                              # the first job died long ago
+    assert storage.acquire_lock(b, "third", wait_s=0, clock=lambda: clock[0])
+    b.delete(storage.LOCK_KEY)
+    assert storage.acquire_lock(b, "fourth", wait_s=0)                # a live holder, on the real clock
+    step(monkeypatch, "s_ok", "ok")
+    monkeypatch.setenv("BASEDNEWS_LOCK_WAIT_S", "0")
+    assert storage.run_with_state(f"file://{state}", "s_ok", "r11") == storage.EXIT_BUSY   # "fourth" still holds it
+    b.delete(storage.LOCK_KEY)
+    assert storage.run_with_state(f"file://{state}", "s_ok", "r12") == 0
+    assert not (state / storage.LOCK_KEY).exists()                    # released after the run
+
+
+def test_s3_lock_uses_create_if_absent():
+    s3 = FakeS3()
+    b = storage.open_bucket("s3://private-bucket/prod", s3)
+    assert storage.acquire_lock(b, "a", wait_s=0)
+    assert s3.puts[-1] == ("prod/db/LOCK", {"IfNoneMatch": "*"})
+    assert storage.acquire_lock(b, "b", wait_s=0) is None
+    b.delete(storage.LOCK_KEY)
+    assert storage.acquire_lock(b, "c", wait_s=0)

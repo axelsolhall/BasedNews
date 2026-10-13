@@ -9,7 +9,8 @@
 
 Options the runner does not know are passed to the module (one step only). With BASEDNEWS_STATE set, the database is
 downloaded first and uploaded only if every step succeeded (`pipeline/job/storage.py`).
-Exit codes: 0 ok · 1 step failed · 2 gate failed · 3 refused (configuration) · 4 the stored database changed meanwhile.
+Exit codes: 0 ok · 1 step failed · 2 gate failed · 3 refused (configuration) · 4 the stored database changed meanwhile
+· 5 another job held the lock for longer than the wait (production only).
 """
 from __future__ import annotations
 

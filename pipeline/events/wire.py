@@ -17,7 +17,7 @@ PREFILTER_JACCARD = 0.6      # cheap shingle check before the word-level diff
 SHINGLE = 5
 MIN_WORDS = 15               # too short to tell
 NOT_EDITORIAL = {"ntb", "tt", "stt", "ritzau", "dpa", "afp", "reuters", "ap", "ansa", "efe", "europa", "press", "fortsæt",
-                 "med", "at", "læse", "les", "mer", "läs", "mer"}
+                 "med", "at", "læse", "les", "mer", "läs"}
 _TRAIL = re.compile(r"\b(ntb|tt|stt|ritzau|dpa|afp|reuters|ansa|efe|europa press|fortsæt med at læse)\b", re.I)
 
 

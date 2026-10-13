@@ -1,12 +1,13 @@
 # ADR-010 — Deployment: a job-based pipeline on AWS, a static site, a small hot database
 
-**Status:** accepted 2026-10-11. AWS; a job-based backend with thorough logging; SQLite-in-S3 over RDS; a bounded
-data window (A52); the Spring Boot API dropped (read-only aggregates need no server); Terraform; region eu-north-1 (Stockholm).
-Supersedes the stack in A13 for deployment.
+**Status:** accepted 2026-10-11; built 2026-10-12 (`infra/`, `pipeline/job/`), not deployed yet. AWS; a job-based
+backend with thorough logging; SQLite-in-S3 over RDS; a bounded data window (A52); the Spring Boot API dropped
+(read-only aggregates need no server); Terraform; region eu-north-1 (Stockholm). Supersedes the stack in A13 for
+deployment. How it runs: [ARCHITECTURE.md](../ARCHITECTURE.md); runbook: [DEPLOY.md](../DEPLOY.md).
 
 ## Context
 BasedNews has to serve the public internet on about $25/month (A16), with up to $12 of that for AI. Nothing in it
-needs an always-on server. Data changes when a job runs (ingest hourly, measure weekly), and readers only need
+needs an always-on server. Data changes when a job runs (ingest hourly, judging daily), and readers only need
 aggregates. When a deploy fails, the logs must say which step failed, on which code version, and why.
 
 ## Standard vs explored
@@ -16,7 +17,8 @@ aggregates. When a deploy fails, the logs must say which step failed, on which c
 | data for the site | an API queried per request | precomputed JSON files on a CDN, written by an export job |
 | database | managed Postgres (RDS, ~$15/month, always on) | SQLite file in S3, downloaded by each job, uploaded on success (~$0) |
 | data retention | keep everything | a bounded window: bulky inputs are deleted once processed, verdicts are kept (A52) |
-| failure diagnosis | read the server logs | one execution per run with one step per module, a `runs` row per step, eval gates |
+| failure diagnosis | read the server logs | one execution per run with one step per module, a record per step, eval gates |
+| CI permissions | CI applies the infrastructure | CI ships code only; the maintainer applies by hand (A57) |
 
 ## Decision
 - **Site:** Angular built to static files on S3 + CloudFront, served on CloudFront's own HTTPS address until a domain is bought.
@@ -26,14 +28,14 @@ aggregates. When a deploy fails, the logs must say which step failed, on which c
   runs. They run in a public subnet with no inbound access, so no NAT gateway (~$33/month) is needed.
 - **Orchestration:** EventBridge Scheduler starts Step Functions:
   - hourly: ingest → normalize → embed → stories;
-  - weekly: measure → aggregate → export → CloudFront invalidation.
+  - daily (rolling, A58): measure → export → CloudFront invalidation; feed check; retention.
 
-  Step Functions runs one execution at a time, so the SQLite file has a single writer; the upload is also conditional
-  on the version that was downloaded (A55). The backfill takes its turn in the same queue.
+  The jobs are separate state machines, so a lock object in S3 makes them take turns, and the upload is conditional
+  on the version that was downloaded (A55). The backfill takes its turn the same way.
 - **Storage:**
   - the hot SQLite database in a private S3 bucket, versioned, with old versions expired;
-  - backups and run reports in the same private bucket;
-  - the call-log archive (A51) in cold storage.
+  - step records (`runs/`) and the monthly Parquet lake (`lake/`, A52) in the same private bucket;
+  - the call-log archive (A51) moves into the lake once its month closes.
 - **Secrets:** the OpenAI key in SSM Parameter Store, handed to the task at start, never stored in the image.
 - **Failure → fix:**
   - the image is tagged with its git commit, and every run records it;
@@ -41,16 +43,22 @@ aggregates. When a deploy fails, the logs must say which step failed, on which c
     (`job_runs`, and as JSON in the private bucket even when the step fails; built 2026-10-12, A53);
   - each step's module eval is a gate, so bad data stops the run and the site keeps its last good data;
   - logs are structured JSON in CloudWatch;
-  - a failed execution or a spend alarm sends an email; AWS Budgets and the OpenAI hard limit back the spend caps (A48).
+  - a failed execution sends an email; AWS Budgets, a kill switch and OpenAI's reload limit back the spend caps (A48).
 - **Region:** eu-north-1 (Stockholm). Exception: the TLS certificate for CloudFront must be issued in us-east-1, an
   AWS requirement.
 - **Delivery:**
-  - Terraform for every AWS resource; its state in a versioned private S3 bucket with locking;
-  - GitHub Actions: tests on every push; on main, build the image, push it to ECR, deploy the site and apply the
-    infrastructure;
-  - AWS access through OIDC, with no stored keys.
-- **Browser payload budget:** each view loads under about 100 kB compressed. The current animation files (0.6–1.3 MB)
-  must be slimmed or split per country before launch.
+  - Terraform for every AWS resource (`infra/`); its state in a versioned private S3 bucket with S3-native locking;
+  - GitHub Actions: tests, the image, the site build and the Terraform checks on every push; on main, push the image
+    to ECR and deploy the site; on pull requests, a read-only `terraform plan`;
+  - **changed 2026-10-12 (A57): CI never applies infrastructure.** The maintainer applies by hand, so no CI role can
+    change IAM, buckets or schedules;
+  - AWS access through OIDC, with no stored keys; two narrow roles (deploy, plan).
+- **Built 2026-10-12** (`infra/`, not yet applied): Fargate on arm64 (Graviton, ≈ 20 % cheaper, the same
+  architecture as the maintainer's Mac); four jobs (refresh hourly; feed check, judge (measure → export → cache
+  invalidation) and maintenance daily, A58); schedules created switched off; a lock object in S3 so jobs never overlap (A55); a
+  kill-switch budget ($15) whose Lambda switches every schedule off (A48).
+- **Browser payload budget:** each view loads under about 100 kB compressed. Done 2026-10-12: the animation files
+  are rounded (67 kB and 27 kB gzip), the latest fit is ≈ 3 kB.
 
 ## Decisions 2026-10-11 (round 2)
 - **Principle: keep it free until free does not work.** Every paid upgrade has a named trigger:
@@ -77,7 +85,7 @@ aggregates. When a deploy fails, the logs must say which step failed, on which c
   Airflow.
 
 ## Consequences
-- Cost: about $3–5/month for AWS, plus AI spend up to the cap.
+- Cost: about $2.50/month for AWS (estimate, README → Costs), plus AI spend up to the cap.
 - Locally, docker compose runs the same image against a local file, so a job can be reproduced exactly.
 - SQLite-in-S3 holds while the hot database stays small (about 0.5 GB with A52) and jobs run one at a time. If either
   breaks, the move to Postgres is contained behind `pipeline/store.py` (A18).

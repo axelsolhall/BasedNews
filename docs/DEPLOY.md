@@ -1,96 +1,122 @@
 # Deploy runbook
 
-How BasedNews goes from a laptop to a public HTTPS site on AWS. Design and costs: [ADR-010](decisions/ADR-010-deployment.md).
-Principle: free until free doesn't work. Expected cost ≈ $4–7/month plus AI spend (capped).
+How BasedNews goes from a laptop to a public HTTPS site on AWS, and how to run it afterwards. How the parts fit
+together: [ARCHITECTURE.md](ARCHITECTURE.md). Decisions: [ADR-010](decisions/ADR-010-deployment.md).
+Principle: free until free doesn't work. Expected cost ≈ $2.50 a month for AWS plus ≤ $4.80 of AI (README, Costs).
 
 ---
 
-## Step 1 — accounts and tools (the maintainer, ≈ 1–1.5 h, no code needed)
+## Step 1 — accounts and tools (the maintainer)
 
-**1.1 OpenAI**
-- [x] Prepaid credits with auto-reload capped by a **$10 monthly reload limit** — the provider-side cap behind A48
-      (checked 2026-10-12).
-- [ ] On deploy day: a separate project + key for production (`basednews-prod`), so the local and production keys
-      can be revoked independently. Created then and typed straight into SSM (step 3.2).
-
-**1.2 AWS account** (personal email and card) — done 2026-10-12 (existing personal account)
-- [x] Sign up at aws.amazon.com. New accounts get starter credits — check the current free-tier terms when signing up.
-- [x] Root user: **turn on MFA right away**, then stop using root.
-- [x] IAM Identity Center (region **eu-north-1**, single-Region instance, no KMS key): enable it, create your user, give it the `AdministratorAccess`
-      permission set on this account. All CLI work uses this user, never root.
-- [x] Billing: turn on Cost Explorer and create an **AWS Budget**: monthly cost budget of $10, email at 80 % actual and
-      100 % forecast.
-
-**1.3 Tools on the Mac**
-- [x] `brew install awscli` and `brew tap hashicorp/tap && brew install hashicorp/tap/terraform`
-- [x] Docker Desktop (free for personal use) or OrbStack, to build and run the job image locally.
-- [x] `aws configure sso` → profile name `basednews`, region `eu-north-1`; check with
-      `aws sts get-caller-identity --profile basednews`.
-
-**1.4 Domain** — deferred 2026-10-12: launch on the free CloudFront address (`https://<id>.cloudfront.net`); add a
-  domain later without other changes.
-- [ ] Later: pick a name and register it in Route 53 (Registered domains → Register). Price depends on the ending (.com is
-      roughly $15/year); registration creates the hosted zone ($0.50/month). Confirm the verification email.
-
-**1.5 Grafana Cloud** (free tier)
-- [ ] Create an account and a stack in an EU region.
-- [ ] Create an access-policy token that can write metrics, logs and traces; note the **OTLP endpoint** and
-      **instance ID**. Keep the token out of the repo (step 3.2).
-
-**1.6 GitHub**
-- [ ] Push the current work. The `ci` workflow (tests, lint, site build) runs on every push to `main`; check that the
-      Actions tab is green.
+| | Item | State |
+|---|---|---|
+| 1.1 | OpenAI: prepaid credits, auto-reload capped at **$10 a month** (the provider-side cap behind A48) | ✅ 2026-10-12 |
+| 1.1 | OpenAI: a separate project `basednews-prod` and key, made on deploy day and typed straight into SSM (step 3.2) | on deploy day |
+| 1.2 | AWS: root MFA; IAM Identity Center in eu-north-1 (single-Region, no KMS key) with an `AdministratorAccess` user; Cost Explorer; a $10 budget emailing at 85 % / 100 % | ✅ 2026-10-12 |
+| 1.3 | Tools: AWS CLI, Terraform, Docker Desktop; `aws configure sso` → profile `basednews`, region `eu-north-1` | ✅ 2026-10-12 |
+| 1.4 | Domain: deferred; the site launches on `https://<id>.cloudfront.net` | later |
+| 1.5 | Grafana Cloud (free tier) stack + an OTLP token, for 2.8 | later |
+| 1.6 | GitHub: push; the `ci` run (tests, image, site, Terraform checks) is green | each push |
 
 ---
 
 ## Step 2 — what gets built (Claude, once the BACKLOG items are marked `executable: yes`)
 
-No AWS is needed for 2.1–2.5; each comes with its own check.
-
 | # | Piece | Check | State |
 |---|---|---|---|
-| 2.1 | Job runner `pipeline.job <step\|job>`: a `job_runs` record per step (commit, counts, gate numbers, error), JSON-line logs, the module eval as a gate (A53) | unit tests; a failing gate stops the run | ✅ 2026-10-12 |
-| 2.2 | Export step: positions → JSON for the site (< 100 kB per view); slim the animation files | payload size check; site renders from the export | ✅ 2026-10-12 (2.6 kB; animations 67 kB) |
-| 2.3 | Retention (A52) + monthly Parquet history | dry-run report; refit from kept tables reproduces positions | ✅ 2026-10-12 |
-| 2.4 | Dockerfile + docker compose (the same image runs locally) | `docker compose run --rm job list`; CI builds the image | ✅ 2026-10-12 (built and run locally) |
-| 2.5 | SQLite-in-S3 wrapper: download → run → upload on success, single writer (A55) | tests against a fake bucket and a fake S3 client | ✅ 2026-10-12 |
-| 2.6 | Terraform `infra/bootstrap` (state bucket, GitHub OIDC role) and `infra/main` (S3 + CloudFront on its default address, ECR, ECS + task definitions, Step Functions, EventBridge schedules, SSM, CloudWatch alarms, Budgets) | `terraform plan` is clean; checkov/tflint in CI |
-| 2.7 | CI deploy: image → ECR, site → S3, `terraform plan` on pull requests | the workflow runs green |
-| 2.8 | OpenTelemetry from the job runner to Grafana | one trace per run, one span per step |
+| 2.1 | Job runner `pipeline.job <step\|job>`: a record per step, JSON-line logs, the module's eval as a gate (A53) | unit tests; a failing gate stops the run | ✅ 2026-10-12 |
+| 2.2 | Export: positions → JSON for the site (< 100 kB per view); slimmer animation files | payload check; the site renders it | ✅ 2026-10-12 |
+| 2.3 | Retention (A52) + monthly Parquet history | dry-run report; a refit from the kept tables reproduces positions | ✅ 2026-10-12 |
+| 2.4 | Dockerfile + docker compose (the same image locally) | `docker compose run --rm job list`; CI builds it | ✅ 2026-10-12 |
+| 2.5 | SQLite-in-S3: lock → download → run → upload on success, single writer (A55) | tests on a fake bucket and a fake S3 client | ✅ 2026-10-12 |
+| 2.6 | Terraform: `infra/bootstrap` (state bucket), `infra/main` (S3 + CloudFront, ECR, ECS Fargate arm64, Step Functions, schedules created off, alarms → email, kill switch, GitHub OIDC roles) | `validate`; a read-only `plan` (58 resources); AWS's validator on the four job definitions; checkov clean | ✅ 2026-10-12, not applied |
+| 2.7 | CI deploy: image → ECR, site → S3, `terraform plan` on pull requests; never `apply` (A57) | green runs; the deploy steps wait for the repository variables | ✅ 2026-10-12 |
+| 2.8 | OpenTelemetry from the job runner to Grafana | a trace per run, a span per step | not started |
 
 ---
 
-## Step 3 — first deploy (together)
+## Step 3 — first deploy (together, ≈ 45 min)
 
-1. `terraform -chdir=infra/bootstrap apply` → state bucket and the role GitHub Actions uses (no stored AWS keys).
-2. **Secrets, typed by the maintainer in the AWS console** (Systems Manager → Parameter Store → SecureString), not in
-   a shell, so they never land in shell history: `/basednews/openai_api_key`, `/basednews/grafana_otlp_token`.
-3. `terraform -chdir=infra/main plan`, read it, then `apply`.
-4. Upload the current hot database to the private bucket (one time, never overwrites):
-   `BASEDNEWS_STATE=s3://<private-bucket>/prod AWS_PROFILE=basednews uv run python -m pipeline.job push-db`.
-5. Push to `main` → CI builds the image into ECR and the site into S3.
-6. Start one **refresh-only** run by hand in Step Functions (no paid steps). Read the `runs` rows and the Grafana
-   trace.
-7. Open the CloudFront address over HTTPS.
-8. Turn on the schedules: hourly refresh; weekly measure with a budget — **the measure schedule needs the maintainer's
-   go**, because it spends money.
+Run from the repo root after `aws sso login --profile basednews`. Everything is created with the schedules **off**.
 
-## What the job container gets (task definition, 2.6)
+1. **State bucket** (once):
+   ```bash
+   AWS_PROFILE=basednews terraform -chdir=infra/bootstrap init
+   AWS_PROFILE=basednews terraform -chdir=infra/bootstrap apply
+   ```
+2. **OpenAI key for production, typed in the console** (never in a shell or chat): platform.openai.com → project
+   `basednews-prod` → new secret key → AWS console → Systems Manager → Parameter Store → Create parameter
+   `/basednews/openai_api_key`, type **SecureString**, paste.
+3. **Infrastructure:** copy `infra/main/terraform.tfvars.example` to `terraform.tfvars` (git-ignored) and set
+   `alert_email`. Then:
+   ```bash
+   AWS_PROFILE=basednews terraform -chdir=infra/main init \
+     -backend-config="bucket=$(terraform -chdir=infra/bootstrap output -raw state_bucket)"
+   AWS_PROFILE=basednews terraform -chdir=infra/main plan     # read it: ≈ 58 to add, nothing changed or destroyed
+   AWS_PROFILE=basednews terraform -chdir=infra/main apply
+   ```
+   Confirm the two subscription emails from AWS (alerts, kill switch).
+4. **GitHub variables:** `terraform -chdir=infra/main output github_variables` → GitHub → Settings → Secrets and
+   variables → Actions → **Variables** → add the six. None is secret.
+5. **Push to main** → CI pushes the image (`:<commit>` and `:prod`) and uploads the site. Check the Actions run.
+6. **Seed the database** (once, never overwrites):
+   ```bash
+   BASEDNEWS_STATE=$(terraform -chdir=infra/main output -raw state_url) AWS_PROFILE=basednews \
+     uv run python -m pipeline.job push-db
+   ```
+7. **One refresh by hand** (embeddings ≈ $0.01): Step Functions → `basednews-refresh` → Start execution (or the CLI
+   line under "Run a job now" below). Read the four step records and the logs (see "What ran").
+8. **Open the site:** `terraform -chdir=infra/main output site_url`.
+9. **Schedules on:** in `terraform.tfvars`, then `apply`:
+   - `refresh_enabled = true`: hourly data and the daily feed check;
+   - `judge_enabled = true`: spends up to `daily_budget_usd` ($0.15) a day — **needs the maintainer's go**;
+   - `maintenance_enabled` (retention `--apply`) and `publish_positions` (A54) are separate decisions.
+
+---
+
+## Running it (day two onwards)
+
+Set once per shell: `export AWS_PROFILE=basednews` and
+`P=$(terraform -chdir=infra/main output -raw state_url)` (the private bucket's `prod/` prefix).
+
+| Task | How |
+|---|---|
+| **Run a job now** | `aws stepfunctions start-execution --state-machine-arn $(terraform -chdir=infra/main output -json state_machines \| jq -r .refresh)` (`refresh`, `feeds`, `judge`, `maintenance`) |
+| **What ran, what failed** | `aws s3 ls $P/runs/` → `aws s3 cp $P/runs/<execution>/<step>.json -` (commit, counts, gate numbers, error, traceback) |
+| **The logs of a run** | CloudWatch → Logs Insights → `/basednews/jobs`: `fields @timestamp, step, event, status, error \| filter run_id = "<execution>" \| sort @timestamp` |
+| **Production data, locally** | `aws s3 cp $P/db/basednews.sqlite /tmp/prod.sqlite` then `BASEDNEWS_DB=/tmp/prod.sqlite uv run python -m pipeline.job history` (a copy; nothing goes back) |
+| **Ship code** | push to main: CI moves `:prod`; the next task runs it. Every record names its commit |
+| **Change infrastructure** | edit `infra/`, open a pull request (CI shows the plan), merge, then `terraform apply` by hand (A57) |
+| **A job on or off, a budget** | `*_enabled`, `daily_budget_usd` in `terraform.tfvars` → `apply` |
+| **Roll the database back** | schedules off first; S3 console → `prod/db/basednews.sqlite` → Versions → restore an earlier one (≈ 1 day of versions are kept) |
+| **Rotate the OpenAI key** | new key in OpenAI → overwrite `/basednews/openai_api_key` in Parameter Store → the next task uses it → revoke the old key |
+| **Query the history lake** | `aws s3 sync $P/lake data/lake-prod`, then `uv run --with duckdb python -c "import duckdb; print(duckdb.sql(\"select count(*) from read_parquet('data/lake-prod/judge_calls/*/*.parquet', hive_partitioning=true)\"))"` |
+| **Check the bill** | Cost Explorer, grouped by service; compare with README → Costs |
+
+## What the job container gets (task definition)
 | Variable | Value | Why |
 |---|---|---|
-| `BASEDNEWS_STATE` | `s3://<private-bucket>/prod` | the database, step records (`runs/`) and the lake (`lake/`) |
+| `BASEDNEWS_STATE` | `s3://<private-bucket>/prod` | the database, step records (`runs/`), the lake (`lake/`) and the lock |
 | `BASEDNEWS_SITE_BUCKET` | `s3://<site-bucket>/data` | where the export's JSON goes |
-| `BASEDNEWS_PUBLISH_POSITIONS` | unset, or `1` | A54: the maintainer decides whether the latest fit is public |
-| `BASEDNEWS_RUN_BUDGET_USD` | e.g. `1` (weekly job only) | a paid step refuses to run without it (A48) |
+| `BASEDNEWS_PUBLISH_POSITIONS` | `0` or `1` | A54: whether the latest fit is public |
+| `BASEDNEWS_RUN_BUDGET_USD` | `0.15` (judge job only) | a paid step refuses to run without it (A48) |
 | `OPENAI_API_KEY` | from SSM `/basednews/openai_api_key` | never in the image or the task definition's plain text |
 | `BASEDNEWS_COMMIT` | baked into the image at build | every record names the code version |
 
-The command is `<step> --run-id <execution name>`; exit codes: 0 ok · 1 step failed · 2 gate failed · 3 refused
-(configuration) · 4 the stored database changed meanwhile.
+The command is `<step> --run-id <execution name>`. Exit codes: 0 ok · 1 step failed · 2 gate failed · 3 refused
+(configuration) · 4 the stored database changed meanwhile · 5 another job held the lock for 45 minutes (A55).
 
 ## When something fails
-1. Step Functions console → the failed execution shows which step failed, with a link to its logs.
-2. The step's record (`runs/<run_id>/<step>.json` in the private bucket, also for failed steps) has the commit, the
-   counts before and after, the gate's numbers and the error with its traceback. Locally:
-   `uv run python -m pipeline.job history`.
-3. Fix, push (CI deploys the new image), and re-run the execution.
+1. The alarm email names the job. Step Functions console → the failed execution shows the step, with a link to its
+   logs.
+2. The step's record (`runs/<execution>/<step>.json`, written also when the step fails) has the commit, the counts
+   before and after, the gate's numbers and the error with its traceback. The stored database is unchanged, so the
+   site still shows the last good data.
+3. Fix, push (CI ships the new image), and start the job again. Failure modes and what each one does:
+   [ARCHITECTURE.md → When something breaks](ARCHITECTURE.md#when-something-breaks).
+
+## When the money brake fires
+If the month's AWS cost passes `killswitch_usd` ($15), the kill-switch Lambda switches every schedule off and the
+budget emails the maintainer. Nothing is deleted. Find the cause in Cost Explorer, then `terraform apply` turns the
+schedules back on. The $10 console budget warns before that; OpenAI's reload limit and the app's monthly cap (A48)
+limit AI spend separately.

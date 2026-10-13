@@ -4,14 +4,16 @@
     uv run python -m pipeline.measure.run --judge simulated --max-calls 300   # full loop, no key, no spend
     uv run python -m pipeline.measure.run --budget-usd 1                  # real: OpenAI judge, stops at $1
 
-Candidates: one article per outlet per story (latest 2.3 run), pairs across outlets, like with like — both full text
-or both the outlet's own summary (A21), both news or both opinion (A43); same headline + text pairs are known ties
-(A44); a story pair already judged is never bought again. Each call asks both axes (A31) with the order randomised (A04).
+Candidates: one article per outlet per story (latest 2.3 run), judged as they appear: a later article that joins a story
+only adds new pairs (A58; `--settle-hours` can hold back articles younger than N hours) — pairs across outlets, like with
+like — both full text or both the outlet's own summary (A21), both news or both opinion (A43); same headline + text pairs
+are known ties (A44); a story pair already judged is never bought again. Each call asks both axes (A31) with the order randomised (A04).
 After every batch the posterior is refitted (3.3) from all judgments of the current prompt version.
 """
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import uuid
 from collections import Counter, defaultdict
 
@@ -33,23 +35,27 @@ from pipeline.sources.registry import load_outlets, reference_groups
 A_FULL, A_SUMMARY = 1.0, 0.6                  # A30: sharpness of a full-text vs summary comparison (to be estimated, M7)
 PRIOR_RELEVANCE = {"econ": 0.5, "social": 0.8}  # A32: P(story has an angle on the axis) before any verdicts
 PROMPT_OVERHEAD_TOKENS, OUTPUT_TOKENS = 450, 250   # measured 2026-10-11, prompt v3: ~210 out (reasoning "low")
+SETTLE_HOURS = 0    # A58: judge pairs as they appear (a dial: e.g. 96 holds back articles younger than 4 days)
 
 
 def tokens(text: str) -> int:
     return len(text) // 4 + 1
 
 
-def load_items(conn):
+def load_items(conn, settle_hours: float = 0, now: dt.datetime | None = None):
+    """Latest story run → {story: {outlet: article}}. With settle_hours, only articles at least that old (A58)."""
+    cutoff = ((now or dt.datetime.now(dt.UTC)) - dt.timedelta(hours=settle_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
     run = store.latest_event_run(conn)
     rows = conn.execute("""SELECT e.event_id, a.id, a.outlet_id, a.title, a.summary, a.full_text, a.genre, a.published
                            FROM event_members e JOIN articles a ON a.id = e.article_id
                            WHERE e.run_id = ? AND a.canonical_id IS NULL AND a.kind IS NULL""", (run,)).fetchall()
-    ev = defaultdict(dict)
+    ev, n_all = defaultdict(dict), len(rows)
+    rows = [r for r in rows if settle_hours <= 0 or (r["published"] or "9") <= cutoff]   # ISO strings compare in time order
     for r in rows:
         ev[r["event_id"]].setdefault(r["outlet_id"], r)        # one article per outlet per story
     hist = store.headline_history(conn, [r["id"] for r in rows])
     ties = {frozenset((t["a"], t["b"])) for t in conn.execute("SELECT a, b FROM same_text_pairs WHERE run_id = ?", (run,))}
-    return run, ev, hist, ties
+    return run, ev, hist, ties, {"articles": n_all, "settled": len(rows)}
 
 
 def judged_pairs(conn, purpose="measure") -> set[frozenset]:
@@ -65,8 +71,9 @@ def rendered(art, hist, kind: str) -> str:
     return render_article(versions, body or "", outlet_id=art["outlet_id"])
 
 
-def candidates(conn, settings, relevance, purpose="measure", countries=None) -> tuple[list[Candidate], dict]:
-    run, ev, hist, ties = load_items(conn)
+def candidates(conn, settings, relevance, purpose="measure", countries=None, settle_hours: float = SETTLE_HOURS,
+               now: dt.datetime | None = None) -> tuple[list[Candidate], dict]:
+    run, ev, hist, ties, stats = load_items(conn, settle_hours, now)
     done = judged_pairs(conn, purpose)
     country = {o.id: o.country for o in load_outlets()}
     pin, pout = settings.price(settings.judge_model)
@@ -90,7 +97,7 @@ def candidates(conn, settings, relevance, purpose="measure", countries=None) -> 
                                   discrimination=disc, relevance=(relevance["econ"], relevance["social"]))
                     cands.append(c)
                     texts[(c.event_id, a["id"])], texts[(c.event_id, b["id"])] = ta, tb
-    return cands, {"run": run, "texts": texts}
+    return cands, {"run": run, "texts": texts, **stats}
 
 
 def fit(conn, outlet_ids, purpose="measure", hyper=None):
@@ -181,6 +188,7 @@ def main():
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--countries", default="", help='only pairs where both outlets are in these countries, e.g. "United States,United Kingdom"')
     ap.add_argument("--workers", type=int, default=6, help="parallel judge calls within a batch")
+    ap.add_argument("--settle-hours", type=float, default=SETTLE_HOURS, help="judge only articles at least this old (A58)")
     args = ap.parse_args()
     settings = load_settings()
     countries = {c.strip() for c in args.countries.split(",") if c.strip()}
@@ -190,12 +198,13 @@ def main():
     rng = np.random.default_rng(args.seed)
     purpose = "measure" if args.judge == "openai" else "simulation"     # simulated verdicts never mix with real ones
 
-    cands, ctx = candidates(conn, settings, relevance_so_far(conn, purpose), purpose, countries)
+    cands, ctx = candidates(conn, settings, relevance_so_far(conn, purpose), purpose, countries, args.settle_hours)
     outlet_ids = sorted({c.outlet_a for c in cands} | {c.outlet_b for c in cands} | {o for g in groups.values() for o in g})
     groups = {c: {o: w for o, w in g.items() if o in outlet_ids} for c, g in groups.items()}
     posts, n_obs = fit(conn, outlet_ids, purpose)
     hyper = best_hyper(posts)
-    print(f"story run {ctx['run']} · {len(cands):,} candidate comparisons ({sum(c.event_id.endswith(':full') for c in cands):,}"
+    held = f" · {ctx['settled']:,} of {ctx['articles']:,} articles ≥ {args.settle_hours:g} h old (A58)" if args.settle_hours else ""
+    print(f"story run {ctx['run']}{held} · {len(cands):,} candidate comparisons ({sum(c.event_id.endswith(':full') for c in cands):,}"
           f" full text) · {n_obs} verdicts so far (prompt {P.PROMPT_VERSION}) · judge {args.judge}"
           f"{' ' + settings.judge_model if args.judge == 'openai' else ''}")
 
@@ -204,6 +213,8 @@ def main():
                                groups=groups, rng=rng)
         by_ev = {(c.event_id, frozenset((c.outlet_a, c.outlet_b))): c for c in cands}
         est = [by_ev[(r.event_id, frozenset((r.first_outlet, r.second_outlet)))].cost for r in reqs]
+        if not reqs:
+            print("nothing to judge: no settled story has an unjudged pair (A58)"); return
         r0 = reqs[0]
         print(f"\nfirst planned call ({r0.event_id}, {r0.first_outlet} vs {r0.second_outlet}):\n")
         for m in P.messages(ctx["texts"][(r0.event_id, r0.first_article_id)], ctx["texts"][(r0.event_id, r0.second_article_id)]):

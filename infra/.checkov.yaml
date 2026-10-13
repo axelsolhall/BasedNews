@@ -1,0 +1,38 @@
+# Checkov for infra/ (CI and locally: uvx checkov -d infra --config-file infra/.checkov.yaml).
+# Every skip is a deliberate trade-off under "free until free doesn't work" (ADR-010), not an oversight.
+framework: [terraform]
+compact: true
+quiet: true
+skip-check:
+  # customer-managed KMS keys ($1/month each): SSE-S3 / AWS-managed encryption is used instead; nothing here needs key-level access control
+  - CKV_AWS_145   # S3 KMS by default
+  - CKV_AWS_136   # ECR KMS
+  - CKV_AWS_158   # log group KMS
+  - CKV_AWS_297   # Scheduler CMK
+  - CKV_AWS_173   # Lambda env encryption (the only variable is a schedule group name)
+  - CKV_AWS_26    # SNS encryption: budgets and CloudWatch alarms can only publish to a CMK-encrypted topic; alerts carry no data
+  # paid observability: job records (runs/), container logs and Step Functions' own 90-day history cover diagnosis
+  - CKV_AWS_65    # ECS container insights
+  - CKV_AWS_50    # Lambda X-Ray
+  - CKV_AWS_284   # Step Functions X-Ray
+  - CKV_AWS_285   # Step Functions logging to CloudWatch
+  - CKV_AWS_18    # S3 access logs
+  - CKV_AWS_86    # CloudFront access logs (revisit for visitor numbers)
+  - CKV2_AWS_62   # S3 event notifications
+  - CKV_AWS_338   # 1-year log retention (30 days, the A52 window)
+  # a static site with no forms or logins
+  - CKV_AWS_68    # WAF ($5+/month)
+  - CKV2_AWS_47   # WAF Log4j rule
+  - CKV_AWS_374   # geo restriction (the site is public on purpose)
+  - CKV_AWS_310   # origin failover
+  # waits for a domain: the default *.cloudfront.net certificate cannot set a TLS minimum or use ACM
+  - CKV_AWS_174
+  - CKV2_AWS_42
+  # by design
+  - CKV_AWS_51    # mutable ECR tag: CI moves `prod`; every image also carries its commit tag and every record its commit (A57)
+  - CKV_AWS_144   # cross-region replication: versioning in one region is the backup for a small personal project
+  - CKV_AWS_117   # Lambda in a VPC would need a NAT gateway (~$33/month)
+  - CKV_AWS_116   # Lambda DLQ: the budget also emails the maintainer directly
+  - CKV_AWS_115   # Lambda reserved concurrency: new accounts cannot reserve below the 10-unreserved minimum
+  - CKV_AWS_272   # Lambda code signing
+  - CKV2_AWS_5    # false positive: the security group is attached by Step Functions at run time

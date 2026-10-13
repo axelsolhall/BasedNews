@@ -87,3 +87,4 @@ backend/target/
 *.tfvars
 !*.tfvars.example
 crash.log
+infra/main/.build/

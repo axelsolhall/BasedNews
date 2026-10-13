@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars (git-ignored) and fill in.
+alert_email = "you@example.com"
+# refresh_enabled     = true   # hourly data + daily feed check (embeddings ≈ $0.01/day)
+# judge_enabled       = true   # daily judging, paid: needs the maintainer's go
+# daily_budget_usd    = "0.15" # ≈ $4.5 a month
+# maintenance_enabled = true   # retention --apply (deletes old text after archiving)
+# publish_positions   = true   # A54

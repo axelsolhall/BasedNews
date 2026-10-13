@@ -99,7 +99,9 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
 - **Depends:** M4, M5.
 - **Test:** M5 eval on labelled cross-country pairs.
 - **If wrong:** swap model (e.g. multilingual-e5) via config; re-run M4–M5.
-- **Status:** accepted (2026-10-11)
+- **Status:** accepted (2026-10-11); **superseded 2026-10-12** as the active model by OpenAI `text-embedding-3-small@512`
+  (A56, ADR-011). On the unbiased pooled test (E7b) MiniLM was good but behind (AUC 0.925 vs 0.965); it stays as the
+  local baseline.
 
 ### A13 — Stack: Python pipeline · Postgres(+pgvector) · Spring Boot API · Angular SSR
 - **Why:** matches the existing repo and familiar tooling.
@@ -343,7 +345,8 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   weighting by how long each version was live (we rarely know when a version ended).
 - **Test:** M5 eval once headline histories are common (today 25 articles have one).
 - **If wrong:** change `mean_vectors` / `version_texts` in one file.
-- **Status:** accepted for MiniLM (2026-10-11); revisit at the OpenAI embedding switch (A45) — its long context removes the reason for averaging
+- **Status:** accepted for MiniLM (2026-10-11); kept for OpenAI (2026-10-12) — its 8,000-token context removes the reason
+  for averaging, so concatenating the versions is an option to measure with E7b's pooled set (BACKLOG)
 
 ### A36 — The judge sees the latest headline plus the earlier versions with timestamps (capped at 6)
 - **Why:** headline edits are framing evidence, and two outlets may be compared at different stages of the same story;
@@ -465,8 +468,11 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
 - **Embeddings (2.1, 2.2):** an OpenAI multilingual embedding model replaces MiniLM. Every similarity threshold was
   calibrated on MiniLM (2.3 story 0.6; 2.1 wall 0.15, same-story guard 0.5, summary link 0.6, title link 0.75), so the
   switch re-runs the 2.1/2.2/2.3 evals on the 200 labelled pairs and recalibrates; MiniLM stays as the measured baseline.
-- **Keys:** OPENAI_API_KEY in `.env` (untracked; added by hand). Spend cap set in the OpenAI dashboard.
-- **Status:** accepted 2026-10-11
+- **Keys:** OPENAI_API_KEY in `.env` (untracked; added by hand); in production in SSM Parameter Store. Provider-side
+  cap: prepaid credits with a $10 monthly reload limit (checked 2026-10-12).
+- **Embeddings switched 2026-10-12** after E7/E7b: `text-embedding-3-small` at 512 dimensions (A56, ADR-011); the 2.3
+  story threshold is 0.56 (E7b's pre-registered rule), the 2.1 thresholds quantile-mapped (A47).
+- **Status:** accepted 2026-10-11; embeddings done 2026-10-12
 
 ### A46 — The judge protocol: one call answers both axes from the text alone; the prompt is versioned (v4 active)
 - **Rule** (`pipeline/judge/prompt.py`, `client.py`): system prompt defines the axes and forbids using knowledge about
@@ -520,7 +526,10 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   model without a profile refuses to run 2.1/2.3. `pipeline.embed.calibrate` sets the 2.3 story threshold at the
   baseline's precision on the labelled pairs (best recall) and maps each 2.1 threshold by interpolated quantile on the
   same texts (exact identity when the model is unchanged — tested).
-- **Status:** open (OpenAI profile pending the key)
+- **Lesson (E7, E7b, F2):** the labelled pairs used for the story threshold were chosen with MiniLM, so they favour it.
+  The OpenAI story threshold (0.56) comes from E7b's blind pooled set instead; the 2.1 thresholds come from quantile
+  mapping, which uses no labels.
+- **Status:** done for `openai:text-embedding-3-small@512` (2026-10-12)
 
 ### A48 — AI spend is capped per run and per month from our own usage log
 - **Rule:** every embedding and judge call logs tokens and cost (`api_usage`, prices in `pipeline/settings.py`, checked
@@ -529,7 +538,11 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   dashboard — the log is our cap, the dashboard is the provider's.
 - **Measured (dry run):** ≈ $0.0012 per call on gpt-5.4-mini; all 8,477 candidate comparisons of a week ≈ $12.6 —
   the planner buys the informative ones first, so a few dollars a week should go far (E1–E3, exploratory).
-- **Status:** open
+- **Layers since 2026-10-12:** (1) per run: `--budget-usd`, and a paid job step refuses to start without one (A53's
+  runner); (2) per month: the usage log, now also checked by the embedding encoder before every paid batch (A56);
+  (3) provider: OpenAI prepaid credits with a $10 monthly reload limit; (4) AWS: a $10 budget email and a $15 kill
+  switch that turns every schedule off (infra/main/alerts.tf). In production the judge runs daily with $0.15 (A58).
+- **Status:** open (the layers are built; the monthly numbers are checked after a month of production)
 
 ### A49 — An outlet is measured over its articles: one article's verdicts are not independent evidence
 - **Found (E4c, 2026-10-11):** NYT's 23 decisive social verdicts came from 9 articles, one used in 10; Fox's 21 from 8,
@@ -658,7 +671,10 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
 - **Status:** open — the maintainer decides before the first deploy (VERIFY.md)
 
 ### A55 — One writer at a time for the SQLite file in S3 (2026-10-12)
-- **Rule:** Step Functions runs one execution at a time (the queue of ADR-010). As a second guard the upload is
+- **Rule:** the four jobs are separate state machines, so they could overlap (a daily judge run and the
+  hourly refresh). Each job therefore takes a lock object (`db/LOCK`, created only if absent) before it downloads the
+  database and releases it after its uploads; a second job waits up to 45 minutes, then exits 5; a lock older than
+  3 hours (a dead task) is taken over. As a second guard the upload is
   conditional: S3 accepts it only if the stored object is still the version the step downloaded (If-Match on the
   ETag); otherwise the step exits 4 and nothing is overwritten. The WAL is folded into the file and `quick_check` must
   pass before the upload; the first upload (`push-db`) never overwrites. S3 versioning keeps earlier versions.
@@ -668,4 +684,31 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   fake client. Not yet run against real S3 (first deploy, VERIFY.md).
 - **If wrong:** if jobs must run in parallel or the file passes ~1 GB, move to Postgres behind `store.py` (ADR-010).
 - **Status:** open (first real check at the first deploy)
+
+### A57 — CI deploys code but never changes infrastructure (2026-10-12)
+- **Rule:** GitHub Actions assumes one of two OIDC roles. `deploy` (main branch only) may push to the one ECR
+  repository, write the site bucket except `data/` (denied explicitly), and invalidate the CloudFront cache. `plan`
+  (pull requests) is read-only and is denied the private bucket's objects and the secrets. `terraform apply` is run
+  by the maintainer with their own admin login.
+- **Why:** a role that can apply Terraform can do anything in the account. Keeping apply manual means a compromised
+  workflow or dependency can at worst ship a bad image or page, which the next push replaces.
+- **Depends:** `infra/main/github.tf`, `.github/workflows/ci.yml`, ADR-010 (changed: it said CI applies).
+- **Test:** after step 3, a pull request shows a plan; a push to main deploys; the deploy role cannot delete `data/`.
+- **If wrong:** if manual applies become a bottleneck, add a protected-environment apply job with required approval.
+- **Status:** accepted (design); first real check at the first deploy
+
+### A58 — Story pairs are judged daily as they appear; nothing waits for a calendar week (2026-10-12)
+- **Rule:** every job rolls: vectors each hour as articles arrive, stories re-grouped each hour over the last 7 days,
+  and the judge runs daily on the latest story run with a daily budget. A story is not held back until it "settles":
+  when another outlet covers it later, its article joins the story in the next hourly run and only adds **new** pairs;
+  pairs already judged are never bought again.
+- **Why:** the maintainer's call (2026-10-12). A first design held a story back until its newest article was 4 days
+  old, but a big ongoing story keeps getting articles and would never be judged; settling per article fixed that but
+  delayed every position by days for no gain in what is bought.
+- **Dial:** `pipeline.measure.run --settle-hours N` (default 0, `SETTLE_HOURS`) holds back articles younger than N
+  hours, so the planner chooses from a fuller pool at the cost of freshness. Tested in `tests/test_settled.py`.
+- **Depends:** 2.3 (hourly re-grouping, 72 h max gap), 3 (judged pairs are never re-bought), the `judge` schedule.
+- **If wrong:** if judging early buys clearly worse pairs (for example most of a story's pairs come a day later), set
+  the dial to 24–96 h; one number.
+- **Status:** accepted 2026-10-12
 
