@@ -81,6 +81,12 @@ uncertainty, drawn as change graphs. Today every verdict is pooled into one fit.
     for production; never select by agreement with expected positions.
   - Cost: ≈ 1.4 M input tokens per round (10 prompts × 100 pairs × 2 orders); cut losers early (successive halving).
 
+## Open — coverage: Europe and North America (proposal: docs/decisions/proposal-more-countries.md)
+- [ ] Decide scope, order, judge budget and the reference-tier rule outside DNR — needs the maintainer
+- [ ] Story clustering that scales past ≈15k articles per window (≈34k at 41 countries needs ≈4.6 GB today) — executable: no
+- [ ] Phase 1: DNR-covered countries — sources, feeds, robots/TDM checks, a small judge eval per new language (paid) — executable: no
+- [ ] Phase 2: countries outside DNR, once A29 has a rule for them — executable: no
+
 ## Open — site (4 · Serve)
 - [ ] Choose the oval multiplier k for the public site (A25) — needs the maintainer
 - [ ] Country positions and the origin from the reference tier only (`reference_groups`) once real positions are public — executable: no

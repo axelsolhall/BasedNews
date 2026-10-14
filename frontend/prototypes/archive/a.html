@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BasedNews · A · Instrument</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#0d1117; --panel:#151b23; --line:#263040; --text:#e6edf3; --muted:#8b98a9; --accent:#5eb1ff; }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: auto; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:Inter, system-ui, sans-serif; }
+  header { position:sticky; top:0; z-index:10; display:flex; align-items:center; justify-content:space-between;
+           padding:14px 28px; background:rgba(13,17,23,.82); backdrop-filter:blur(10px); border-bottom:1px solid var(--line); }
+  .brand { font-weight:700; letter-spacing:.2px; font-size:18px; }
+  .brand span { color:var(--accent); }
+  nav { position:relative; display:flex; gap:4px; padding:5px; background:#0b0f15; border:1px solid var(--line); border-radius:999px; }
+  nav a { position:relative; z-index:1; padding:8px 16px; border-radius:999px; font-size:14px; font-weight:600;
+          text-decoration:none; color:var(--muted); transition:color .2s; }
+  nav .pill { position:absolute; z-index:0; border-radius:999px; }
+  .demo { font:600 11px "JetBrains Mono", monospace; color:#ffb454; border:1px solid #ffb45455; padding:4px 8px; border-radius:6px; }
+  section { padding:28px; }
+  #explore { min-height:calc(100vh - 66px); display:grid; grid-template-columns: 1.35fr 1fr; grid-template-rows: 1fr auto; gap:16px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:14px; position:relative; overflow:hidden; }
+  .card h3 { margin:0; padding:14px 16px 0; font-size:13px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+  #plane { position:absolute; inset:38px 8px 8px; }
+  #map { position:absolute; inset:38px 8px 8px; }
+  .crumb { position:absolute; top:10px; right:14px; font-size:13px; color:var(--muted); }
+  .crumb button { background:none; border:1px solid var(--line); color:var(--text); border-radius:999px; padding:4px 10px; cursor:pointer; }
+  .timeline { grid-column:1 / -1; display:flex; align-items:center; gap:16px; padding:14px 18px; }
+  .timeline button { width:38px; height:38px; border-radius:50%; border:none; background:var(--accent); color:#06121f; font-size:15px; cursor:pointer; }
+  .timeline button[data-state=playing]::after { content:"❚❚"; } .timeline button:not([data-state=playing])::after { content:"▶"; }
+  .timeline input { flex:1; accent-color:var(--accent); }
+  .timeline [data-month] { font:600 15px "JetBrains Mono", monospace; min-width:92px; text-align:right; }
+  .text { max-width:760px; margin:0 auto; padding:80px 28px; line-height:1.65; color:#c8d1db; }
+  .text h2 { color:var(--text); font-size:30px; margin:0 0 18px; }
+  .steps { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:22px; }
+  .steps div { background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  .steps b { color:var(--accent); font-family:"JetBrains Mono", monospace; }
+  footer { padding:40px 28px; color:var(--muted); font-size:13px; text-align:center; border-top:1px solid var(--line); }
+  @media (max-width: 900px) { #explore { grid-template-columns:1fr; grid-template-rows: 70vh 50vh auto; } nav a { padding:7px 10px; font-size:13px; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand">Based<span>News</span></div>
+  <nav id="nav">
+    <div class="pill"></div>
+    <a data-target="explore" href="#explore">Explore</a>
+    <a data-target="how" href="#how">How it works</a>
+    <a data-target="method" href="#method">Method</a>
+    <a data-target="open" href="#open">Open data</a>
+    <a data-target="about" href="#about">About</a>
+  </nav>
+  <span class="demo">DEMO DATA</span>
+</header>
+
+<section id="explore">
+  <div class="card"><h3 id="plane-title">National media, by country</h3>
+    <div class="crumb" id="crumb" hidden><button id="back">← World</button></div>
+    <div id="plane"></div></div>
+  <div class="card"><h3>Countries</h3><div id="map"></div></div>
+  <div class="card timeline" id="slider">
+    <button data-play aria-label="Play"></button>
+    <input type="range" aria-label="Time">
+    <span data-month></span>
+  </div>
+</section>
+
+<section id="how"><div class="text">
+  <h2>How it works</h2>
+  <p>Every hour BasedNews reads the news feeds of 73 outlets in 10 countries and groups articles that report the same
+     story, across languages. An AI judge then compares two articles about the same story at a time — which framing
+     leans further left or right, more liberal or conservative — and a Bayesian model turns thousands of those
+     comparisons into a position for every outlet, with an honest uncertainty.</p>
+  <div class="steps">
+    <div><b>01 Collect</b><br>RSS from the five largest news brands per country, plus extras. Robots.txt and opt-outs respected.</div>
+    <div><b>02 Match</b><br>Articles about the same event are grouped across languages with multilingual embeddings.</div>
+    <div><b>03 Compare</b><br>The judge sees two articles side by side, never the outlet's name, and picks one per axis.</div>
+    <div><b>04 Rate</b><br>A hierarchical Bradley–Terry model places outlets over their articles, with ovals of uncertainty.</div>
+  </div>
+</div></section>
+
+<section id="method"><div class="text">
+  <h2>Method</h2>
+  <p><b>Everything is relative.</b> The centre of the map is the average of the reference outlets, not a political
+     centre. A country is the average of its five largest news brands. Inside a country view the centre is that
+     country's own reference outlets; extra outlets are shown hollow.</p>
+  <p><b>Ovals are uncertainty.</b> A large oval means few comparisons so far. Trails show where a dot has been: the
+     lighter the line, the longer ago.</p>
+  <p><b>What is measured:</b> how the same event is framed — not which stories an outlet chooses to cover.</p>
+</div></section>
+
+<section id="open"><div class="text">
+  <h2>Open data</h2>
+  <p>The code, the prompts, every assumption and every experiment are public. Article text is never published:
+     the site shows aggregates only. Running costs: about $3 a month for hosting and up to $5 for the AI judge.</p>
+</div></section>
+
+<section id="about"><div class="text">
+  <h2>About</h2>
+  <p>BasedNews is an open-source project by Axel Solhall. These pages are a design prototype: the movements shown are
+     simulated demo data, not measurements.</p>
+</div></section>
+<footer>Prototype A · Instrument · demo data</footer>
+
+<script type="module">
+  import { loadData, Plane, WorldMap, PillNav, connect } from "../common.js";
+  const data = await loadData();
+  const plane = new Plane(document.getElementById("plane"), data, { textColor:"#e6edf3", axisColor:"#5b6878", frameColor:"#263040", bg:"#151b23", trail: 30 });
+  const map = await new WorldMap(document.getElementById("map"), data, { land:"#232c38", border:"#0d1117", focus: true }).init();
+  const ui = connect({ plane, map, slider: document.getElementById("slider"), onMode: (c) => {
+    document.getElementById("crumb").hidden = !c;
+    document.getElementById("plane-title").textContent = c ? `${c.name} — national media (centre = its reference outlets)` : "National media, by country";
+  }});
+  document.getElementById("back").onclick = () => ui.open(null);
+  new PillNav(document.getElementById("nav"), { color:"#5eb1ff", hillColor:"#1e3a5c", onColor:"#06121f", offColor:"#8b98a9" });
+</script>
+</body>
+</html>

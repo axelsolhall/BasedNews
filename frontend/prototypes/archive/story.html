@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BasedNews · 3 · Story</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../paper.css">
+<style>
+  /* the story: the map page is pinned while numbered cards scroll past and drive it; the last screen is free */
+  .scrolly { position:relative; }
+  .stage { position:sticky; top:var(--barh); background:var(--paper); }
+  .chapters { position:relative; z-index:5; margin-top:calc(-1 * (100dvh - var(--barh))); pointer-events:none; }
+  .chapter { min-height:95vh; display:flex; align-items:flex-end; justify-content:flex-end; padding:0 56px 16vh; }
+  .chapter.tall { min-height:300vh; align-items:flex-start; }
+  .chapter.tall .card { position:sticky; top:calc(100vh - 16vh - 230px); }
+  .chapter-end { height:calc(100dvh - var(--barh)); }
+  .card { pointer-events:auto; width:min(420px, 36vw); background:var(--paper); border:1.5px solid var(--ink);
+          box-shadow:7px 7px 0 var(--ink); padding:20px 24px 16px; position:relative; }
+  .card .no { position:absolute; top:-18px; left:18px; background:var(--accent); color:#fff; font:700 15px Fraunces, serif;
+              width:34px; height:34px; border-radius:50%; display:grid; place-items:center; }
+  .card h3 { font:700 25px/1.15 Fraunces, serif; margin:6px 0 8px; }
+  .card p { font-size:15.5px; line-height:1.6; margin:0 0 8px; }
+  .card .when { font:700 30px Fraunces, serif; color:var(--accent); margin:6px 0 0; }
+  .progress { position:fixed; left:0; top:var(--barh); height:3px; background:var(--accent); z-index:19; width:0; }
+  @media (max-width: 900px) { .chapter { padding:0 16px 10vh; } .card { width:100%; } .stage { position:relative; top:0; } }
+</style>
+</head>
+<body>
+<header class="mast" id="mast">
+  <a data-part="logo" class="logo" href="#explore">BasedNews</a>
+  <p data-part="tagline" class="tagline">Where each country's news leans · and how sure we are</p>
+  <div data-part="rule" class="rule"><i></i><i></i></div>
+  <a data-part="brand" class="brand" href="#explore">BasedNews</a>
+  <nav data-part="nav" id="nav">
+    <div class="pill"></div>
+    <a data-target="explore" data-anchor="front" href="#explore">The map</a>
+    <a data-target="how" href="#how">How it works</a>
+    <a data-target="method" href="#method">Method</a>
+    <a data-target="about" href="#about">About</a>
+  </nav>
+  <div data-part="dateline" class="dateline">Tuesday 13 October 2026<b>DEMO DATA</b></div>
+  <div data-part="barline" class="barline"></div>
+</header>
+<div class="mast-space"></div>
+<div class="progress" id="progress"></div>
+
+<section id="explore">
+  <div class="intro">
+    <p class="lede">An AI reads <em>the same story</em> in 73 newsrooms across 10 countries, compares how each one frames it,
+      and places every outlet on a map — with an oval for how sure it is.</p>
+    <span class="demo">Prototype · movements are simulated demo data</span>
+  </div>
+  <div class="scrolly">
+  <div id="front" class="stage">
+    <div class="main">
+      <div class="kicker">The plane <b id="plane-title">Countries, relative to each other</b></div>
+      <button id="back" hidden>← All countries</button>
+      <div id="plane"></div>
+    </div>
+    <div class="side">
+      <div class="kicker">The atlas <b>Pick a country</b></div>
+      <div id="map"></div>
+      <div class="index" id="index"></div>
+    </div>
+    <div class="ruler" id="slider">
+      <button data-play aria-label="Play"></button>
+      <div class="track"><input type="range" aria-label="Time"><div class="ticks" data-ticks></div></div>
+      <span data-month></span>
+    </div>
+  </div>
+    <div class="chapters">
+      <div class="chapter" data-ch="start"><div class="card"><span class="no">1</span>
+        <h3>2016: ten countries' news</h3>
+        <p>Each dot is a country — the average of its five largest news brands — placed by how they frame the same events.</p></div></div>
+      <div class="chapter tall" data-ch="drift"><div class="card"><span class="no">2</span>
+        <h3>Ten years of drift</h3>
+        <p>Keep scrolling: time runs with you. Each dot drags its history behind it like a string.</p>
+        <p class="when" id="when"></p></div></div>
+      <div class="chapter" data-ch="country"><div class="card"><span class="no">3</span>
+        <h3>Inside Sweden</h3>
+        <p>Open a country and its own outlets appear, centred on its five largest brands. Ovals show how sure the model is.</p></div></div>
+      <div class="chapter" data-ch="hollow"><div class="card"><span class="no">4</span>
+        <h3>The hollow dot</h3>
+        <p>Smaller outlets are measured too, and drawn hollow: they do not move the centre.</p></div></div>
+      <div class="chapter" data-ch="free"><div class="card"><span class="no">5</span>
+        <h3>Your turn</h3>
+        <p>Pick any country on the map or in the list, or drag the timeline. Hover a dot to follow it.</p></div></div>
+      <div class="chapter-end"></div>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="how">
+  <div class="no">01</div>
+  <div>
+    <h2>How it works</h2>
+    <p>Every hour BasedNews reads the feeds of the five largest news brands in each of ten countries, plus a few more,
+       and compares how they report the same events.</p>
+    <div class="steps">
+      <div><b>Collect</b>News feeds from 73 outlets, every hour. Robots.txt and opt-outs respected.</div>
+      <div><b>Match</b>Articles about the same event are grouped, whatever their language.</div>
+      <div><b>Compare</b>An AI judge sees two articles side by side — never the outlets' names — and picks per axis.</div>
+      <div><b>Place</b>A Bayesian model turns thousands of verdicts into positions, with ovals of uncertainty.</div>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="method">
+  <div class="no">02</div>
+  <div>
+    <h2>Method</h2>
+    <p>Positions are relative. The centre is the average of the reference outlets, not a political centre. Open a country
+       and its own five largest brands become the centre; its other outlets are drawn hollow.</p>
+    <p>What is measured is framing of the same event, not which stories an outlet chooses to cover. All prompts,
+       assumptions and experiments are public, and article text is never republished.</p>
+  </div>
+</section>
+
+<section class="page" id="about">
+  <div class="no">03</div>
+  <div>
+    <h2>About</h2>
+    <p>An open-source project by Axel Solhall. This page is a design prototype; the movements are simulated, not measured.</p>
+    <p>Hosting costs about three dollars a month.</p>
+    <footer>Prototype round 4 · 3 · Story</footer>
+  </div>
+</section>
+
+<script type="module">
+  import { start } from "../paper.js";
+  import { monthLabel } from "../common.js";
+  const ctx = await start();
+  const { ui, plane, data, slider } = ctx;
+  const n = data.months.length - 1;
+  const chapters = [...document.querySelectorAll(".chapter")];
+  const extra = data.national.Sweden.find((o) => o.tier !== "reference");
+  let active = null;
+
+  // the chapter under the reading line drives the stage; the drift chapter maps its scroll to time
+  function onScroll() {
+    const line = innerHeight * 0.6;
+    let ch = null, u = 0;
+    for (const c of chapters) {
+      const r = c.getBoundingClientRect();
+      if (r.top <= line && r.bottom > line) { ch = c.dataset.ch; u = (line - r.top) / r.height; }
+    }
+    const first = chapters[0].getBoundingClientRect().top > line;      // still in the intro: show the start
+    if (first) ch = "start";
+    const lastBottom = chapters[chapters.length - 1].getBoundingClientRect().bottom;
+    if (!ch && lastBottom <= line) ch = "free";
+    if (ch === "drift") {
+      if (active !== "drift") { ui.open(null); plane.highlight(null); }
+      const t = Math.min(n, Math.max(0, u * 1.15 * n));
+      slider.set(t);
+      document.getElementById("when").textContent = monthLabel(data.months[Math.round(t)]);
+    } else if (ch && ch !== active) {
+      if (ch === "start") { ui.open(null); slider.set(0); }
+      if (ch === "country") { ui.open("Sweden"); slider.set(n); plane.highlight(null); }
+      if (ch === "hollow") { if (plane.country !== "Sweden") ui.open("Sweden"); slider.set(n); plane.highlight(extra.id); }
+      if (ch === "free" && active !== null) { ui.open(null); slider.set(n); plane.highlight(null); }
+    }
+    active = ch;
+    const sc = document.querySelector(".scrolly").getBoundingClientRect();
+    const prog = Math.max(0, Math.min(1, -sc.top / (sc.height - innerHeight)));
+    document.getElementById("progress").style.width = `${100 * prog}%`;
+  }
+  addEventListener("scroll", onScroll, { passive: true });
+  onScroll();
+</script>
+</body>
+</html>

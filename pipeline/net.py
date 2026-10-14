@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 import urllib.error
 import urllib.request
 import urllib.robotparser
@@ -9,6 +10,15 @@ from functools import lru_cache
 from urllib.parse import quote, urlparse, urlsplit, urlunsplit
 
 USER_AGENT = "BasedNewsBot/0.2 (+https://github.com/axelsolhall/BasedNews)"
+
+# BASEDNEWS_IPV4=1: resolve to IPv4 only. On a network whose IPv6 route is broken (seen on the maintainer's home
+# connection, 2026-10-14) every request otherwise waits ~30 s for the IPv6 attempt to time out — 35 s vs 3.4 s for one
+# archive query. Off by default; production is unaffected.
+if os.environ.get("BASEDNEWS_IPV4") == "1":
+    import socket
+
+    _getaddrinfo = socket.getaddrinfo
+    socket.getaddrinfo = lambda *a, **k: [r for r in _getaddrinfo(*a, **k) if r[0] == socket.AF_INET]
 
 
 def iri_to_uri(url: str) -> str:

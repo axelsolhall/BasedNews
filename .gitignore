@@ -38,6 +38,8 @@ data/*
 !data/outlets_template.json
 # outlet registry: names, feed URLs, DNR reach
 !data/outlets.json
+# history crawl list: the 5 reference outlets of each of 41 countries
+!data/history_outlets.json
 # outlet self-references used to blind the judge
 !data/outlet_aliases.json
 # similarity thresholds per embedding model
@@ -88,3 +90,6 @@ backend/target/
 !*.tfvars.example
 crash.log
 infra/main/.build/
+
+# --- Design prototypes: real judge outputs stay local until publishing examples is decided --------------------
+frontend/prototypes/judgments.json

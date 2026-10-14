@@ -4,6 +4,7 @@ from __future__ import annotations
 import html
 import json
 import re
+import threading
 
 import trafilatura
 
@@ -16,6 +17,11 @@ _TAG = re.compile(r"</?[a-zA-Z][^<>]*>")          # a real tag starts with a let
 _ENTITY = re.compile(r"&(#\d+;?|#x[0-9a-fA-F]+;?|[a-zA-Z]+;)")    # numeric refs may lack the ';' (taz icons)
 _PRIVATE_USE = re.compile("[\ue000-\uf8ff]")                       # icon-font glyphs, not text
 _CMS_TOKEN = re.compile(r"\[\[ge:[^\]]*\]\]")                        # Libero/Kolumbus embed markers
+
+
+# trafilatura parses with lxml/libxml2, which crashed the production refresh when six ingest threads parsed at once
+# (2026-10-14: "double free or corruption", exit 133, 26 s into ingest). Downloads stay parallel; parsing is serialised.
+_PARSE = threading.Lock()
 
 
 def strip_html(value: str) -> str:
@@ -103,8 +109,9 @@ def text_from_html(html: str) -> tuple[str | None, str]:
     t = jsonld_body(html)
     if t and not looks_like_markup(t):
         return t, "jsonld"
-    t = clean_text(trafilatura.extract(html, output_format="txt", include_comments=False,
-                                       include_tables=False, favor_precision=True))
+    with _PARSE:                                             # one parse at a time, see _PARSE
+        t = clean_text(trafilatura.extract(html, output_format="txt", include_comments=False,
+                                           include_tables=False, favor_precision=True))
     if t and not looks_like_markup(t):
         return t, "trafilatura"
     return None, "none"

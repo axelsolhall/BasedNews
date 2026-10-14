@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BasedNews · B · Broadsheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --paper:#f6f2ea; --ink:#1b1a17; --muted:#6f6a60; --rule:#d9d1c3; --accent:#a3271f; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:"IBM Plex Sans", system-ui, sans-serif; }
+  .masthead { text-align:center; padding:34px 20px 18px; border-bottom:3px double var(--ink); margin:0 40px; }
+  .masthead h1 { font-family:Fraunces, Georgia, serif; font-weight:900; font-size:64px; letter-spacing:-1.5px; margin:0; }
+  .masthead p { margin:6px 0 0; color:var(--muted); font-size:14px; letter-spacing:.06em; text-transform:uppercase; }
+  .navwrap { position:sticky; top:0; z-index:10; display:flex; justify-content:center; padding:12px 0;
+             background:linear-gradient(var(--paper) 80%, transparent); }
+  nav { position:relative; display:flex; gap:2px; padding:4px; border:1.5px solid var(--ink); border-radius:999px; background:var(--paper); }
+  nav a { position:relative; z-index:1; padding:7px 16px; border-radius:999px; text-decoration:none; font-weight:600; font-size:14px; }
+  nav .pill { position:absolute; z-index:0; border-radius:999px; }
+  .lede { max-width:820px; margin:18px auto 8px; padding:0 24px; font-family:Fraunces, serif; font-size:24px; line-height:1.4; text-align:center; }
+  .lede em { color:var(--accent); font-style:normal; }
+  .demo { display:block; text-align:center; font-size:12px; color:var(--accent); letter-spacing:.08em; text-transform:uppercase; margin-bottom:10px; }
+  #explore { padding:10px 40px 40px; }
+  figure { margin:0; display:grid; grid-template-columns:1.4fr 1fr; gap:0; border-top:1px solid var(--ink); border-bottom:1px solid var(--ink); }
+  .panel { position:relative; height:min(68vh, 640px); }
+  .panel + .panel { border-left:1px solid var(--rule); }
+  .panel .kicker { position:absolute; top:12px; left:14px; z-index:2; font-size:12px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .panel .kicker b { color:var(--ink); font-family:Fraunces, serif; font-size:18px; text-transform:none; letter-spacing:0; display:block; }
+  #back { position:absolute; top:12px; right:14px; z-index:2; border:1px solid var(--ink); background:var(--paper); border-radius:999px; padding:5px 12px; cursor:pointer; font-weight:600; }
+  #plane, #map { position:absolute; inset:46px 10px 10px; }
+  .ruler { display:flex; align-items:center; gap:14px; padding:14px 4px; }
+  .ruler button { border:1.5px solid var(--ink); background:var(--paper); width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:13px; }
+  .ruler button[data-state=playing]::after { content:"❚❚"; } .ruler button:not([data-state=playing])::after { content:"▶"; }
+  .ruler input { flex:1; accent-color:var(--accent); }
+  .ruler [data-month] { font-family:Fraunces, serif; font-size:22px; min-width:120px; text-align:right; }
+  figcaption { color:var(--muted); font-size:13px; padding:6px 0 0; }
+  article { max-width:1080px; margin:0 auto; padding:70px 40px; border-top:1px solid var(--rule); }
+  article h2 { font-family:Fraunces, serif; font-size:40px; margin:0 0 14px; }
+  .cols { columns:2; column-gap:44px; line-height:1.7; font-size:16.5px; }
+  .cols p:first-child::first-letter { font-family:Fraunces, serif; float:left; font-size:58px; line-height:.9; padding:4px 8px 0 0; }
+  footer { text-align:center; padding:40px; color:var(--muted); font-size:13px; border-top:3px double var(--ink); margin:0 40px; }
+  @media (max-width: 900px) { figure { grid-template-columns:1fr; } .panel + .panel { border-left:none; border-top:1px solid var(--rule); } .cols { columns:1; } .masthead h1 { font-size:44px; } }
+</style>
+</head>
+<body>
+<div class="masthead">
+  <h1>BasedNews</h1>
+  <p>Where each country's news leans · and how sure we are</p>
+</div>
+<div class="navwrap">
+  <nav id="nav">
+    <div class="pill"></div>
+    <a data-target="explore" href="#explore">The map</a>
+    <a data-target="how" href="#how">How it works</a>
+    <a data-target="method" href="#method">Method</a>
+    <a data-target="about" href="#about">About</a>
+  </nav>
+</div>
+<p class="lede">An AI reads <em>the same story</em> in 73 newsrooms across 10 countries, compares how each one frames it, and
+  places every outlet on a map — with an oval for how sure it is.</p>
+<span class="demo">Prototype · movements are simulated demo data</span>
+
+<section id="explore">
+  <figure>
+    <div class="panel">
+      <div class="kicker">The plane <b id="plane-title">Countries, relative to each other</b></div>
+      <button id="back" hidden>← All countries</button>
+      <div id="plane"></div>
+    </div>
+    <div class="panel">
+      <div class="kicker">The atlas <b>Pick a country</b></div>
+      <div id="map"></div>
+    </div>
+  </figure>
+  <div class="ruler" id="slider">
+    <button data-play aria-label="Play"></button>
+    <input type="range" aria-label="Time">
+    <span data-month></span>
+  </div>
+  <figcaption>Dots are today's positions; the fading line behind each dot is where it has been. Ovals show uncertainty.</figcaption>
+</section>
+
+<article id="how">
+  <h2>How it works</h2>
+  <div class="cols">
+    <p>Every hour BasedNews reads the feeds of the five largest news brands in each of ten countries, plus a few
+       more. Articles that report the same event are grouped together, whatever their language.</p>
+    <p>An AI judge is then shown two articles about the same event — never the outlets' names — and asked which
+       one frames it further to the left or right, and which more liberally or conservatively. It does this
+       thousands of times, choosing the comparisons that teach it the most per cent spent.</p>
+    <p>A Bayesian model turns those verdicts into a position for every outlet. Because each outlet is measured over
+       many articles, a single unusual piece cannot decide where it lands.</p>
+  </div>
+</article>
+
+<article id="method">
+  <h2>Method</h2>
+  <div class="cols">
+    <p>Positions are relative. The centre of the map is the average of the reference outlets, not a political
+       centre. Open a country and its own reference outlets become the centre, with the smaller outlets around them.</p>
+    <p>What is measured is framing of the same event, not which stories an outlet chooses to cover. All prompts,
+       assumptions and experiments are public, and article text is never republished.</p>
+  </div>
+</article>
+
+<article id="about">
+  <h2>About</h2>
+  <div class="cols"><p>An open-source project by Axel Solhall. This page is a design prototype; the movements are
+    simulated, not measured.</p><p>Hosting costs about three dollars a month.</p></div>
+</article>
+<footer>Prototype B · Broadsheet</footer>
+
+<script type="module">
+  import { loadData, Plane, WorldMap, PillNav, connect } from "../common.js";
+  const ink = ["#a3271f", "#1d4e89", "#2f7d4f", "#c47f17", "#6b3fa0", "#0f7c80", "#b6487f", "#5b5b5b", "#8a5a2b", "#3c6e9f"];
+  const data = await loadData("../demo-trends.json", ink);
+  const plane = new Plane(document.getElementById("plane"), data, { textColor:"#1b1a17", axisColor:"#9a9284", frameColor:"#d9d1c3", bg:"#f6f2ea", trail: 36, trailWidth: 2 });
+  const map = await new WorldMap(document.getElementById("map"), data, { land:"#e3dccf", border:"#f6f2ea", focus:true }).init();
+  const ui = connect({ plane, map, slider: document.getElementById("slider"), onMode: (c) => {
+    document.getElementById("back").hidden = !c;
+    document.getElementById("plane-title").textContent = c ? `${c.name}: its national media` : "Countries, relative to each other";
+  }});
+  document.getElementById("back").onclick = () => ui.open(null);
+  new PillNav(document.getElementById("nav"), { color:"#1b1a17", hillColor:"#cfc6b6", onColor:"#f6f2ea", offColor:"#1b1a17" });
+</script>
+</body>
+</html>

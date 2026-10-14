@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BasedNews · 2 · Dossier</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../paper.css">
+<style>
+  /* the dossier: the right column is a table of the dots, with where each one sits and the shape of its path */
+  .dossier { gap:8px; }
+  .dhead small { display:block; color:var(--muted); font-size:13px; line-height:1.45; margin-top:6px; max-width:440px; }
+  .dossier #map { flex:0 0 26%; min-height:120px; }
+  .thead, .row { display:grid; grid-template-columns:1.25fr 1fr 1fr 64px; gap:12px; align-items:center; }
+  .thead { font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); border-bottom:1px solid var(--ink); padding:6px 4px; }
+  .thead em { display:block; font-style:normal; letter-spacing:0; text-transform:none; font-size:10.5px; }
+  .rows { flex:1; min-height:0; overflow:auto; }
+  .row { padding:7px 4px; border-bottom:1px solid var(--rule); cursor:pointer; }
+  .row:hover, .row.hl { background:var(--track); }
+  .row .nm { display:flex; align-items:center; gap:9px; font-weight:600; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row .nm i { width:11px; height:11px; border-radius:50%; flex:none; border:2px solid; }
+  .row .nm small { font-weight:400; color:var(--muted); font-size:11.5px; }
+  .row svg { display:block; width:100%; height:22px; overflow:visible; }
+  .row .glyph svg { height:34px; }
+</style>
+</head>
+<body>
+<header class="mast" id="mast">
+  <a data-part="logo" class="logo" href="#explore">BasedNews</a>
+  <p data-part="tagline" class="tagline">Where each country's news leans · and how sure we are</p>
+  <div data-part="rule" class="rule"><i></i><i></i></div>
+  <a data-part="brand" class="brand" href="#explore">BasedNews</a>
+  <nav data-part="nav" id="nav">
+    <div class="pill"></div>
+    <a data-target="explore" data-anchor="front" href="#explore">The map</a>
+    <a data-target="how" href="#how">How it works</a>
+    <a data-target="method" href="#method">Method</a>
+    <a data-target="about" href="#about">About</a>
+  </nav>
+  <div data-part="dateline" class="dateline">Tuesday 13 October 2026<b>DEMO DATA</b></div>
+  <div data-part="barline" class="barline"></div>
+</header>
+<div class="mast-space"></div>
+
+<section id="explore">
+  <div class="intro">
+    <p class="lede">An AI reads <em>the same story</em> in 73 newsrooms across 10 countries, compares how each one frames it,
+      and places every outlet on a map — with an oval for how sure it is.</p>
+    <span class="demo">Prototype · movements are simulated demo data</span>
+  </div>
+  <div id="front">
+    <div class="main">
+      <div class="kicker">The plane <b id="plane-title">Countries, relative to each other</b></div>
+      <button id="back" hidden>← All countries</button>
+      <div id="plane"></div>
+    </div>
+    <div class="side dossier">
+      <div class="dhead">
+        <div class="kicker" id="side-kicker">The table <b id="side-title">Ten countries, side by side</b></div>
+        <small id="side-sub">Each country is the average of its five largest news brands. Click one to open its dossier.</small>
+      </div>
+      <div id="map"></div>
+      <div class="thead"><span></span><span>Economic<em>← left · right →</em></span><span>Social<em>← lib · cons →</em></span><span>Path<em>since 2016</em></span></div>
+      <div class="rows" id="rows"></div>
+    </div>
+    <div class="ruler" id="slider">
+      <button data-play aria-label="Play"></button>
+      <div class="track"><input type="range" aria-label="Time"><div class="ticks" data-ticks></div></div>
+      <span data-month></span>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="how">
+  <div class="no">01</div>
+  <div>
+    <h2>How it works</h2>
+    <p>Every hour BasedNews reads the feeds of the five largest news brands in each of ten countries, plus a few more,
+       and compares how they report the same events.</p>
+    <div class="steps">
+      <div><b>Collect</b>News feeds from 73 outlets, every hour. Robots.txt and opt-outs respected.</div>
+      <div><b>Match</b>Articles about the same event are grouped, whatever their language.</div>
+      <div><b>Compare</b>An AI judge sees two articles side by side — never the outlets' names — and picks per axis.</div>
+      <div><b>Place</b>A Bayesian model turns thousands of verdicts into positions, with ovals of uncertainty.</div>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="method">
+  <div class="no">02</div>
+  <div>
+    <h2>Method</h2>
+    <p>Positions are relative. The centre is the average of the reference outlets, not a political centre. Open a country
+       and its own five largest brands become the centre; its other outlets are drawn hollow.</p>
+    <p>What is measured is framing of the same event, not which stories an outlet chooses to cover. All prompts,
+       assumptions and experiments are public, and article text is never republished.</p>
+  </div>
+</section>
+
+<section class="page" id="about">
+  <div class="no">03</div>
+  <div>
+    <h2>About</h2>
+    <p>An open-source project by Axel Solhall. This page is a design prototype; the movements are simulated, not measured.</p>
+    <p>Hosting costs about three dollars a month.</p>
+    <footer>Prototype round 4 · 2 · Dossier</footer>
+  </div>
+</section>
+
+<script type="module">
+  import { start } from "../paper.js";
+  import { at } from "../common.js";
+  const rows = document.getElementById("rows");
+  let ctx = null, t = 0;
+  const NS = "http://www.w3.org/2000/svg";
+
+  // a strip: the board's current range on one axis, the centre, the dot and its uncertainty
+  function strip(v, sd, lo, hi, color, hollow) {
+    const X = (u) => `${(100 * (u - lo)) / (hi - lo)}%`, c = (u) => Math.max(lo, Math.min(hi, u));
+    return `<svg><line x1="0" x2="100%" y1="11" y2="11" stroke="#d9d1c3"/>` +
+      (lo < 0 && hi > 0 ? `<line x1="${X(0)}" x2="${X(0)}" y1="4" y2="18" stroke="#9a9284" stroke-dasharray="2 2"/>` : "") +
+      `<line x1="${X(c(v - sd))}" x2="${X(c(v + sd))}" y1="11" y2="11" stroke="${color}" stroke-width="5" stroke-opacity=".22" stroke-linecap="round"/>` +
+      `<circle cx="${X(c(v))}" cy="11" r="4.5" fill="${hollow ? "#f6f2ea" : color}" stroke="${color}" stroke-width="2"/></svg>`;
+  }
+  // the shape of a dot's path from the first month to t, scaled to its own box
+  function glyph(sm, t, color) {
+    const pts = [];
+    for (let u = 0; u <= t; u += 0.5) pts.push(at(sm, u));
+    pts.push(at(sm, t));
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    const x0 = Math.min(...xs), y0 = Math.min(...ys), k = Math.min(56 / (Math.max(...xs) - x0 || 1), 28 / (Math.max(...ys) - y0 || 1));
+    const P = (p) => [3 + (p[0] - x0) * k, 31 - (p[1] - y0) * k];
+    const d = pts.map((p, i) => (i ? "L" : "M") + P(p).map((v) => v.toFixed(1)).join(",")).join("");
+    const [ex, ey] = P(pts[pts.length - 1]);
+    return `<svg viewBox="0 0 62 34"><path d="${d}" fill="none" stroke="${color}" stroke-width="1.6" stroke-opacity=".75" stroke-linejoin="round"/>` +
+      `<circle cx="${ex}" cy="${ey}" r="3" fill="${color}"/></svg>`;
+  }
+
+  function build() {
+    const S = ctx.plane.series();
+    rows.innerHTML = "";
+    for (const d of S) {
+      const r = document.createElement("div");
+      r.className = "row"; r.dataset.id = d.id;
+      const hollow = d.tier !== "reference";
+      r.innerHTML = `<div class="nm"><i style="border-color:${d.color};background:${hollow ? "transparent" : d.color}"></i>${d.label}${hollow ? " <small>extra</small>" : ""}</div>` +
+                    `<div class="ex"></div><div class="so"></div><div class="glyph"></div>`;
+      r.onmouseenter = () => { ctx.plane.highlight(d.id); if (ctx.plane.mode === "world") ctx.map.highlight(d.id); r.classList.add("hl"); };
+      r.onmouseleave = () => { ctx.plane.highlight(null); ctx.map.highlight(null); r.classList.remove("hl"); };
+      r.onclick = () => { if (ctx.plane.mode === "world") ctx.ui.open(d.id); };
+      rows.append(r);
+    }
+    update(t);
+  }
+  function update(time) {
+    t = time;
+    if (!ctx || !ctx.plane.goal) return;
+    const [x0, x1, y0, y1] = ctx.plane.goal;
+    for (const d of ctx.plane.series()) {
+      const r = rows.querySelector(`[data-id="${CSS.escape(d.id)}"]`);
+      if (!r) continue;
+      const p = at(d.sm, t), hollow = d.tier !== "reference";
+      r.children[1].innerHTML = strip(p[0], p[2], x0, x1, d.color, hollow);
+      r.children[2].innerHTML = strip(p[1], p[3], y0, y1, d.color, hollow);
+      r.children[3].innerHTML = glyph(d.sm, t, d.color);
+    }
+  }
+
+  ctx = await start({
+    mapZoom: true, index: false,
+    onTime: (k) => update(k),
+    onMode: (c) => {
+      if (!ctx) return;
+      const n = c ? ctx.data.national[c.id] : null;
+      document.getElementById("side-kicker").firstChild.textContent = c ? "The dossier " : "The table ";
+      document.getElementById("side-title").textContent = c ? c.name : "Ten countries, side by side";
+      document.getElementById("side-sub").textContent = c
+        ? `${n.length} outlets: ${n.filter((o) => o.tier === "reference").length} reference (filled), ${n.filter((o) => o.tier !== "reference").length} extra (hollow). The centre is its five largest brands.`
+        : "Each country is the average of its five largest news brands. Click one to open its dossier.";
+      build();
+    },
+  });
+  build();
+  const q = new URLSearchParams(location.search);
+  if (q.get("country")) ctx.ui.open(q.get("country"));
+</script>
+</body>
+</html>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BasedNews · 1 · Front page</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../paper.css">
+</head>
+<body>
+<header class="mast" id="mast">
+  <a data-part="logo" class="logo" href="#explore">BasedNews</a>
+  <p data-part="tagline" class="tagline">Where each country's news leans · and how sure we are</p>
+  <div data-part="rule" class="rule"><i></i><i></i></div>
+  <a data-part="brand" class="brand" href="#explore">BasedNews</a>
+  <nav data-part="nav" id="nav">
+    <div class="pill"></div>
+    <a data-target="explore" data-anchor="front" href="#explore">The map</a>
+    <a data-target="how" href="#how">How it works</a>
+    <a data-target="method" href="#method">Method</a>
+    <a data-target="about" href="#about">About</a>
+  </nav>
+  <div data-part="dateline" class="dateline">Tuesday 13 October 2026<b>DEMO DATA</b></div>
+  <div data-part="barline" class="barline"></div>
+</header>
+<div class="mast-space"></div>
+
+<section id="explore">
+  <div class="intro">
+    <p class="lede">An AI reads <em>the same story</em> in 73 newsrooms across 10 countries, compares how each one frames it,
+      and places every outlet on a map — with an oval for how sure it is.</p>
+    <span class="demo">Prototype · movements are simulated demo data</span>
+  </div>
+  <div id="front">
+    <div class="main">
+      <div class="kicker">The plane <b id="plane-title">Countries, relative to each other</b></div>
+      <button id="back" hidden>← All countries</button>
+      <div id="plane"></div>
+    </div>
+    <div class="side">
+      <div class="kicker">The atlas <b>Pick a country</b></div>
+      <div id="map"></div>
+      <div class="index" id="index"></div>
+    </div>
+    <div class="ruler" id="slider">
+      <button data-play aria-label="Play"></button>
+      <div class="track"><input type="range" aria-label="Time"><div class="ticks" data-ticks></div></div>
+      <span data-month></span>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="how">
+  <div class="no">01</div>
+  <div>
+    <h2>How it works</h2>
+    <p>Every hour BasedNews reads the feeds of the five largest news brands in each of ten countries, plus a few more,
+       and compares how they report the same events.</p>
+    <div class="steps">
+      <div><b>Collect</b>News feeds from 73 outlets, every hour. Robots.txt and opt-outs respected.</div>
+      <div><b>Match</b>Articles about the same event are grouped, whatever their language.</div>
+      <div><b>Compare</b>An AI judge sees two articles side by side — never the outlets' names — and picks per axis.</div>
+      <div><b>Place</b>A Bayesian model turns thousands of verdicts into positions, with ovals of uncertainty.</div>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="method">
+  <div class="no">02</div>
+  <div>
+    <h2>Method</h2>
+    <p>Positions are relative. The centre is the average of the reference outlets, not a political centre. Open a country
+       and its own five largest brands become the centre; its other outlets are drawn hollow.</p>
+    <p>What is measured is framing of the same event, not which stories an outlet chooses to cover. All prompts,
+       assumptions and experiments are public, and article text is never republished.</p>
+  </div>
+</section>
+
+<section class="page" id="about">
+  <div class="no">03</div>
+  <div>
+    <h2>About</h2>
+    <p>An open-source project by Axel Solhall. This page is a design prototype; the movements are simulated, not measured.</p>
+    <p>Hosting costs about three dollars a month.</p>
+    <footer>Prototype round 4 · 1 · Front page</footer>
+  </div>
+</section>
+
+<script type="module">
+  import { start } from "../paper.js";
+  start();
+</script>
+</body>
+</html>

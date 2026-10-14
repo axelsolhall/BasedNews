@@ -712,3 +712,68 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   the dial to 24–96 h; one number.
 - **Status:** accepted 2026-10-12
 
+
+### A59 — The plane shows smoothed history and fits its view to the content, per axis (2026-10-13)
+- **Rule:** each dot drags its whole history (first month → now) as one trail, fading and thinning with age. The
+  monthly series is smoothed for display only (Gaussian, σ = 2 months, Catmull-Rom between months), so trails read as
+  a string, not a random walk. The view is the box around every dot and trail at the chosen time, fitted per axis and
+  eased (no fixed centre); one axis may be zoomed at most 3× the other. Ovals are not part of the fit and fade when
+  their radius passes ~40 px (the less sure, the vaguer). Every page owns one nav item and the page never rests on a
+  border: when scrolling stops with a border on screen it settles on the side of the pill's peak. The same holds for a
+  half-folded masthead (round 3): it settles open or docked.
+- **Why:** the maintainer's design review of round 1 (2026-10-13): trails "should go back to the beginning", be smooth
+  "like dragging a string", and "the board should be fitted to see that in both axis"; the pill "should not allow
+  stopping on the border between two pages".
+- **Depends:** `frontend/prototypes/common.js` (`Plane` options `smooth`, `maxStretch`, `ovalSize`; `PillNav`), A22
+  (monthly positions), A25 (ovals), A26 (origin). Applies to the Angular site once a design is ported.
+- **Test:** `?selftest` on any round-2 page parks the scroll on and off each border and checks where it settles
+  (`body[data-selftest]`, pass on b1/b2/b3 at 1440×900). Smoothing and fit: by eye, `?country=…&t=…`.
+- **If wrong:** smoothing can hide a real sudden shift (an owner change shows as a 4–5-month glide): set `smooth: 0`
+  or lower. A fitted, per-axis view exaggerates small spreads: set `maxStretch: 1` for equal axes, or fit once over
+  all time for a fixed board. All three are single options.
+- **Status:** design prototype, 2026-10-13
+
+### A60 — With dozens of countries, colour means region; judgment examples come from the v2 eval run (2026-10-13)
+- **Rule:** the world plane colours a country by its region (six hues in a fixed order, checked with a colour-blindness
+  validator on the paper colour); a country's identity comes from its label and its table row, and labels that would
+  overlap are hidden until hovered. In a country view the reference outlets take the six hues in order and the extra
+  outlets share one muted ink, drawn hollow. Judgment examples on the site are real judge outputs with reasons from the
+  prompt-v2 eval run (the live prompt v4 gives no reasons), chosen by a fixed rule, shown as outlet, headline, link,
+  verdict and reason (A10).
+- **Why:** the request for "all of Europe and NA" (41 countries) and for examples of judgments (2026-10-13). More than
+  about eight categories cannot each get a hue that people can tell apart; reasons only exist for v1/v2 calls.
+- **Depends:** `frontend/prototypes/paper.js` (`REGION`, `EXTRA`), `common.js` (`placeLabels`, `loadData` options),
+  `make_judgment_examples.py`, `judgments.json` (git-ignored until publishing examples is decided).
+- **Test:** the palette check passes (one adjacent pair in the 6–8 ΔE colour-blind band, legal with labels); examples:
+  `PYTHONPATH=. uv run python frontend/prototypes/make_judgment_examples.py` prints the rule's picks.
+- **If wrong:** v2 reasons may not describe how v4 judges — showing them could mislead. Then either buy reasons for a
+  few v4 calls with `pipeline/judge/diagnose.py` (paid, needs a go) or show v4 verdicts without reasons.
+- **Decision (maintainer, 2026-10-14):** no named judgments on the public site — examples are shown anonymized
+  ("A frames it further left than B, because …"), without outlet names, headlines or links. The prototype's named
+  examples stay local.
+- **Status:** design prototype; anonymized examples decided 2026-10-14
+
+### A61 — Daily history from 2010-01-01 for the five reference outlets of 41 countries, built locally (2026-10-14)
+- **Rule:** the history is daily, 2010-01-01 to today, for the 5 reference outlets of each of the 41 countries
+  (`data/history_outlets.json`, 205 outlets; review table `docs/decisions/history-reference-outlets.md`). It is
+  crawled and judged on the maintainer's own machine, never deployed; only its verdicts and positions are merged into
+  production. Every verdict carries the date of its articles, and positions are fitted per day over all days, so
+  outlets' and countries' paths over time come out directly and history can be filled in after live judging starts.
+- **Why:** the maintainer (2026-10-14): seeing how outlets and countries change from 2010 on is a main point; daily
+  resolution keeps same-story matching valid and paths smooth; deploy within ~3 days, not after a month.
+- **Choices inside (to confirm):** two-language markets split by population (BE 3+2, CH 3+2, CA 4+1); 14 countries
+  without a DNR market use provisional outlets; brands younger than 2010 start when they did.
+- **Depends:** `pipeline/sources/dnr.py`, `pipeline/backfill/coverage.py` (archive days per outlet and year), the backfill
+  (A23, A24 politeness), A22 (dynamic positions), A29 (reference tier), A52 (retention must not delete unjudged text).
+- **Test:** coverage report per outlet and year (`data/history_coverage.json`); the dynamic fit recovers simulated drift.
+- **If wrong:** the outlet list is data; the start date is one parameter; the fetch can densify later (coarse to fine).
+- **Update (maintainer, 2026-10-14, later):** start **2015-11-01** (a year before the 2016 US election), not 2010; the
+  history judge is a **local model on the maintainer's RTX 5080** (after a blind check against gpt-5.4-mini); the 205-outlet
+  list is accepted as drafted; coverage need not be complete — the top stories per country and day are enough if they
+  give pairs.
+- **Sources (researched 2026-10-14):** the Wayback Machine allows ≈15 requests/min and blocks bulk traffic (Sept 2026),
+  so it only fills gaps. GDELT 2.0 records nearly every online article since Feb 2015 with domain, URL, time and
+  English-normalised people/organisations/places/themes (page titles only in later years); probed: 16 of our outlets in
+  one 15-minute file of Nov 2015. Plan: GDELT (BigQuery) to find each country's top stories per day → text from the
+  live article pages (headline + description, parallel across publishers) → local judge → daily fit.
+- **Status:** decided 2026-10-14

@@ -1,0 +1,1441 @@
+{
+ "version": 1,
+ "note": "History crawl list: the 5 reference outlets of each of 41 countries (decided 2026-10-14). Live pipeline outlets stay in outlets.json.",
+ "outlets": [
+  {
+   "id": "nrk",
+   "name": "NRK",
+   "country": "Norway",
+   "homepage": "https://www.nrk.no/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "vg",
+   "name": "VG",
+   "country": "Norway",
+   "homepage": "https://www.vg.no/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "dagbladet",
+   "name": "Dagbladet",
+   "country": "Norway",
+   "homepage": "https://www.dagbladet.no/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "tv2-no",
+   "name": "TV 2",
+   "country": "Norway",
+   "homepage": "https://www.tv2.no/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "nettavisen",
+   "name": "Nettavisen",
+   "country": "Norway",
+   "homepage": "https://www.nettavisen.no/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "svt",
+   "name": "SVT",
+   "country": "Sweden",
+   "homepage": "https://www.svt.se/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "aftonbladet",
+   "name": "Aftonbladet",
+   "country": "Sweden",
+   "homepage": "https://www.aftonbladet.se/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "dn",
+   "name": "Dagens Nyheter",
+   "country": "Sweden",
+   "homepage": "https://www.dn.se/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "expressen",
+   "name": "Expressen",
+   "country": "Sweden",
+   "homepage": "https://www.expressen.se/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "tv4",
+   "name": "TV4 Nyheterna",
+   "country": "Sweden",
+   "homepage": "https://www.tv4.se/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "dr",
+   "name": "DR",
+   "country": "Denmark",
+   "homepage": "https://www.dr.dk/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "tv2-dk",
+   "name": "TV 2 Denmark",
+   "country": "Denmark",
+   "homepage": "https://nyheder.tv2.dk/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "politiken",
+   "name": "Politiken",
+   "country": "Denmark",
+   "homepage": "https://politiken.dk/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "ekstrabladet",
+   "name": "Ekstra Bladet",
+   "country": "Denmark",
+   "homepage": "https://ekstrabladet.dk/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "bt",
+   "name": "B.T.",
+   "country": "Denmark",
+   "homepage": "https://www.bt.dk/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "yle",
+   "name": "Yle",
+   "country": "Finland",
+   "homepage": "https://yle.fi/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "hs",
+   "name": "Helsingin Sanomat",
+   "country": "Finland",
+   "homepage": "https://www.hs.fi/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "is",
+   "name": "Ilta-Sanomat",
+   "country": "Finland",
+   "homepage": "https://www.is.fi/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "iltalehti",
+   "name": "Iltalehti",
+   "country": "Finland",
+   "homepage": "https://www.iltalehti.fi/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "mtv-fi",
+   "name": "MTV Uutiset",
+   "country": "Finland",
+   "homepage": "https://www.mtvuutiset.fi/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "nyt",
+   "name": "The New York Times",
+   "country": "United States",
+   "homepage": "https://www.nytimes.com/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "foxnews",
+   "name": "Fox News",
+   "country": "United States",
+   "homepage": "https://www.foxnews.com/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "politico",
+   "name": "Politico",
+   "country": "United States",
+   "homepage": "https://www.politico.com/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "abcnews",
+   "name": "ABC News",
+   "country": "United States",
+   "homepage": "https://abcnews.go.com/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "nbcnews",
+   "name": "NBC News",
+   "country": "United States",
+   "homepage": "https://www.nbcnews.com/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "bbc",
+   "name": "BBC News",
+   "country": "United Kingdom",
+   "homepage": "https://www.bbc.com/news",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "guardian",
+   "name": "The Guardian",
+   "country": "United Kingdom",
+   "homepage": "https://www.theguardian.com/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "dailymail",
+   "name": "Daily Mail",
+   "country": "United Kingdom",
+   "homepage": "https://www.dailymail.co.uk/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "skynews",
+   "name": "Sky News",
+   "country": "United Kingdom",
+   "homepage": "https://news.sky.com/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "gbnews",
+   "name": "GB News",
+   "country": "United Kingdom",
+   "homepage": "https://www.gbnews.com/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "tagesschau",
+   "name": "tagesschau",
+   "country": "Germany",
+   "homepage": "https://www.tagesschau.de/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "spiegel",
+   "name": "Der Spiegel",
+   "country": "Germany",
+   "homepage": "https://www.spiegel.de/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "tonline",
+   "name": "t-online",
+   "country": "Germany",
+   "homepage": "https://www.t-online.de/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "ntv",
+   "name": "n-tv",
+   "country": "Germany",
+   "homepage": "https://www.n-tv.de/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "bild",
+   "name": "Bild",
+   "country": "Germany",
+   "homepage": "https://www.bild.de/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "lemonde",
+   "name": "Le Monde",
+   "country": "France",
+   "homepage": "https://www.lemonde.fr/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "20minutes-fr",
+   "name": "20 Minutes",
+   "country": "France",
+   "homepage": "https://www.20minutes.fr/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "tf1info",
+   "name": "TF1 Info",
+   "country": "France",
+   "homepage": "https://www.tf1info.fr/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "franceinfo",
+   "name": "franceinfo",
+   "country": "France",
+   "homepage": "https://www.francetvinfo.fr/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "bfmtv",
+   "name": "BFMTV",
+   "country": "France",
+   "homepage": "https://www.bfmtv.com/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "elpais",
+   "name": "El País",
+   "country": "Spain",
+   "homepage": "https://elpais.com/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "elmundo",
+   "name": "El Mundo",
+   "country": "Spain",
+   "homepage": "https://www.elmundo.es/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "eldiario",
+   "name": "elDiario.es",
+   "country": "Spain",
+   "homepage": "https://www.eldiario.es/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "20minutos",
+   "name": "20minutos",
+   "country": "Spain",
+   "homepage": "https://www.20minutos.es/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "okdiario",
+   "name": "OKDiario",
+   "country": "Spain",
+   "homepage": "https://okdiario.com/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "repubblica",
+   "name": "la Repubblica",
+   "country": "Italy",
+   "homepage": "https://www.repubblica.it/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "ansa",
+   "name": "ANSA",
+   "country": "Italy",
+   "homepage": "https://www.ansa.it/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "ilfatto",
+   "name": "Il Fatto Quotidiano",
+   "country": "Italy",
+   "homepage": "https://www.ilfattoquotidiano.it/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "tgcom24",
+   "name": "TgCom24",
+   "country": "Italy",
+   "homepage": "https://www.tgcom24.mediaset.it/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "rainews",
+   "name": "RaiNews",
+   "country": "Italy",
+   "homepage": "https://www.rainews.it/",
+   "source": "registry (DNR 2026, A29)"
+  },
+  {
+   "id": "nu-nl-net",
+   "name": "NU.nl",
+   "country": "Netherlands",
+   "homepage": "https://www.nu.nl/",
+   "source": "DNR 2026 online 44%"
+  },
+  {
+   "id": "nos-net",
+   "name": "NOS",
+   "country": "Netherlands",
+   "homepage": "https://nos.nl/",
+   "source": "DNR 2026 online 34%"
+  },
+  {
+   "id": "ad-net",
+   "name": "AD",
+   "country": "Netherlands",
+   "homepage": "https://www.ad.nl/",
+   "source": "DNR 2026 online 24%"
+  },
+  {
+   "id": "rtl-nieuws-net",
+   "name": "RTL Nieuws",
+   "country": "Netherlands",
+   "homepage": "https://www.rtl.nl/nieuws",
+   "source": "DNR 2026 online 18%"
+  },
+  {
+   "id": "de-telegraaf-net",
+   "name": "De Telegraaf",
+   "country": "Netherlands",
+   "homepage": "https://www.telegraaf.nl/",
+   "source": "DNR 2026 online 16%"
+  },
+  {
+   "id": "het-laatste-nieuws-bel",
+   "name": "Het Laatste Nieuws",
+   "country": "Belgium",
+   "homepage": "https://www.hln.be/",
+   "source": "DNR 2026 online 45%"
+  },
+  {
+   "id": "vrt-nws-bel",
+   "name": "VRT NWS",
+   "country": "Belgium",
+   "homepage": "https://www.vrt.be/vrtnws/nl/",
+   "source": "DNR 2026 online 40%"
+  },
+  {
+   "id": "het-nieuwsblad-bel",
+   "name": "Het Nieuwsblad",
+   "country": "Belgium",
+   "homepage": "https://www.nieuwsblad.be/",
+   "source": "DNR 2026 online 21%"
+  },
+  {
+   "id": "rtl-info-bel",
+   "name": "RTL Info",
+   "country": "Belgium",
+   "homepage": "https://www.rtl.be/info",
+   "source": "DNR 2026 online 30%"
+  },
+  {
+   "id": "rtbf-info-bel",
+   "name": "RTBF Info",
+   "country": "Belgium",
+   "homepage": "https://www.rtbf.be/info",
+   "source": "DNR 2026 online 28%"
+  },
+  {
+   "id": "rte-news-ire",
+   "name": "RTÉ News",
+   "country": "Ireland",
+   "homepage": "https://www.rte.ie/news/",
+   "source": "DNR 2026 online 37%"
+  },
+  {
+   "id": "thejournal-ie-ire",
+   "name": "TheJournal.ie",
+   "country": "Ireland",
+   "homepage": "https://www.thejournal.ie/",
+   "source": "DNR 2026 online 29%"
+  },
+  {
+   "id": "irish-independent-ire",
+   "name": "Irish Independent",
+   "country": "Ireland",
+   "homepage": "https://www.independent.ie/",
+   "source": "DNR 2026 online 23%"
+  },
+  {
+   "id": "breakingnews-ie-ire",
+   "name": "BreakingNews.ie",
+   "country": "Ireland",
+   "homepage": "https://www.breakingnews.ie/",
+   "source": "DNR 2026 online 22%"
+  },
+  {
+   "id": "the-irish-times-ire",
+   "name": "The Irish Times",
+   "country": "Ireland",
+   "homepage": "https://www.irishtimes.com/",
+   "source": "DNR 2026 online 20%"
+  },
+  {
+   "id": "orf-aus",
+   "name": "ORF",
+   "country": "Austria",
+   "homepage": "https://orf.at/",
+   "source": "DNR 2026 online 31%"
+  },
+  {
+   "id": "kronen-zeitung-aus",
+   "name": "Kronen Zeitung",
+   "country": "Austria",
+   "homepage": "https://www.krone.at/",
+   "source": "DNR 2026 online 24%"
+  },
+  {
+   "id": "der-standard-aus",
+   "name": "Der Standard",
+   "country": "Austria",
+   "homepage": "https://www.derstandard.at/",
+   "source": "DNR 2026 online 17%"
+  },
+  {
+   "id": "heute-aus",
+   "name": "Heute",
+   "country": "Austria",
+   "homepage": "https://www.heute.at/",
+   "source": "DNR 2026 online 15%"
+  },
+  {
+   "id": "oe24-aus",
+   "name": "oe24",
+   "country": "Austria",
+   "homepage": "https://www.oe24.at/",
+   "source": "DNR 2026 online 13%"
+  },
+  {
+   "id": "20-minuten-swi",
+   "name": "20 Minuten",
+   "country": "Switzerland",
+   "homepage": "https://www.20min.ch/",
+   "source": "DNR 2026 online 46%"
+  },
+  {
+   "id": "srf-news-swi",
+   "name": "SRF News",
+   "country": "Switzerland",
+   "homepage": "https://www.srf.ch/news",
+   "source": "DNR 2026 online 32%"
+  },
+  {
+   "id": "blick-swi",
+   "name": "Blick",
+   "country": "Switzerland",
+   "homepage": "https://www.blick.ch/",
+   "source": "DNR 2026 online 31%"
+  },
+  {
+   "id": "20-minutes-swi",
+   "name": "20 minutes",
+   "country": "Switzerland",
+   "homepage": "https://www.20min.ch/fr",
+   "source": "DNR 2026 online 51%"
+  },
+  {
+   "id": "rts-info-swi",
+   "name": "RTS Info",
+   "country": "Switzerland",
+   "homepage": "https://www.rts.ch/info/",
+   "source": "DNR 2026 online 35%"
+  },
+  {
+   "id": "sic-noticias-por",
+   "name": "SIC Notícias",
+   "country": "Portugal",
+   "homepage": "https://sicnoticias.pt/",
+   "source": "DNR 2026 online 33%"
+  },
+  {
+   "id": "noticias-ao-minuto-por",
+   "name": "Notícias ao Minuto",
+   "country": "Portugal",
+   "homepage": "https://www.noticiasaominuto.com/",
+   "source": "DNR 2026 online 27%"
+  },
+  {
+   "id": "correio-da-manha-por",
+   "name": "Correio da Manhã",
+   "country": "Portugal",
+   "homepage": "https://www.cmjornal.pt/",
+   "source": "DNR 2026 online 23%"
+  },
+  {
+   "id": "cnn-portugal-por",
+   "name": "CNN Portugal",
+   "country": "Portugal",
+   "homepage": "https://cnnportugal.iol.pt/",
+   "source": "DNR 2026 online 20%"
+  },
+  {
+   "id": "jornal-de-noticias-por",
+   "name": "Jornal de Notícias",
+   "country": "Portugal",
+   "homepage": "https://www.jn.pt/",
+   "source": "DNR 2026 online 19%"
+  },
+  {
+   "id": "newsbomb-gre",
+   "name": "Newsbomb",
+   "country": "Greece",
+   "homepage": "https://www.newsbomb.gr/",
+   "source": "DNR 2026 online 25%"
+  },
+  {
+   "id": "in-gr-gre",
+   "name": "in.gr",
+   "country": "Greece",
+   "homepage": "https://www.in.gr/",
+   "source": "DNR 2026 online 25%"
+  },
+  {
+   "id": "proto-thema-gre",
+   "name": "Proto Thema",
+   "country": "Greece",
+   "homepage": "https://www.protothema.gr/",
+   "source": "DNR 2026 online 22%"
+  },
+  {
+   "id": "news247-gre",
+   "name": "News247",
+   "country": "Greece",
+   "homepage": "https://www.news247.gr/",
+   "source": "DNR 2026 online 21%"
+  },
+  {
+   "id": "kathimerini-gre",
+   "name": "Kathimerini",
+   "country": "Greece",
+   "homepage": "https://www.kathimerini.gr/",
+   "source": "DNR 2026 online 19%"
+  },
+  {
+   "id": "onet-pol",
+   "name": "Onet",
+   "country": "Poland",
+   "homepage": "https://www.onet.pl/",
+   "source": "DNR 2026 online 33%"
+  },
+  {
+   "id": "wirtualna-polska-pol",
+   "name": "Wirtualna Polska",
+   "country": "Poland",
+   "homepage": "https://www.wp.pl/",
+   "source": "DNR 2026 online 29%"
+  },
+  {
+   "id": "tvn24-pol",
+   "name": "TVN24",
+   "country": "Poland",
+   "homepage": "https://tvn24.pl/",
+   "source": "DNR 2026 online 22%"
+  },
+  {
+   "id": "interia-pol",
+   "name": "Interia",
+   "country": "Poland",
+   "homepage": "https://www.interia.pl/",
+   "source": "DNR 2026 online 20%"
+  },
+  {
+   "id": "rmf24-pol",
+   "name": "RMF24",
+   "country": "Poland",
+   "homepage": "https://www.rmf24.pl/",
+   "source": "DNR 2026 online 14%"
+  },
+  {
+   "id": "seznam-zpravy-cze",
+   "name": "Seznam Zprávy",
+   "country": "Czechia",
+   "homepage": "https://www.seznamzpravy.cz/",
+   "source": "DNR 2026 online 49%"
+  },
+  {
+   "id": "idnes-cz-cze",
+   "name": "iDNES.cz",
+   "country": "Czechia",
+   "homepage": "https://www.idnes.cz/",
+   "source": "DNR 2026 online 35%"
+  },
+  {
+   "id": "novinky-cz-cze",
+   "name": "Novinky.cz",
+   "country": "Czechia",
+   "homepage": "https://www.novinky.cz/",
+   "source": "DNR 2026 online 34%"
+  },
+  {
+   "id": "aktualne-cz-cze",
+   "name": "Aktuálně.cz",
+   "country": "Czechia",
+   "homepage": "https://www.aktualne.cz/",
+   "source": "DNR 2026 online 25%"
+  },
+  {
+   "id": "cnn-prima-news-cze",
+   "name": "CNN Prima News",
+   "country": "Czechia",
+   "homepage": "https://cnn.iprima.cz/",
+   "source": "DNR 2026 online 21%"
+  },
+  {
+   "id": "aktuality-sk-slo",
+   "name": "Aktuality.sk",
+   "country": "Slovakia",
+   "homepage": "https://www.aktuality.sk/",
+   "source": "DNR 2026 online 39%"
+  },
+  {
+   "id": "topky-sk-slo",
+   "name": "Topky.sk",
+   "country": "Slovakia",
+   "homepage": "https://www.topky.sk/",
+   "source": "DNR 2026 online 25%"
+  },
+  {
+   "id": "tv-noviny-slo",
+   "name": "TV Noviny",
+   "country": "Slovakia",
+   "homepage": "https://www.tvnoviny.sk/",
+   "source": "DNR 2026 online 21%"
+  },
+  {
+   "id": "sme-slo",
+   "name": "SME",
+   "country": "Slovakia",
+   "homepage": "https://www.sme.sk/",
+   "source": "DNR 2026 online 20%"
+  },
+  {
+   "id": "refresher-slo",
+   "name": "Refresher",
+   "country": "Slovakia",
+   "homepage": "https://refresher.sk/",
+   "source": "DNR 2026 online 16%"
+  },
+  {
+   "id": "telex-hun",
+   "name": "Telex",
+   "country": "Hungary",
+   "homepage": "https://telex.hu/",
+   "source": "DNR 2026 online 30%"
+  },
+  {
+   "id": "24-hu-hun",
+   "name": "24.hu",
+   "country": "Hungary",
+   "homepage": "https://24.hu/",
+   "source": "DNR 2026 online 27%"
+  },
+  {
+   "id": "444-hun",
+   "name": "444",
+   "country": "Hungary",
+   "homepage": "https://444.hu/",
+   "source": "DNR 2026 online 27%"
+  },
+  {
+   "id": "index-hun",
+   "name": "Index",
+   "country": "Hungary",
+   "homepage": "https://index.hu/",
+   "source": "DNR 2026 online 25%"
+  },
+  {
+   "id": "rtl-hun",
+   "name": "RTL",
+   "country": "Hungary",
+   "homepage": "https://rtl.hu/",
+   "source": "DNR 2026 online 20%"
+  },
+  {
+   "id": "index-hr-cro",
+   "name": "Index.hr",
+   "country": "Croatia",
+   "homepage": "https://www.index.hr/",
+   "source": "DNR 2026 online 49%"
+  },
+  {
+   "id": "24sata-cro",
+   "name": "24sata",
+   "country": "Croatia",
+   "homepage": "https://www.24sata.hr/",
+   "source": "DNR 2026 online 42%"
+  },
+  {
+   "id": "dnevnik-hr-cro",
+   "name": "Dnevnik.hr",
+   "country": "Croatia",
+   "homepage": "https://dnevnik.hr/",
+   "source": "DNR 2026 online 35%"
+  },
+  {
+   "id": "jutarnji-list-cro",
+   "name": "Jutarnji list",
+   "country": "Croatia",
+   "homepage": "https://www.jutarnji.hr/",
+   "source": "DNR 2026 online 33%"
+  },
+  {
+   "id": "net-hr-cro",
+   "name": "Net.hr",
+   "country": "Croatia",
+   "homepage": "https://net.hr/",
+   "source": "DNR 2026 online 28%"
+  },
+  {
+   "id": "stirile-pro-tv-rom",
+   "name": "Știrile Pro TV",
+   "country": "Romania",
+   "homepage": "https://stirileprotv.ro/",
+   "source": "DNR 2026 online 29%"
+  },
+  {
+   "id": "digi24-rom",
+   "name": "Digi24",
+   "country": "Romania",
+   "homepage": "https://www.digi24.ro/",
+   "source": "DNR 2026 online 26%"
+  },
+  {
+   "id": "libertatea-rom",
+   "name": "Libertatea",
+   "country": "Romania",
+   "homepage": "https://www.libertatea.ro/",
+   "source": "DNR 2026 online 21%"
+  },
+  {
+   "id": "stiri-pe-surse-rom",
+   "name": "Știri pe surse",
+   "country": "Romania",
+   "homepage": "https://www.stiripesurse.ro/",
+   "source": "DNR 2026 online 20%"
+  },
+  {
+   "id": "adevarul-rom",
+   "name": "Adevărul",
+   "country": "Romania",
+   "homepage": "https://adevarul.ro/",
+   "source": "DNR 2026 online 20%"
+  },
+  {
+   "id": "nova-bul",
+   "name": "Nova",
+   "country": "Bulgaria",
+   "homepage": "https://nova.bg/",
+   "source": "DNR 2026 online 41%"
+  },
+  {
+   "id": "btv-novinite-bul",
+   "name": "bTV Novinite",
+   "country": "Bulgaria",
+   "homepage": "https://btvnovinite.bg/",
+   "source": "DNR 2026 online 37%"
+  },
+  {
+   "id": "novini-bg-bul",
+   "name": "Novini.bg",
+   "country": "Bulgaria",
+   "homepage": "https://novini.bg/",
+   "source": "DNR 2026 online 27%"
+  },
+  {
+   "id": "24-chasa-bul",
+   "name": "24 Chasa",
+   "country": "Bulgaria",
+   "homepage": "https://www.24chasa.bg/",
+   "source": "DNR 2026 online 26%"
+  },
+  {
+   "id": "bnt-bul",
+   "name": "BNT",
+   "country": "Bulgaria",
+   "homepage": "https://bntnews.bg/",
+   "source": "DNR 2026 online 22%"
+  },
+  {
+   "id": "n1-ser",
+   "name": "N1",
+   "country": "Serbia",
+   "homepage": "https://n1info.rs/",
+   "source": "DNR 2026 online 36%"
+  },
+  {
+   "id": "blic-ser",
+   "name": "Blic",
+   "country": "Serbia",
+   "homepage": "https://www.blic.rs/",
+   "source": "DNR 2026 online 30%"
+  },
+  {
+   "id": "telegraf-ser",
+   "name": "Telegraf",
+   "country": "Serbia",
+   "homepage": "https://www.telegraf.rs/",
+   "source": "DNR 2026 online 23%"
+  },
+  {
+   "id": "nova-ser",
+   "name": "Nova",
+   "country": "Serbia",
+   "homepage": "https://nova.rs/",
+   "source": "DNR 2026 online 21%"
+  },
+  {
+   "id": "danas-ser",
+   "name": "Danas",
+   "country": "Serbia",
+   "homepage": "https://www.danas.rs/",
+   "source": "DNR 2026 online 20%"
+  },
+  {
+   "id": "cbc-news-can",
+   "name": "CBC News",
+   "country": "Canada",
+   "homepage": "https://www.cbc.ca/news",
+   "source": "DNR 2026 online 26%"
+  },
+  {
+   "id": "ctv-news-can",
+   "name": "CTV News",
+   "country": "Canada",
+   "homepage": "https://www.ctvnews.ca/",
+   "source": "DNR 2026 online 22%"
+  },
+  {
+   "id": "global-news-can",
+   "name": "Global News",
+   "country": "Canada",
+   "homepage": "https://globalnews.ca/",
+   "source": "DNR 2026 online 15%"
+  },
+  {
+   "id": "the-globe-and-mail-can",
+   "name": "The Globe and Mail",
+   "country": "Canada",
+   "homepage": "https://www.theglobeandmail.com/",
+   "source": "DNR 2026 online 12%"
+  },
+  {
+   "id": "tva-nouvelles-can",
+   "name": "TVA Nouvelles",
+   "country": "Canada",
+   "homepage": "https://www.tvanouvelles.ca/",
+   "source": "DNR 2026 online 30%"
+  },
+  {
+   "id": "milenio-mex",
+   "name": "Milenio",
+   "country": "Mexico",
+   "homepage": "https://www.milenio.com/",
+   "source": "DNR 2026 online 20%"
+  },
+  {
+   "id": "el-universal-mex",
+   "name": "El Universal",
+   "country": "Mexico",
+   "homepage": "https://www.eluniversal.com.mx/",
+   "source": "DNR 2026 online 20%"
+  },
+  {
+   "id": "unotv-mex",
+   "name": "UnoTV",
+   "country": "Mexico",
+   "homepage": "https://www.unotv.com/",
+   "source": "DNR 2026 online 18%"
+  },
+  {
+   "id": "n-mex",
+   "name": "N+",
+   "country": "Mexico",
+   "homepage": "https://www.nmas.com.mx/",
+   "source": "DNR 2026 online 17%"
+  },
+  {
+   "id": "azteca-noticias-mex",
+   "name": "Azteca Noticias",
+   "country": "Mexico",
+   "homepage": "https://www.tvazteca.com/aztecanoticias",
+   "source": "DNR 2026 online 16%"
+  },
+  {
+   "id": "ruv-ice",
+   "name": "RÚV",
+   "country": "Iceland",
+   "homepage": "https://www.ruv.is/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "morgunblai-ice",
+   "name": "Morgunblaðið",
+   "country": "Iceland",
+   "homepage": "https://www.mbl.is/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "visir-ice",
+   "name": "Vísir",
+   "country": "Iceland",
+   "homepage": "https://www.visir.is/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "dv-ice",
+   "name": "DV",
+   "country": "Iceland",
+   "homepage": "https://www.dv.is/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "heimildin-ice",
+   "name": "Heimildin",
+   "country": "Iceland",
+   "homepage": "https://heimildin.is/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "rtl-letzebuerg-lux",
+   "name": "RTL Lëtzebuerg",
+   "country": "Luxembourg",
+   "homepage": "https://www.rtl.lu/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "luxemburger-wort-lux",
+   "name": "Luxemburger Wort",
+   "country": "Luxembourg",
+   "homepage": "https://www.wort.lu/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "l-essentiel-lux",
+   "name": "L'essentiel",
+   "country": "Luxembourg",
+   "homepage": "https://www.lessentiel.lu/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "tageblatt-lux",
+   "name": "Tageblatt",
+   "country": "Luxembourg",
+   "homepage": "https://www.tageblatt.lu/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "luxembourg-times-lux",
+   "name": "Luxembourg Times",
+   "country": "Luxembourg",
+   "homepage": "https://www.luxtimes.lu/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "times-of-malta-mal",
+   "name": "Times of Malta",
+   "country": "Malta",
+   "homepage": "https://timesofmalta.com/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "maltatoday-mal",
+   "name": "MaltaToday",
+   "country": "Malta",
+   "homepage": "https://www.maltatoday.com.mt/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "the-malta-independent-mal",
+   "name": "The Malta Independent",
+   "country": "Malta",
+   "homepage": "https://www.independent.com.mt/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "tvm-mal",
+   "name": "TVM",
+   "country": "Malta",
+   "homepage": "https://tvmnews.mt/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "newsbook-mal",
+   "name": "Newsbook",
+   "country": "Malta",
+   "homepage": "https://newsbook.com.mt/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "cybc-cyp",
+   "name": "CyBC",
+   "country": "Cyprus",
+   "homepage": "https://cybc.com.cy/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "phileleftheros-cyp",
+   "name": "Phileleftheros",
+   "country": "Cyprus",
+   "homepage": "https://www.philenews.com/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "politis-cyp",
+   "name": "Politis",
+   "country": "Cyprus",
+   "homepage": "https://politis.com.cy/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "cyprus-mail-cyp",
+   "name": "Cyprus Mail",
+   "country": "Cyprus",
+   "homepage": "https://cyprus-mail.com/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "sigmalive-cyp",
+   "name": "Sigmalive",
+   "country": "Cyprus",
+   "homepage": "https://www.sigmalive.com/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "rtv-slo-slo",
+   "name": "RTV SLO",
+   "country": "Slovenia",
+   "homepage": "https://www.rtvslo.si/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "24ur-slo",
+   "name": "24ur",
+   "country": "Slovenia",
+   "homepage": "https://www.24ur.com/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "delo-slo",
+   "name": "Delo",
+   "country": "Slovenia",
+   "homepage": "https://www.delo.si/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "dnevnik-slo",
+   "name": "Dnevnik",
+   "country": "Slovenia",
+   "homepage": "https://www.dnevnik.si/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "n1-slovenija-slo",
+   "name": "N1 Slovenija",
+   "country": "Slovenia",
+   "homepage": "https://n1info.si/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "err-est",
+   "name": "ERR",
+   "country": "Estonia",
+   "homepage": "https://www.err.ee/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "postimees-est",
+   "name": "Postimees",
+   "country": "Estonia",
+   "homepage": "https://www.postimees.ee/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "delfi-estonia-est",
+   "name": "Delfi Estonia",
+   "country": "Estonia",
+   "homepage": "https://www.delfi.ee/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "eesti-paevaleht-est",
+   "name": "Eesti Päevaleht",
+   "country": "Estonia",
+   "homepage": "https://epl.delfi.ee/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "ohtuleht-est",
+   "name": "Õhtuleht",
+   "country": "Estonia",
+   "homepage": "https://www.ohtuleht.ee/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "lsm-lat",
+   "name": "LSM",
+   "country": "Latvia",
+   "homepage": "https://www.lsm.lv/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "delfi-latvia-lat",
+   "name": "Delfi Latvia",
+   "country": "Latvia",
+   "homepage": "https://www.delfi.lv/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "tvnet-lat",
+   "name": "TVNET",
+   "country": "Latvia",
+   "homepage": "https://www.tvnet.lv/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "diena-lat",
+   "name": "Diena",
+   "country": "Latvia",
+   "homepage": "https://www.diena.lv/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "neatkariga-lat",
+   "name": "Neatkarīgā",
+   "country": "Latvia",
+   "homepage": "https://nra.lv/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "lrt-lit",
+   "name": "LRT",
+   "country": "Lithuania",
+   "homepage": "https://www.lrt.lt/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "15min-lit",
+   "name": "15min",
+   "country": "Lithuania",
+   "homepage": "https://www.15min.lt/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "delfi-lithuania-lit",
+   "name": "Delfi Lithuania",
+   "country": "Lithuania",
+   "homepage": "https://www.delfi.lt/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "lrytas-lit",
+   "name": "Lrytas",
+   "country": "Lithuania",
+   "homepage": "https://www.lrytas.lt/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "verslo-zinios-lit",
+   "name": "Verslo žinios",
+   "country": "Lithuania",
+   "homepage": "https://www.vz.lt/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "suspilne-ukr",
+   "name": "Suspilne",
+   "country": "Ukraine",
+   "homepage": "https://suspilne.media/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "ukrainska-pravda-ukr",
+   "name": "Ukrainska Pravda",
+   "country": "Ukraine",
+   "homepage": "https://www.pravda.com.ua/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "nv-ukr",
+   "name": "NV",
+   "country": "Ukraine",
+   "homepage": "https://nv.ua/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "ukrinform-ukr",
+   "name": "Ukrinform",
+   "country": "Ukraine",
+   "homepage": "https://www.ukrinform.ua/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "rbc-ukraine-ukr",
+   "name": "RBC-Ukraine",
+   "country": "Ukraine",
+   "homepage": "https://www.rbc.ua/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "moldova-1-mol",
+   "name": "Moldova 1",
+   "country": "Moldova",
+   "homepage": "https://trm.md/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "ziarul-de-garda-mol",
+   "name": "Ziarul de Gardă",
+   "country": "Moldova",
+   "homepage": "https://www.zdg.md/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "newsmaker-mol",
+   "name": "NewsMaker",
+   "country": "Moldova",
+   "homepage": "https://newsmaker.md/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "unimedia-mol",
+   "name": "Unimedia",
+   "country": "Moldova",
+   "homepage": "https://unimedia.info/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "jurnal-tv-mol",
+   "name": "Jurnal TV",
+   "country": "Moldova",
+   "homepage": "https://www.jurnaltv.md/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "klix-ba-bos",
+   "name": "Klix.ba",
+   "country": "Bosnia and Herzegovina",
+   "homepage": "https://www.klix.ba/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "bhrt-bos",
+   "name": "BHRT",
+   "country": "Bosnia and Herzegovina",
+   "homepage": "https://bhrt.ba/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "osloboenje-bos",
+   "name": "Oslobođenje",
+   "country": "Bosnia and Herzegovina",
+   "homepage": "https://www.oslobodjenje.ba/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "avaz-bos",
+   "name": "Avaz",
+   "country": "Bosnia and Herzegovina",
+   "homepage": "https://avaz.ba/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "n1-bih-bos",
+   "name": "N1 BiH",
+   "country": "Bosnia and Herzegovina",
+   "homepage": "https://n1info.ba/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "rtcg-mon",
+   "name": "RTCG",
+   "country": "Montenegro",
+   "homepage": "https://rtcg.me/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "vijesti-mon",
+   "name": "Vijesti",
+   "country": "Montenegro",
+   "homepage": "https://www.vijesti.me/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "pobjeda-mon",
+   "name": "Pobjeda",
+   "country": "Montenegro",
+   "homepage": "https://www.pobjeda.me/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "cdm-mon",
+   "name": "CdM",
+   "country": "Montenegro",
+   "homepage": "https://www.cdm.me/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "dan-mon",
+   "name": "Dan",
+   "country": "Montenegro",
+   "homepage": "https://www.dan.co.me/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "mrt-nor",
+   "name": "MRT",
+   "country": "North Macedonia",
+   "homepage": "https://mrt.com.mk/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "sloboden-pecat-nor",
+   "name": "Sloboden pečat",
+   "country": "North Macedonia",
+   "homepage": "https://www.slobodenpecat.mk/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "nova-makedonija-nor",
+   "name": "Nova Makedonija",
+   "country": "North Macedonia",
+   "homepage": "https://novamakedonija.com.mk/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "kanal-5-nor",
+   "name": "Kanal 5",
+   "country": "North Macedonia",
+   "homepage": "https://kanal5.com.mk/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "telma-nor",
+   "name": "Telma",
+   "country": "North Macedonia",
+   "homepage": "https://telma.com.mk/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "rtsh-alb",
+   "name": "RTSH",
+   "country": "Albania",
+   "homepage": "https://rtsh.al/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "top-channel-alb",
+   "name": "Top Channel",
+   "country": "Albania",
+   "homepage": "https://top-channel.tv/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "panorama-alb",
+   "name": "Panorama",
+   "country": "Albania",
+   "homepage": "https://www.panorama.com.al/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "balkanweb-alb",
+   "name": "Balkanweb",
+   "country": "Albania",
+   "homepage": "https://www.balkanweb.com/",
+   "source": "provisional (no DNR market)"
+  },
+  {
+   "id": "euronews-albania-alb",
+   "name": "Euronews Albania",
+   "country": "Albania",
+   "homepage": "https://euronews.al/",
+   "source": "provisional (no DNR market)"
+  }
+ ]
+}

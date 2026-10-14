@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BasedNews · C · Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root { --bg:#eaf0f6; --glass:rgba(255,255,255,.72); --ink:#0f1b2d; --muted:#5d6b80; --line:rgba(15,27,45,.10); --accent:#3d5afe; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:radial-gradient(1200px 700px at 70% -10%, #dfe7ff 0%, var(--bg) 60%); color:var(--ink);
+         font-family:"Space Grotesk", system-ui, sans-serif; }
+  aside { position:fixed; left:18px; top:50%; transform:translateY(-50%); z-index:10; }
+  .logo { font-weight:700; font-size:15px; writing-mode:vertical-rl; transform:rotate(180deg); margin:0 auto 18px; letter-spacing:.12em; }
+  nav { position:relative; display:flex; flex-direction:column; gap:6px; padding:6px; background:var(--glass); backdrop-filter:blur(14px);
+        border:1px solid var(--line); border-radius:22px; box-shadow:0 10px 30px rgba(15,27,45,.08); }
+  nav a { position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; gap:3px; width:76px; padding:10px 4px;
+          border-radius:16px; text-decoration:none; font-size:12px; font-weight:600; }
+  nav a i { font-style:normal; font-size:19px; }
+  nav .pill { position:absolute; z-index:0; border-radius:16px; }
+  main { margin-left:122px; }
+  #explore { position:relative; height:100vh; display:grid; grid-template-columns: 0.9fr 1.3fr; gap:18px; padding:22px 22px 110px 0; }
+  .card { position:relative; background:var(--glass); backdrop-filter:blur(14px); border:1px solid var(--line); border-radius:24px;
+          box-shadow:0 10px 30px rgba(15,27,45,.06); overflow:hidden; }
+  .card header { position:absolute; top:16px; left:20px; right:20px; z-index:2; display:flex; justify-content:space-between; align-items:center; }
+  .card header b { font-size:20px; }
+  .card header small { color:var(--muted); display:block; font-size:13px; font-weight:500; }
+  #back { border:none; background:var(--ink); color:#fff; border-radius:999px; padding:7px 14px; font:600 13px "Space Grotesk"; cursor:pointer; }
+  #plane { position:absolute; inset:64px 12px 12px; }
+  #map { position:absolute; inset:0; }
+  .tl { position:absolute; left:0; right:22px; bottom:22px; display:flex; align-items:center; gap:16px; padding:14px 20px;
+        background:var(--ink); color:#fff; border-radius:20px; box-shadow:0 14px 34px rgba(15,27,45,.25); }
+  .tl button { width:40px; height:40px; border-radius:12px; border:none; background:var(--accent); color:#fff; cursor:pointer; font-size:14px; }
+  .tl button[data-state=playing]::after { content:"❚❚"; } .tl button:not([data-state=playing])::after { content:"▶"; }
+  .tl input { flex:1; accent-color:#8fa3ff; }
+  .tl [data-month] { font-weight:700; font-size:18px; min-width:96px; text-align:right; }
+  .tl .demo { font-size:11px; color:#ffcf6b; border:1px solid #ffcf6b66; border-radius:8px; padding:3px 7px; }
+  .page { min-height:90vh; display:grid; place-items:center; padding:60px 22px 60px 0; }
+  .page .card { max-width:820px; padding:44px 48px; line-height:1.7; font-size:17px; }
+  .page h2 { font-size:38px; margin:0 0 10px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+  .chips span { background:#fff; border:1px solid var(--line); border-radius:999px; padding:6px 12px; font-size:14px; }
+  @media (max-width: 900px) { aside { left:8px; } nav a { width:58px; font-size:10px; } main { margin-left:84px; } #explore { grid-template-columns:1fr; height:auto; } .card { min-height:55vh; } }
+</style>
+</head>
+<body>
+<aside>
+  <div class="logo">BASEDNEWS</div>
+  <nav id="nav">
+    <div class="pill"></div>
+    <a data-target="explore" href="#explore"><i>◎</i>Explore</a>
+    <a data-target="how" href="#how"><i>⚙</i>How</a>
+    <a data-target="method" href="#method"><i>∿</i>Method</a>
+    <a data-target="data" href="#data"><i>⌗</i>Data</a>
+    <a data-target="about" href="#about"><i>✦</i>About</a>
+  </nav>
+</aside>
+<main>
+  <section id="explore">
+    <div class="card">
+      <header><div><b id="plane-title">All countries</b><small id="plane-sub">centre = the average reference outlet</small></div>
+        <button id="back" hidden>← World</button></header>
+      <div id="plane"></div>
+    </div>
+    <div class="card"><div id="map"></div>
+      <header><div><b>Atlas</b><small>click a country to open its national media</small></div></header></div>
+    <div class="tl" id="slider">
+      <button data-play aria-label="Play"></button>
+      <input type="range" aria-label="Time">
+      <span data-month></span>
+      <span class="demo">DEMO DATA</span>
+    </div>
+  </section>
+
+  <section class="page" id="how"><div class="card">
+    <h2>How it works</h2>
+    <p>Feeds from 73 newsrooms are read every hour. The same event, reported in different languages, is grouped into
+       one story. An AI judge compares two articles about the same story at a time — without seeing the outlets'
+       names — and a Bayesian model turns those verdicts into positions with uncertainty.</p>
+    <div class="chips"><span>73 outlets</span><span>10 countries</span><span>7 languages</span><span>hourly</span><span>open source</span></div>
+  </div></section>
+
+  <section class="page" id="method"><div class="card">
+    <h2>Method</h2>
+    <p>Everything is relative: the centre is the average reference outlet, not a political centre. In a country view
+       the centre moves to that country's five largest news brands; the other outlets are drawn hollow. Ovals are
+       uncertainty; trails are history, fading with age.</p>
+  </div></section>
+
+  <section class="page" id="data"><div class="card">
+    <h2>Data</h2>
+    <p>Aggregates only — article text is never published. Every assumption, prompt and experiment is in the open
+       repository. Hosting costs about three dollars a month.</p>
+  </div></section>
+
+  <section class="page" id="about"><div class="card">
+    <h2>About</h2>
+    <p>An open-source project by Axel Solhall. This is a design prototype with simulated movements.</p>
+  </div></section>
+</main>
+
+<script type="module">
+  import { loadData, Plane, WorldMap, PillNav, connect } from "../common.js";
+  const vivid = ["#3d5afe", "#ff6d00", "#00b8a9", "#f50057", "#7c4dff", "#00c853", "#ffab00", "#2979ff", "#c51162", "#00897b"];
+  const data = await loadData("../demo-trends.json", vivid);
+  const plane = new Plane(document.getElementById("plane"), data, { textColor:"#0f1b2d", axisColor:"#8a97ab", frameColor:"rgba(15,27,45,.12)", bg:"#f4f7fb", trail: 30, trailWidth: 3 });
+  const map = await new WorldMap(document.getElementById("map"), data, { land:"#d5deea", border:"#eaf0f6", zoom:true }).init();
+  const ui = connect({ plane, map, slider: document.getElementById("slider"), onMode: (c) => {
+    document.getElementById("back").hidden = !c;
+    document.getElementById("plane-title").textContent = c ? c.name : "All countries";
+    document.getElementById("plane-sub").textContent = c ? "centre = its five largest news brands · hollow = extra outlets" : "centre = the average reference outlet";
+  }});
+  document.getElementById("back").onclick = () => ui.open(null);
+  new PillNav(document.getElementById("nav"), { orientation:"vertical", color:"#3d5afe", hillColor:"#c5cff9", onColor:"#fff", offColor:"#5d6b80", lift: 4 });
+</script>
+</body>
+</html>

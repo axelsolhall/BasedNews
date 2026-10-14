@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BasedNews · Story C · Margin notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="paper.css">
+<style>
+  /* margin notes: the story is an annotated article in its own column; the stage is pinned beside it, never covered */
+  .annotated { display:grid; grid-template-columns:minmax(340px, 31%) 1fr; }
+  .notes { padding:0 30px 0 40px; border-right:1px solid var(--rule); }
+  .note { min-height:78vh; padding:10vh 0 6vh; transition:opacity .3s; opacity:.42; }
+  .note.active { opacity:1; }
+  .note.tall { min-height:250vh; }
+  .note .num { font:400 15px Fraunces, serif; color:var(--accent); letter-spacing:.06em; }
+  .note h3 { font:700 28px/1.12 Fraunces, serif; margin:4px 0 12px; }
+  .note p { font:400 18px/1.65 Fraunces, serif; margin:0 0 14px; }
+  .note .when { position:sticky; top:calc(var(--barh) + 24px); font:700 40px Fraunces, serif; color:var(--accent); margin:10px 0; }
+  .note a[data-do] { color:var(--ink); text-decoration:underline; text-decoration-style:dotted; text-decoration-color:var(--accent);
+                     text-underline-offset:3px; cursor:pointer; font-weight:500; }
+  .note a[data-do]:hover { background:var(--track); }
+  .note .j-pair, .note .j-verdicts { grid-template-columns:1fr; }
+  .note .j-vs { padding:0; }
+  .note .j-nav small { display:none; }
+  .note .src { font:400 12px "IBM Plex Sans"; color:var(--muted); }
+  .stage-col { position:sticky; top:var(--barh); height:calc(100dvh - var(--barh)); align-self:start; }
+  .stage-col #front { height:100%; min-height:0; padding:0 22px 0 24px; grid-template-columns:1.3fr 1fr; }
+  @media (max-width: 900px) { .annotated { grid-template-columns:1fr; } .stage-col { position:relative; top:0; height:auto; order:-1; }
+    .notes { padding:0 16px; border:none; } .note { opacity:1; min-height:0; padding:6vh 0; } .note.tall { min-height:0; } }
+</style>
+</head>
+<body>
+<header class="mast" id="mast">
+  <a data-part="logo" class="logo" href="#explore">BasedNews</a>
+  <p data-part="tagline" class="tagline">Where each country's news leans · and how sure we are</p>
+  <div data-part="rule" class="rule"><i></i><i></i></div>
+  <a data-part="brand" class="brand" href="#explore">BasedNews</a>
+  <nav data-part="nav" id="nav">
+    <div class="pill"></div>
+    <a data-target="explore" data-anchor="front" href="#explore">The map</a>
+    <a data-target="how" href="#how">How it works</a>
+    <a data-target="method" href="#method">Method</a>
+    <a data-target="about" href="#about">About</a>
+  </nav>
+  <div data-part="dateline" class="dateline">Tuesday 13 October 2026<b>DEMO DATA</b></div>
+  <div data-part="barline" class="barline"></div>
+</header>
+<div class="mast-space"></div>
+<div class="progress" id="progress"></div>
+
+<section id="explore">
+  <div class="intro">
+    <p class="lede">An AI reads <em>the same story</em> in newsrooms across Europe and North America, compares how each one
+      frames it, and places every outlet on a map — with an oval for how sure it is.</p>
+    <span class="demo">Prototype · countries beyond the first ten and all movements are simulated demo data</span>
+  </div>
+  <div class="annotated">
+    <div class="notes">
+      <section class="note" data-ch="why"><span class="num">I</span><h3>Why this exists</h3>
+        <p>Most of us read one or two outlets. Elsewhere, the same event is told differently — other voices quoted, other
+           problems named, other solutions offered.</p>
+        <p>BasedNews measures those differences. It compares how outlets frame <em>the same events</em> and places every
+           outlet on one plane: <a data-do="world">countries on the right</a>, outlets inside each country.</p></section>
+      <section class="note" data-ch="start"><span class="num">II</span><h3>Where the news stood in 2016</h3>
+        <p>Each dot is a country — the average of its five largest news brands. Colours are regions; the table under the
+           map lists every country, with where it sits on each axis.</p></section>
+      <section class="note tall" data-ch="drift"><span class="num">III</span><h3>Ten years in one scroll</h3>
+        <p>Keep reading: time runs with you. Each dot drags its history behind it like a string; the fainter the line,
+           the longer ago.</p>
+        <p class="when" id="when"></p></section>
+      <section class="note" data-ch="region"><span class="num">IV</span><h3>Compare neighbours</h3>
+        <p>Pick a region and the board zooms to fit it: the <a data-do="region:0">Nordics</a>,
+           <a data-do="region:2">Southern Europe</a>, <a data-do="region:4">Eastern Europe and the Balkans</a> or
+           <a data-do="region:5">North America</a>.</p></section>
+      <section class="note" data-ch="country"><span class="num">V</span><h3>Open a country</h3>
+        <p>Inside a country the centre is its own five largest brands; smaller outlets are drawn hollow and do not move it.
+           Try <a data-do="country:Sweden">Sweden</a>, <a data-do="country:Germany">Germany</a> or
+           <a data-do="country:United States">the United States</a>.</p></section>
+      <section class="note" data-ch="judgment"><span class="num">VI</span><h3>Read a judgment</h3>
+        <p>Behind every dot are comparisons like this one: the judge reads two articles about the same event, names hidden,
+           and says which frames it further right or more conservatively — and why.</p>
+        <div id="judgments"></div>
+        <p class="src">Real output of the AI judge (gpt-5.4-mini) from a test run in October 2026, with the earlier prompt
+           that also wrote reasons. Headlines link to the articles.</p></section>
+      <section class="note" data-ch="free"><span class="num">VII</span><h3>Your turn</h3>
+        <p>The plane is yours: drag the timeline, hover a dot to follow it, open any country on the map or in the table.</p></section>
+    </div>
+    <div class="stage-col">
+    <div id="front">
+      <div class="main">
+        <div class="kicker">The plane <b id="plane-title">Countries, relative to each other</b></div>
+        <button id="back" hidden>← All countries</button>
+        <div id="plane"></div>
+      </div>
+      <div class="side with-table">
+        <div class="kicker">The atlas <b>Pick a country</b></div>
+        <div id="map"></div>
+        <div id="table"></div>
+      </div>
+      <div class="ruler" id="slider">
+        <button data-play aria-label="Play"></button>
+        <div class="track"><input type="range" aria-label="Time"><div class="ticks" data-ticks></div></div>
+        <span data-month></span>
+      </div>
+    </div>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="how">
+  <div class="no">01</div>
+  <div>
+    <h2>How it works</h2>
+    <p>Every hour BasedNews reads the feeds of the five largest news brands in each country, plus a few more,
+       and compares how they report the same events.</p>
+    <div class="steps">
+      <div><b>Collect</b>Outlets' news feeds, every hour. Robots.txt and opt-outs respected.</div>
+      <div><b>Match</b>Articles about the same event are grouped, whatever their language.</div>
+      <div><b>Compare</b>An AI judge sees two articles side by side — never the outlets' names — and picks per axis.</div>
+      <div><b>Place</b>A Bayesian model turns thousands of verdicts into positions, with ovals of uncertainty.</div>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="method">
+  <div class="no">02</div>
+  <div>
+    <h2>Method</h2>
+    <p>Positions are relative. The centre is the average of the reference outlets, not a political centre. Open a country
+       and its own five largest brands become the centre; its other outlets are drawn hollow.</p>
+    <p>What is measured is framing of the same event, not which stories an outlet chooses to cover. All prompts,
+       assumptions and experiments are public, and article text is never republished.</p>
+  </div>
+</section>
+
+<section class="page" id="about">
+  <div class="no">03</div>
+  <div>
+    <h2>About</h2>
+    <p>An open-source project by Axel Solhall. This page is a design prototype; the movements are simulated, not measured.</p>
+    <p>Hosting costs about three dollars a month.</p>
+    <footer>Prototype · Story C · Margin notes</footer>
+  </div>
+</section>
+
+<script type="module">
+  import { start } from "./paper.js";
+  import { monthLabel } from "./common.js";
+  import { runStory } from "./story.js";
+  import { loadJudgments, judgmentBrowser } from "./judgment.js";
+
+  const ctx = await start({ regions: true, table: true, index: false, mapLayout: "europe" });
+  const { ui, plane, map, data, slider, table } = ctx;
+  const n = data.months.length - 1;
+  const country = (id) => { if (plane.mode !== "country" || plane.country !== id) ui.open(id); };
+  const quiet = () => { plane.highlight(null); map.highlight(null); table.mark(null); };
+  const world = (t, region = null) => { if (plane.mode !== "world") ui.open(null); table.setRegion(region); quiet(); if (t !== undefined) slider.set(t); };
+  let story = null;
+  const showJudgment = (e) => {
+    if (!e) return;
+    const [a, b] = e.articles;
+    slider.set(n);
+    if (a.country === b.country) { country(a.country); plane.highlight([a.outlet_id, b.outlet_id]); table.mark([a.outlet_id, b.outlet_id]); }
+    else { world(n); plane.highlight([a.country, b.country]); map.highlight([a.country, b.country]); table.mark([a.country, b.country]); }
+  };
+  const browser = judgmentBrowser(document.getElementById("judgments"), (await loadJudgments()).filter((e) => e.featured),
+    { onShow: (e) => { if (story?.active() === "judgment") showJudgment(e); } });
+
+  // links in the text act on the stage directly
+  document.querySelector(".notes").addEventListener("click", (ev) => {
+    const a = ev.target.closest("a[data-do]");
+    if (!a) return;
+    ev.preventDefault();
+    const [what, arg] = a.dataset.do.split(":");
+    if (what === "world") world(n);
+    if (what === "region") world(n, +arg);
+    if (what === "country") { country(arg); slider.set(n); quiet(); }
+  });
+
+  const when = document.getElementById("when");
+  story = runStory([...document.querySelectorAll(".note")], {
+    start: (u, enter) => { if (enter) world(0); },
+    why: (u, enter) => { if (enter) world(n); },
+    drift: (u, enter) => {
+      if (enter) world();
+      const t = Math.min(n, Math.max(0, u * 1.2 * n));
+      slider.set(t);
+      when.textContent = monthLabel(data.months[Math.round(t)]);
+    },
+    region: (u, enter) => { if (enter) world(n, 0); },
+    country: (u, enter) => { if (enter) { country("Sweden"); slider.set(n); quiet(); } },
+    judgment: (u, enter) => { if (enter) showJudgment(browser.current?.()); },
+    free: (u, enter) => { if (enter) world(n); },
+  }, { line: 0.5, before: "why", progress: { container: document.querySelector(".annotated"), bar: document.getElementById("progress") } });
+</script>
+</body>
+</html>

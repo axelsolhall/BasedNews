@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BasedNews · B3 · Evening</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root { --paper:#14130f; --ink:#efe7d6; --muted:#9a917e; --rule:#34302a; --accent:#e3a83a; --navh:64px; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:"IBM Plex Sans", system-ui, sans-serif; }
+  .masthead { text-align:center; padding:30px 20px 16px; margin:0 40px; border-bottom:1px solid var(--accent); }
+  .masthead h1 { font-family:Fraunces, Georgia, serif; font-weight:800; font-size:54px; letter-spacing:-1px; margin:0; }
+  .masthead h1 span { color:var(--accent); }
+  .masthead p { margin:6px 0 0; color:var(--muted); font-size:13px; letter-spacing:.1em; text-transform:uppercase; }
+  .navwrap { position:sticky; top:0; z-index:10; display:flex; justify-content:center; padding:12px 0;
+             background:linear-gradient(var(--paper) 80%, transparent); }
+  nav { position:relative; display:flex; gap:2px; padding:4px; border:1px solid #4a443a; border-radius:999px; background:#1b1a15; }
+  nav a { position:relative; z-index:1; padding:7px 16px; border-radius:999px; text-decoration:none; font-weight:600; font-size:14px; }
+  nav .pill { position:absolute; z-index:0; border-radius:999px; }
+  .lede { max-width:800px; margin:10px auto 6px; padding:0 24px; font:400 23px/1.45 Fraunces, serif; text-align:center; color:#e6dcc7; }
+  .lede em { color:var(--accent); font-style:italic; }
+  .demo { display:block; text-align:center; font-size:11.5px; color:var(--accent); letter-spacing:.1em; text-transform:uppercase; margin-bottom:14px; opacity:.85; }
+  #explore { padding:6px 40px 40px; }
+  figure { margin:0; display:grid; grid-template-columns:1.3fr 1fr; border-top:1px solid var(--rule); border-bottom:1px solid var(--rule); }
+  .panel { position:relative; height:min(68vh, 660px); }
+  .panel + .panel { border-left:1px solid var(--rule); }
+  .panel .kicker { position:absolute; top:12px; left:14px; z-index:2; font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .panel .kicker b { display:block; color:var(--ink); font:600 19px Fraunces, serif; letter-spacing:0; text-transform:none; margin-top:2px; }
+  #back { position:absolute; top:14px; right:14px; z-index:2; border:1px solid var(--accent); background:transparent; color:var(--accent);
+          border-radius:999px; padding:5px 12px; cursor:pointer; font:600 13px "IBM Plex Sans"; }
+  #plane, #map { position:absolute; inset:58px 10px 10px; }
+  .ruler { display:flex; align-items:flex-start; gap:16px; padding:16px 4px 4px; }
+  .ruler button { flex:none; border:1px solid var(--accent); background:transparent; color:var(--accent); width:38px; height:38px; border-radius:50%; cursor:pointer; font-size:13px; }
+  .ruler button[data-state=playing]::after { content:"❚❚"; } .ruler button:not([data-state=playing])::after { content:"▶"; }
+  .track { flex:1; padding-top:9px; }
+  .ruler [data-month] { font:400 24px/38px Fraunces, serif; min-width:124px; text-align:right; }
+  .ticks { position:relative; height:18px; margin:4px 9px 0; }
+  .ticks span { position:absolute; transform:translateX(-50%); font-size:11px; color:var(--muted); padding-top:6px; }
+  .ticks span::before { content:""; position:absolute; top:0; left:50%; width:1px; height:5px; background:var(--muted); }
+  input[type=range] { -webkit-appearance:none; appearance:none; width:100%; height:20px; margin:0; background:transparent; }
+  input[type=range]::-webkit-slider-runnable-track { height:2px; background:linear-gradient(90deg, var(--accent) var(--fill), var(--rule) var(--fill)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; margin-top:-7px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 5px rgba(227,168,58,.18); }
+  input[type=range]::-moz-range-track { height:2px; background:var(--rule); }
+  input[type=range]::-moz-range-progress { height:2px; background:var(--accent); }
+  input[type=range]::-moz-range-thumb { width:14px; height:14px; border:none; border-radius:50%; background:var(--accent); box-shadow:0 0 0 5px rgba(227,168,58,.18); }
+  figcaption { color:var(--muted); font-size:13px; padding:6px 0 0; }
+  .page { min-height:calc(100dvh - var(--navh)); display:flex; flex-direction:column; justify-content:center;
+          max-width:1060px; margin:0 auto; padding:60px 40px; border-top:1px solid var(--rule); }
+  .page h2 { font:600 44px Fraunces, serif; margin:0 0 16px; }
+  .page h2::before { content:"— "; color:var(--accent); }
+  .cols { columns:2; column-gap:44px; line-height:1.75; font-size:16.5px; color:#d9d0bd; }
+  .cols p { margin:0 0 14px; }
+  .cols p:first-child::first-letter { font-family:Fraunces, serif; float:left; font-size:58px; line-height:.9; padding:4px 8px 0 0; color:var(--accent); }
+  footer { text-align:center; padding:26px 0 0; margin-top:48px; color:var(--muted); font-size:13px; border-top:1px solid var(--accent); }
+  @media (max-width: 900px) { #explore { padding:6px 16px 30px; } figure { grid-template-columns:1fr; } .panel { height:60vh; }
+    .panel + .panel { border-left:none; border-top:1px solid var(--rule); height:40vh; } .cols { columns:1; }
+    .masthead { margin:0 16px; } .masthead h1 { font-size:40px; } .page { padding:40px 20px; } nav a { padding:7px 10px; font-size:13px; } }
+</style>
+</head>
+<body>
+<div class="masthead">
+  <h1>Based<span>News</span></h1>
+  <p>The evening edition · where the news leans, and how sure we are</p>
+</div>
+<div class="navwrap">
+  <nav id="nav">
+    <div class="pill"></div>
+    <a data-target="explore" href="#explore">The map</a>
+    <a data-target="how" href="#how">How it works</a>
+    <a data-target="method" href="#method">Method</a>
+    <a data-target="about" href="#about">About</a>
+  </nav>
+</div>
+
+<section id="explore">
+  <p class="lede">An AI reads <em>the same story</em> in 73 newsrooms across 10 countries, compares how each one frames it, and
+    places every outlet on a map — with an oval for how sure it is.</p>
+  <span class="demo">Prototype · movements are simulated demo data</span>
+  <figure>
+    <div class="panel">
+      <div class="kicker">The plane <b id="plane-title">Countries, relative to each other</b></div>
+      <button id="back" hidden>← All countries</button>
+      <div id="plane"></div>
+    </div>
+    <div class="panel">
+      <div class="kicker">The atlas <b>Pick a country</b></div>
+      <div id="map"></div>
+    </div>
+  </figure>
+  <div class="ruler" id="slider">
+    <button data-play aria-label="Play"></button>
+    <div class="track"><input type="range" aria-label="Time"><div class="ticks" data-ticks></div></div>
+    <span data-month></span>
+  </div>
+  <figcaption>Each dot drags its history behind it, back to the first month measured; the fainter the line, the longer ago.
+    Ovals show uncertainty. The view follows the dots.</figcaption>
+</section>
+
+<article class="page" id="how">
+  <h2>How it works</h2>
+  <div class="cols">
+    <p>Every hour BasedNews reads the feeds of the five largest news brands in each of ten countries, plus a few
+       more. Articles that report the same event are grouped together, whatever their language.</p>
+    <p>An AI judge is then shown two articles about the same event — never the outlets' names — and asked which
+       one frames it further to the left or right, and which more liberally or conservatively. It does this
+       thousands of times, choosing the comparisons that teach it the most per cent spent.</p>
+    <p>A Bayesian model turns those verdicts into a position for every outlet. Because each outlet is measured over
+       many articles, a single unusual piece cannot decide where it lands.</p>
+  </div>
+</article>
+
+<article class="page" id="method">
+  <h2>Method</h2>
+  <div class="cols">
+    <p>Positions are relative. The centre of the map is the average of the reference outlets, not a political
+       centre. Open a country and its own reference outlets become the centre, with the smaller outlets around them.</p>
+    <p>What is measured is framing of the same event, not which stories an outlet chooses to cover. All prompts,
+       assumptions and experiments are public, and article text is never republished.</p>
+  </div>
+</article>
+
+<article class="page" id="about">
+  <h2>About</h2>
+  <div class="cols"><p>An open-source project by Axel Solhall. This page is a design prototype; the movements are
+    simulated, not measured.</p><p>Hosting costs about three dollars a month.</p></div>
+  <footer>Prototype B3 · Evening</footer>
+</article>
+
+<script type="module">
+  import { loadData, Plane, WorldMap, PillNav, connect } from "../common.js";
+  const glow = ["#e3a83a", "#7fb3e6", "#ef6f6c", "#8fd18a", "#c792ea", "#5fd3c3", "#f4a261", "#a0a8ff", "#e88fb5", "#c5d86d"];
+  const data = await loadData("../demo-trends.json", glow);
+  const plane = new Plane(document.getElementById("plane"), data, { textColor:"#efe7d6", axisColor:"#7d7563", frameColor:"#2e2a23", bg:"#14130f", trailWidth: 2.4, faint: 0.08 });
+  const map = await new WorldMap(document.getElementById("map"), data, { land:"#26231d", border:"#14130f", focus:true }).init();
+  const ui = connect({ plane, map, slider: document.getElementById("slider"), onMode: (c) => {
+    document.getElementById("back").hidden = !c;
+    document.getElementById("plane-title").textContent = c ? `${c.name}: its national media` : "Countries, relative to each other";
+  }});
+  document.getElementById("back").onclick = () => ui.open(null);
+  new PillNav(document.getElementById("nav"), { color:"#e3a83a", hillColor:"#4d4128", onColor:"#14130f", offColor:"#d8cfbd" });
+</script>
+</body>
+</html>
