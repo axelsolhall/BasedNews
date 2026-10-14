@@ -776,4 +776,8 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   English-normalised people/organisations/places/themes (page titles only in later years); probed: 16 of our outlets in
   one 15-minute file of Nov 2015. Plan: GDELT (BigQuery) to find each country's top stories per day → text from the
   live article pages (headline + description, parallel across publishers) → local judge → daily fit.
+- **Coverage (accepted by the maintainer 2026-10-14, "good enough"):** live feeds for 172/205 reference outlets
+  (`data/outlets.json` v4); history in GDELT for 186/205 (≥ 1,000 articles, Nov 2015 → Oct 2026, 60 M articles, 0.52 TB
+  scanned, $0). Gaps: outlets without a readable feed (worst: Mexico, 1/5 live) and young or renamed outlets in the
+  history; fixes later (homepage mode; old domains in November's free tier).
 - **Status:** decided 2026-10-14

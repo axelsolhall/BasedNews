@@ -1,6 +1,6 @@
 {
-  "version": 3,
-  "note": "A15/A17: outlet selection = major national outlets spanning the spectrum; non-Nordic feed URLs unverified until M1 health check passes.",
+  "version": 4,
+  "note": "A15/A17: outlet selection = major national outlets spanning the spectrum; non-Nordic feed URLs unverified until M1 health check passes. v4 (2026-10-14): 31 more countries, reference tier only (A61); outlets without a working feed are listed with feeds: [] and skipped by ingest until they have one.",
   "countries": {
     "Norway": {
       "iso": "NO",
@@ -1088,6 +1088,2380 @@
           "tier": "reference",
           "dnr_2026_online_reach_pct": 11,
           "dnr_2026_rank": 6
+        }
+      ]
+    },
+    "Netherlands": {
+      "iso": "NL",
+      "language": "nl",
+      "outlets": [
+        {
+          "id": "nu-nl-net",
+          "name": "NU.nl",
+          "type": "private",
+          "homepage": "https://www.nu.nl/",
+          "feeds": [
+            "https://www.nu.nl/rss",
+            "https://www.nu.nl/feeds/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 44,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "nos-net",
+          "name": "NOS",
+          "type": "public",
+          "homepage": "https://nos.nl/",
+          "feeds": [
+            "https://nos.nl/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 34,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "ad-net",
+          "name": "AD",
+          "type": "private",
+          "homepage": "https://www.ad.nl/",
+          "feeds": [
+            "https://www.ad.nl/home/rss.xml",
+            "https://www.ad.nl/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 24,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "rtl-nieuws-net",
+          "name": "RTL Nieuws",
+          "type": "private",
+          "homepage": "https://www.rtl.nl/nieuws",
+          "feeds": [
+            "https://www.rtl.nl/nieuws/rss.xml",
+            "https://www.rtl.nl/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 18,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "de-telegraaf-net",
+          "name": "De Telegraaf",
+          "type": "private",
+          "homepage": "https://www.telegraaf.nl/",
+          "feeds": [
+            "https://www.telegraaf.nl/rss",
+            "https://www.telegraaf.nl/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 16,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Belgium": {
+      "iso": "BE",
+      "language": "nl",
+      "outlets": [
+        {
+          "id": "het-laatste-nieuws-bel",
+          "name": "Het Laatste Nieuws",
+          "type": "private",
+          "homepage": "https://www.hln.be/",
+          "feeds": [
+            "https://www.hln.be/home/rss.xml",
+            "https://www.hln.be/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 45,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "vrt-nws-bel",
+          "name": "VRT NWS",
+          "type": "public",
+          "homepage": "https://www.vrt.be/vrtnws/nl/",
+          "feeds": [
+            "https://www.vrt.be/vrtnws/nl.rss.articles.xml",
+            "https://www.vrt.be/vrtnws/nl.rss.headlines.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 40,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "het-nieuwsblad-bel",
+          "name": "Het Nieuwsblad",
+          "type": "private",
+          "homepage": "https://www.nieuwsblad.be/",
+          "feeds": [
+            "https://www.nieuwsblad.be/rss",
+            "https://www.nieuwsblad.be/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 21,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "rtl-info-bel",
+          "name": "RTL Info",
+          "type": "private",
+          "homepage": "https://www.rtl.be/info",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 30,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "rtbf-info-bel",
+          "name": "RTBF Info",
+          "type": "public",
+          "homepage": "https://www.rtbf.be/info",
+          "feeds": [
+            "https://rss.rtbf.be/article/rss/highlight_rtbf_info.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 28,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Ireland": {
+      "iso": "IE",
+      "language": "en",
+      "outlets": [
+        {
+          "id": "rte-news-ire",
+          "name": "RTÉ News",
+          "type": "public",
+          "homepage": "https://www.rte.ie/news/",
+          "feeds": [
+            "https://www.rte.ie/feeds/rss/?index=/news/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 37,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "thejournal-ie-ire",
+          "name": "TheJournal.ie",
+          "type": "private",
+          "homepage": "https://www.thejournal.ie/",
+          "feeds": [
+            "https://www.thejournal.ie/feed/",
+            "https://www.thejournal.ie/feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 29,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "irish-independent-ire",
+          "name": "Irish Independent",
+          "type": "private",
+          "homepage": "https://www.independent.ie/",
+          "feeds": [
+            "https://www.independent.ie/rss/",
+            "https://www.independent.ie/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 23,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "breakingnews-ie-ire",
+          "name": "BreakingNews.ie",
+          "type": "private",
+          "homepage": "https://www.breakingnews.ie/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 22,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "the-irish-times-ire",
+          "name": "The Irish Times",
+          "type": "private",
+          "homepage": "https://www.irishtimes.com/",
+          "feeds": [
+            "https://www.irishtimes.com/arc/outboundfeeds/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 20,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Austria": {
+      "iso": "AT",
+      "language": "de",
+      "outlets": [
+        {
+          "id": "orf-aus",
+          "name": "ORF",
+          "type": "public",
+          "homepage": "https://orf.at/",
+          "feeds": [
+            "https://rss.orf.at/news.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 31,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "kronen-zeitung-aus",
+          "name": "Kronen Zeitung",
+          "type": "private",
+          "homepage": "https://www.krone.at/",
+          "feeds": [
+            "https://api.krone.at/v1/rss/rssfeed-google.xml?id=2311992"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 24,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "der-standard-aus",
+          "name": "Der Standard",
+          "type": "private",
+          "homepage": "https://www.derstandard.at/",
+          "feeds": [
+            "https://www.derstandard.at/rss",
+            "https://www.derstandard.at/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 17,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "heute-aus",
+          "name": "Heute",
+          "type": "private",
+          "homepage": "https://www.heute.at/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 15,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "oe24-aus",
+          "name": "oe24",
+          "type": "private",
+          "homepage": "https://www.oe24.at/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 13,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Switzerland": {
+      "iso": "CH",
+      "language": "de",
+      "outlets": [
+        {
+          "id": "20-minuten-swi",
+          "name": "20 Minuten",
+          "type": "private",
+          "homepage": "https://www.20min.ch/",
+          "feeds": [
+            "https://partner-feeds.20min.ch/rss/20minuten"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 46,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "srf-news-swi",
+          "name": "SRF News",
+          "type": "public",
+          "homepage": "https://www.srf.ch/news",
+          "feeds": [
+            "https://www.srf.ch/news/bnf/rss/1646",
+            "https://www.srf.ch/news/bnf/rss/1890"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 32,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "blick-swi",
+          "name": "Blick",
+          "type": "private",
+          "homepage": "https://www.blick.ch/",
+          "feeds": [
+            "https://www.blick.ch/news/rss.xml",
+            "https://www.blick.ch/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 31,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "20-minutes-swi",
+          "name": "20 minutes",
+          "type": "private",
+          "homepage": "https://www.20min.ch/fr",
+          "feeds": [
+            "https://partner-feeds.20min.ch/rss/20minutes"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 51,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "rts-info-swi",
+          "name": "RTS Info",
+          "type": "public",
+          "homepage": "https://www.rts.ch/info/",
+          "feeds": [
+            "https://www.rts.ch/info/?format=rss/news"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 35,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Portugal": {
+      "iso": "PT",
+      "language": "pt",
+      "outlets": [
+        {
+          "id": "sic-noticias-por",
+          "name": "SIC Notícias",
+          "type": "private",
+          "homepage": "https://sicnoticias.pt/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 33,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "noticias-ao-minuto-por",
+          "name": "Notícias ao Minuto",
+          "type": "private",
+          "homepage": "https://www.noticiasaominuto.com/",
+          "feeds": [
+            "https://www.noticiasaominuto.com/rss/ultima-hora"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 27,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "correio-da-manha-por",
+          "name": "Correio da Manhã",
+          "type": "private",
+          "homepage": "https://www.cmjornal.pt/",
+          "feeds": [
+            "https://www.cmjornal.pt/rss",
+            "https://www.cmjornal.pt/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 23,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "cnn-portugal-por",
+          "name": "CNN Portugal",
+          "type": "private",
+          "homepage": "https://cnnportugal.iol.pt/",
+          "feeds": [
+            "https://cnnportugal.iol.pt/rss",
+            "https://cnnportugal.iol.pt/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 20,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "jornal-de-noticias-por",
+          "name": "Jornal de Notícias",
+          "type": "private",
+          "homepage": "https://www.jn.pt/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 19,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Greece": {
+      "iso": "GR",
+      "language": "el",
+      "outlets": [
+        {
+          "id": "newsbomb-gre",
+          "name": "Newsbomb",
+          "type": "private",
+          "homepage": "https://www.newsbomb.gr/",
+          "feeds": [
+            "https://www.newsbomb.gr/oles-oi-eidhseis?format=feed&type=rss",
+            "https://www.newsbomb.gr/oles-oi-eidhseis?format=feed&type=atom"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 25,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "in-gr-gre",
+          "name": "in.gr",
+          "type": "private",
+          "homepage": "https://www.in.gr/",
+          "feeds": [
+            "https://www.in.gr/rss",
+            "https://www.in.gr/feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 25,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "proto-thema-gre",
+          "name": "Proto Thema",
+          "type": "private",
+          "homepage": "https://www.protothema.gr/",
+          "feeds": [
+            "https://www.protothema.gr/rss",
+            "https://www.protothema.gr/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 22,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "news247-gre",
+          "name": "News247",
+          "type": "private",
+          "homepage": "https://www.news247.gr/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 21,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "kathimerini-gre",
+          "name": "Kathimerini",
+          "type": "private",
+          "homepage": "https://www.kathimerini.gr/",
+          "feeds": [
+            "https://www.kathimerini.gr/infeeds/rss/nx-rss-feed.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 19,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Poland": {
+      "iso": "PL",
+      "language": "pl",
+      "outlets": [
+        {
+          "id": "onet-pol",
+          "name": "Onet",
+          "type": "private",
+          "homepage": "https://www.onet.pl/",
+          "feeds": [
+            "https://wiadomosci.onet.pl/.feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 33,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "wirtualna-polska-pol",
+          "name": "Wirtualna Polska",
+          "type": "private",
+          "homepage": "https://www.wp.pl/",
+          "feeds": [
+            "https://wiadomosci.wp.pl/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 29,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "tvn24-pol",
+          "name": "TVN24",
+          "type": "private",
+          "homepage": "https://tvn24.pl/",
+          "feeds": [
+            "https://tvn24.pl/najnowsze.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 22,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "interia-pol",
+          "name": "Interia",
+          "type": "private",
+          "homepage": "https://www.interia.pl/",
+          "feeds": [
+            "https://wydarzenia.interia.pl/feed",
+            "https://fakty.interia.pl/feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 20,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "rmf24-pol",
+          "name": "RMF24",
+          "type": "private",
+          "homepage": "https://www.rmf24.pl/",
+          "feeds": [
+            "https://www.rmf24.pl/feed",
+            "https://www.rmf24.pl/feed/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 14,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Czechia": {
+      "iso": "CZ",
+      "language": "cs",
+      "outlets": [
+        {
+          "id": "seznam-zpravy-cze",
+          "name": "Seznam Zprávy",
+          "type": "private",
+          "homepage": "https://www.seznamzpravy.cz/",
+          "feeds": [
+            "https://www.seznamzpravy.cz/rss",
+            "https://www.seznamzpravy.cz/rss/news"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 49,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "idnes-cz-cze",
+          "name": "iDNES.cz",
+          "type": "private",
+          "homepage": "https://www.idnes.cz/",
+          "feeds": [
+            "https://servis.idnes.cz/rss.aspx"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 35,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "novinky-cz-cze",
+          "name": "Novinky.cz",
+          "type": "private",
+          "homepage": "https://www.novinky.cz/",
+          "feeds": [
+            "https://www.novinky.cz/rss/news",
+            "https://www.novinky.cz/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 34,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "aktualne-cz-cze",
+          "name": "Aktuálně.cz",
+          "type": "private",
+          "homepage": "https://www.aktualne.cz/",
+          "feeds": [
+            "https://www.aktualne.cz/rss",
+            "https://www.aktualne.cz/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 25,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "cnn-prima-news-cze",
+          "name": "CNN Prima News",
+          "type": "private",
+          "homepage": "https://cnn.iprima.cz/",
+          "feeds": [
+            "https://cnn.iprima.cz/rss",
+            "https://cnn.iprima.cz/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 21,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Slovakia": {
+      "iso": "SK",
+      "language": "sk",
+      "outlets": [
+        {
+          "id": "aktuality-sk-slo",
+          "name": "Aktuality.sk",
+          "type": "private",
+          "homepage": "https://www.aktuality.sk/",
+          "feeds": [
+            "https://www.aktuality.sk/rss/",
+            "https://www.aktuality.sk/rss/zahranicne/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 39,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "topky-sk-slo",
+          "name": "Topky.sk",
+          "type": "private",
+          "homepage": "https://www.topky.sk/",
+          "feeds": [
+            "https://www.topky.sk/rss/8/TOPKY"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 25,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "tv-noviny-slo",
+          "name": "TV Noviny",
+          "type": "private",
+          "homepage": "https://www.tvnoviny.sk/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 21,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "sme-slo",
+          "name": "SME",
+          "type": "private",
+          "homepage": "https://www.sme.sk/",
+          "feeds": [
+            "https://www.sme.sk/rss",
+            "https://www.sme.sk/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 20,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "refresher-slo",
+          "name": "Refresher",
+          "type": "private",
+          "homepage": "https://refresher.sk/",
+          "feeds": [
+            "https://refresher.sk/rss",
+            "https://refresher.sk/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 16,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Hungary": {
+      "iso": "HU",
+      "language": "hu",
+      "outlets": [
+        {
+          "id": "telex-hun",
+          "name": "Telex",
+          "type": "private",
+          "homepage": "https://telex.hu/",
+          "feeds": [
+            "https://telex.hu/rss/news",
+            "https://telex.hu/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 30,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "24-hu-hun",
+          "name": "24.hu",
+          "type": "private",
+          "homepage": "https://24.hu/",
+          "feeds": [
+            "https://24.hu/feed/",
+            "https://24.hu/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 27,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "444-hun",
+          "name": "444",
+          "type": "private",
+          "homepage": "https://444.hu/",
+          "feeds": [
+            "https://444.hu/rss/news",
+            "https://444.hu/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 27,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "index-hun",
+          "name": "Index",
+          "type": "private",
+          "homepage": "https://index.hu/",
+          "feeds": [
+            "https://index.hu/24ora/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 25,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "rtl-hun",
+          "name": "RTL",
+          "type": "private",
+          "homepage": "https://rtl.hu/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 20,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Croatia": {
+      "iso": "HR",
+      "language": "hr",
+      "outlets": [
+        {
+          "id": "index-hr-cro",
+          "name": "Index.hr",
+          "type": "private",
+          "homepage": "https://www.index.hr/",
+          "feeds": [
+            "https://www.index.hr/rss",
+            "https://www.index.hr/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 49,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "24sata-cro",
+          "name": "24sata",
+          "type": "private",
+          "homepage": "https://www.24sata.hr/",
+          "feeds": [
+            "https://www.24sata.hr/feeds/news.xml",
+            "https://www.24sata.hr/feeds/najnovije.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 42,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "dnevnik-hr-cro",
+          "name": "Dnevnik.hr",
+          "type": "private",
+          "homepage": "https://dnevnik.hr/",
+          "feeds": [
+            "https://dnevnik.hr/rss",
+            "https://dnevnik.hr/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 35,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "jutarnji-list-cro",
+          "name": "Jutarnji list",
+          "type": "private",
+          "homepage": "https://www.jutarnji.hr/",
+          "feeds": [
+            "https://www.jutarnji.hr/feed",
+            "https://www.jutarnji.hr/feed/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 33,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "net-hr-cro",
+          "name": "Net.hr",
+          "type": "private",
+          "homepage": "https://net.hr/",
+          "feeds": [
+            "https://net.hr/rss.xml",
+            "https://net.hr/feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 28,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Romania": {
+      "iso": "RO",
+      "language": "ro",
+      "outlets": [
+        {
+          "id": "stirile-pro-tv-rom",
+          "name": "Știrile Pro TV",
+          "type": "private",
+          "homepage": "https://stirileprotv.ro/",
+          "feeds": [
+            "https://stirileprotv.ro/rss/",
+            "https://stirileprotv.ro/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 29,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "digi24-rom",
+          "name": "Digi24",
+          "type": "private",
+          "homepage": "https://www.digi24.ro/",
+          "feeds": [
+            "https://www.digi24.ro/rss/news",
+            "https://www.digi24.ro/rss/all"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 26,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "libertatea-rom",
+          "name": "Libertatea",
+          "type": "private",
+          "homepage": "https://www.libertatea.ro/",
+          "feeds": [
+            "https://www.libertatea.ro/rss/news",
+            "https://www.libertatea.ro/feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 21,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "stiri-pe-surse-rom",
+          "name": "Știri pe surse",
+          "type": "private",
+          "homepage": "https://www.stiripesurse.ro/",
+          "feeds": [
+            "https://www.stiripesurse.ro/rss/stiri.xml",
+            "https://www.stiripesurse.ro/feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 20,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "adevarul-rom",
+          "name": "Adevărul",
+          "type": "private",
+          "homepage": "https://adevarul.ro/",
+          "feeds": [
+            "https://adevarul.ro/rss/news",
+            "https://adevarul.ro/rss/index"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 20,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Bulgaria": {
+      "iso": "BG",
+      "language": "bg",
+      "outlets": [
+        {
+          "id": "nova-bul",
+          "name": "Nova",
+          "type": "private",
+          "homepage": "https://nova.bg/",
+          "feeds": [
+            "https://nova.bg/rss/latest"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 41,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "btv-novinite-bul",
+          "name": "bTV Novinite",
+          "type": "private",
+          "homepage": "https://btvnovinite.bg/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 37,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "novini-bg-bul",
+          "name": "Novini.bg",
+          "type": "private",
+          "homepage": "https://novini.bg/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 27,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "24-chasa-bul",
+          "name": "24 Chasa",
+          "type": "private",
+          "homepage": "https://www.24chasa.bg/",
+          "feeds": [
+            "https://www.24chasa.bg/rss/news",
+            "https://www.24chasa.bg/rss/latest"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 26,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "bnt-bul",
+          "name": "BNT",
+          "type": "public",
+          "homepage": "https://bntnews.bg/",
+          "feeds": [
+            "https://bntnews.bg/bg/rss/news.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 22,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Serbia": {
+      "iso": "RS",
+      "language": "sr",
+      "outlets": [
+        {
+          "id": "n1-ser",
+          "name": "N1",
+          "type": "private",
+          "homepage": "https://n1info.rs/",
+          "feeds": [
+            "https://n1info.rs/feed",
+            "https://n1info.rs/feed/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 36,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "blic-ser",
+          "name": "Blic",
+          "type": "private",
+          "homepage": "https://www.blic.rs/",
+          "feeds": [
+            "https://www.blic.rs/rss/news",
+            "https://www.blic.rs/rss/latest"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 30,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "telegraf-ser",
+          "name": "Telegraf",
+          "type": "private",
+          "homepage": "https://www.telegraf.rs/",
+          "feeds": [
+            "https://www.telegraf.rs/rss",
+            "https://www.telegraf.rs/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 23,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "nova-ser",
+          "name": "Nova",
+          "type": "private",
+          "homepage": "https://nova.rs/",
+          "feeds": [
+            "https://nova.rs/feed",
+            "https://nova.rs/feed/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 21,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "danas-ser",
+          "name": "Danas",
+          "type": "private",
+          "homepage": "https://www.danas.rs/",
+          "feeds": [
+            "https://www.danas.rs/feed/",
+            "https://www.danas.rs/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 20,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Canada": {
+      "iso": "CA",
+      "language": "en",
+      "outlets": [
+        {
+          "id": "cbc-news-can",
+          "name": "CBC News",
+          "type": "public",
+          "homepage": "https://www.cbc.ca/news",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 26,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "ctv-news-can",
+          "name": "CTV News",
+          "type": "private",
+          "homepage": "https://www.ctvnews.ca/",
+          "feeds": [
+            "https://www.ctvnews.ca/arc/outboundfeeds/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 22,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "global-news-can",
+          "name": "Global News",
+          "type": "private",
+          "homepage": "https://globalnews.ca/",
+          "feeds": [
+            "https://globalnews.ca/feed/",
+            "https://globalnews.ca/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 15,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "the-globe-and-mail-can",
+          "name": "The Globe and Mail",
+          "type": "private",
+          "homepage": "https://www.theglobeandmail.com/",
+          "feeds": [
+            "https://www.theglobeandmail.com/arc/outboundfeeds/rss/category/canada/",
+            "https://www.theglobeandmail.com/arc/outboundfeeds/rss/category/politics/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 12,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "tva-nouvelles-can",
+          "name": "TVA Nouvelles",
+          "type": "private",
+          "homepage": "https://www.tvanouvelles.ca/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 30,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Mexico": {
+      "iso": "MX",
+      "language": "es",
+      "outlets": [
+        {
+          "id": "milenio-mex",
+          "name": "Milenio",
+          "type": "private",
+          "homepage": "https://www.milenio.com/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 20,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "el-universal-mex",
+          "name": "El Universal",
+          "type": "private",
+          "homepage": "https://www.eluniversal.com.mx/",
+          "feeds": [
+            "https://www.eluniversal.com.mx/arc/outboundfeeds/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 20,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "unotv-mex",
+          "name": "UnoTV",
+          "type": "private",
+          "homepage": "https://www.unotv.com/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 18,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "n-mex",
+          "name": "N+",
+          "type": "private",
+          "homepage": "https://www.nmas.com.mx/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 17,
+          "selection": "DNR 2026 online (A29)"
+        },
+        {
+          "id": "azteca-noticias-mex",
+          "name": "Azteca Noticias",
+          "type": "private",
+          "homepage": "https://www.tvazteca.com/aztecanoticias",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": 16,
+          "selection": "DNR 2026 online (A29)"
+        }
+      ]
+    },
+    "Iceland": {
+      "iso": "IS",
+      "language": "is",
+      "outlets": [
+        {
+          "id": "ruv-ice",
+          "name": "RÚV",
+          "type": "public",
+          "homepage": "https://www.ruv.is/",
+          "feeds": [
+            "https://www.ruv.is/rss/frettir",
+            "https://www.ruv.is/rss/innlent"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "morgunblai-ice",
+          "name": "Morgunblaðið",
+          "type": "private",
+          "homepage": "https://www.mbl.is/",
+          "feeds": [
+            "https://www.mbl.is/feeds/fp/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "visir-ice",
+          "name": "Vísir",
+          "type": "private",
+          "homepage": "https://www.visir.is/",
+          "feeds": [
+            "https://www.visir.is/rss/all"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "dv-ice",
+          "name": "DV",
+          "type": "private",
+          "homepage": "https://www.dv.is/",
+          "feeds": [
+            "https://www.dv.is/rss",
+            "https://www.dv.is/feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "heimildin-ice",
+          "name": "Heimildin",
+          "type": "private",
+          "homepage": "https://heimildin.is/",
+          "feeds": [
+            "https://heimildin.is/rss/",
+            "https://heimildin.is/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "Luxembourg": {
+      "iso": "LU",
+      "language": "lb",
+      "outlets": [
+        {
+          "id": "rtl-letzebuerg-lux",
+          "name": "RTL Lëtzebuerg",
+          "type": "private",
+          "homepage": "https://www.rtl.lu/",
+          "feeds": [
+            "https://www.rtl.lu/rss/national"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "luxemburger-wort-lux",
+          "name": "Luxemburger Wort",
+          "type": "private",
+          "homepage": "https://www.wort.lu/",
+          "feeds": [
+            "https://www.wort.lu/rss",
+            "https://www.wort.lu/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "l-essentiel-lux",
+          "name": "L'essentiel",
+          "type": "private",
+          "homepage": "https://www.lessentiel.lu/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "tageblatt-lux",
+          "name": "Tageblatt",
+          "type": "private",
+          "homepage": "https://www.tageblatt.lu/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "luxembourg-times-lux",
+          "name": "Luxembourg Times",
+          "type": "private",
+          "homepage": "https://www.luxtimes.lu/",
+          "feeds": [
+            "https://www.luxtimes.lu/rss",
+            "https://www.luxtimes.lu/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "Malta": {
+      "iso": "MT",
+      "language": "en",
+      "outlets": [
+        {
+          "id": "times-of-malta-mal",
+          "name": "Times of Malta",
+          "type": "private",
+          "homepage": "https://timesofmalta.com/",
+          "feeds": [
+            "https://timesofmalta.com/?feed=rss2"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "maltatoday-mal",
+          "name": "MaltaToday",
+          "type": "private",
+          "homepage": "https://www.maltatoday.com.mt/",
+          "feeds": [
+            "https://www.maltatoday.com.mt/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "the-malta-independent-mal",
+          "name": "The Malta Independent",
+          "type": "private",
+          "homepage": "https://www.independent.com.mt/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "tvm-mal",
+          "name": "TVM",
+          "type": "private",
+          "homepage": "https://tvmnews.mt/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "newsbook-mal",
+          "name": "Newsbook",
+          "type": "private",
+          "homepage": "https://newsbook.com.mt/",
+          "feeds": [
+            "https://newsbook.com.mt/rss",
+            "https://newsbook.com.mt/feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "Cyprus": {
+      "iso": "CY",
+      "language": "el",
+      "outlets": [
+        {
+          "id": "cybc-cyp",
+          "name": "CyBC",
+          "type": "public",
+          "homepage": "https://cybc.com.cy/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "phileleftheros-cyp",
+          "name": "Phileleftheros",
+          "type": "private",
+          "homepage": "https://www.philenews.com/",
+          "feeds": [
+            "https://www.philenews.com/rss",
+            "https://www.philenews.com/feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "politis-cyp",
+          "name": "Politis",
+          "type": "private",
+          "homepage": "https://politis.com.cy/",
+          "feeds": [
+            "https://politis.com.cy/feed",
+            "https://politis.com.cy/feed/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "cyprus-mail-cyp",
+          "name": "Cyprus Mail",
+          "type": "private",
+          "homepage": "https://cyprus-mail.com/",
+          "feeds": [
+            "https://cyprus-mail.com/feed",
+            "https://cyprus-mail.com/feed/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "sigmalive-cyp",
+          "name": "Sigmalive",
+          "type": "private",
+          "homepage": "https://www.sigmalive.com/",
+          "feeds": [
+            "https://www.sigmalive.com/rss",
+            "https://www.sigmalive.com/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "Slovenia": {
+      "iso": "SI",
+      "language": "sl",
+      "outlets": [
+        {
+          "id": "rtv-slo-slo",
+          "name": "RTV SLO",
+          "type": "public",
+          "homepage": "https://www.rtvslo.si/",
+          "feeds": [
+            "https://www.rtvslo.si/feeds/00.xml",
+            "https://www.rtvslo.si/feeds/01.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "24ur-slo",
+          "name": "24ur",
+          "type": "private",
+          "homepage": "https://www.24ur.com/",
+          "feeds": [
+            "https://www.24ur.com/rss.xml",
+            "https://www.24ur.com/rssfeed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "delo-slo",
+          "name": "Delo",
+          "type": "private",
+          "homepage": "https://www.delo.si/",
+          "feeds": [
+            "https://www.delo.si/rss",
+            "https://www.delo.si/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "dnevnik-slo",
+          "name": "Dnevnik",
+          "type": "private",
+          "homepage": "https://www.dnevnik.si/",
+          "feeds": [
+            "https://www.dnevnik.si/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "n1-slovenija-slo",
+          "name": "N1 Slovenija",
+          "type": "private",
+          "homepage": "https://n1info.si/",
+          "feeds": [
+            "https://n1info.si/feed",
+            "https://n1info.si/feed/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "Estonia": {
+      "iso": "EE",
+      "language": "et",
+      "outlets": [
+        {
+          "id": "err-est",
+          "name": "ERR",
+          "type": "public",
+          "homepage": "https://www.err.ee/",
+          "feeds": [
+            "https://www.err.ee/rss",
+            "https://www.err.ee/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "postimees-est",
+          "name": "Postimees",
+          "type": "private",
+          "homepage": "https://www.postimees.ee/",
+          "feeds": [
+            "https://www.postimees.ee/rss",
+            "https://www.postimees.ee/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "delfi-estonia-est",
+          "name": "Delfi Estonia",
+          "type": "private",
+          "homepage": "https://www.delfi.ee/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "eesti-paevaleht-est",
+          "name": "Eesti Päevaleht",
+          "type": "private",
+          "homepage": "https://epl.delfi.ee/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "ohtuleht-est",
+          "name": "Õhtuleht",
+          "type": "private",
+          "homepage": "https://www.ohtuleht.ee/",
+          "feeds": [
+            "https://www.ohtuleht.ee/rss",
+            "https://www.ohtuleht.ee/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "Latvia": {
+      "iso": "LV",
+      "language": "lv",
+      "outlets": [
+        {
+          "id": "lsm-lat",
+          "name": "LSM",
+          "type": "public",
+          "homepage": "https://www.lsm.lv/",
+          "feeds": [
+            "https://www.lsm.lv/rss",
+            "https://www.lsm.lv/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "delfi-latvia-lat",
+          "name": "Delfi Latvia",
+          "type": "private",
+          "homepage": "https://www.delfi.lv/",
+          "feeds": [
+            "https://www.delfi.lv/news/rss.xml",
+            "https://www.delfi.lv/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "tvnet-lat",
+          "name": "TVNET",
+          "type": "private",
+          "homepage": "https://www.tvnet.lv/",
+          "feeds": [
+            "https://www.tvnet.lv/rss",
+            "https://www.tvnet.lv/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "diena-lat",
+          "name": "Diena",
+          "type": "private",
+          "homepage": "https://www.diena.lv/",
+          "feeds": [
+            "https://diena.lv/rss",
+            "https://www.diena.lv/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "neatkariga-lat",
+          "name": "Neatkarīgā",
+          "type": "private",
+          "homepage": "https://nra.lv/",
+          "feeds": [
+            "https://nra.lv/rss/jaunakas-zinas/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "Lithuania": {
+      "iso": "LT",
+      "language": "lt",
+      "outlets": [
+        {
+          "id": "lrt-lit",
+          "name": "LRT",
+          "type": "public",
+          "homepage": "https://www.lrt.lt/",
+          "feeds": [
+            "https://www.lrt.lt/?rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "15min-lit",
+          "name": "15min",
+          "type": "private",
+          "homepage": "https://www.15min.lt/",
+          "feeds": [
+            "https://www.15min.lt/rss",
+            "https://www.15min.lt/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "delfi-lithuania-lit",
+          "name": "Delfi Lithuania",
+          "type": "private",
+          "homepage": "https://www.delfi.lt/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "lrytas-lit",
+          "name": "Lrytas",
+          "type": "private",
+          "homepage": "https://www.lrytas.lt/",
+          "feeds": [
+            "https://www.lrytas.lt/rss",
+            "https://www.lrytas.lt/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "verslo-zinios-lit",
+          "name": "Verslo žinios",
+          "type": "private",
+          "homepage": "https://www.vz.lt/",
+          "feeds": [
+            "https://www.vz.lt/rss",
+            "https://www.vz.lt/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "Ukraine": {
+      "iso": "UA",
+      "language": "uk",
+      "outlets": [
+        {
+          "id": "suspilne-ukr",
+          "name": "Suspilne",
+          "type": "public",
+          "homepage": "https://suspilne.media/",
+          "feeds": [
+            "https://suspilne.media/rss/all.rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "ukrainska-pravda-ukr",
+          "name": "Ukrainska Pravda",
+          "type": "private",
+          "homepage": "https://www.pravda.com.ua/",
+          "feeds": [
+            "https://www.pravda.com.ua/rss/news",
+            "https://www.pravda.com.ua/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "nv-ukr",
+          "name": "NV",
+          "type": "private",
+          "homepage": "https://nv.ua/",
+          "feeds": [
+            "https://nv.ua/ukr/rss/all.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "ukrinform-ukr",
+          "name": "Ukrinform",
+          "type": "public",
+          "homepage": "https://www.ukrinform.ua/",
+          "feeds": [
+            "https://www.ukrinform.ua/rss/block-lastnews"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "rbc-ukraine-ukr",
+          "name": "RBC-Ukraine",
+          "type": "private",
+          "homepage": "https://www.rbc.ua/",
+          "feeds": [
+            "https://www.rbc.ua/static/rss/all.rus.rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "Moldova": {
+      "iso": "MD",
+      "language": "ro",
+      "outlets": [
+        {
+          "id": "moldova-1-mol",
+          "name": "Moldova 1",
+          "type": "public",
+          "homepage": "https://trm.md/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "ziarul-de-garda-mol",
+          "name": "Ziarul de Gardă",
+          "type": "private",
+          "homepage": "https://www.zdg.md/",
+          "feeds": [
+            "https://www.zdg.md/rss",
+            "https://www.zdg.md/feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "newsmaker-mol",
+          "name": "NewsMaker",
+          "type": "private",
+          "homepage": "https://newsmaker.md/",
+          "feeds": [
+            "https://newsmaker.md/ru/feed",
+            "https://newsmaker.md/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "unimedia-mol",
+          "name": "Unimedia",
+          "type": "private",
+          "homepage": "https://unimedia.info/",
+          "feeds": [
+            "https://unimedia.info/ro/rss/all/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "jurnal-tv-mol",
+          "name": "Jurnal TV",
+          "type": "private",
+          "homepage": "https://www.jurnaltv.md/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "Bosnia and Herzegovina": {
+      "iso": "BA",
+      "language": "bs",
+      "outlets": [
+        {
+          "id": "klix-ba-bos",
+          "name": "Klix.ba",
+          "type": "private",
+          "homepage": "https://www.klix.ba/",
+          "feeds": [
+            "https://www.klix.ba/rss",
+            "https://www.klix.ba/rss/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "bhrt-bos",
+          "name": "BHRT",
+          "type": "public",
+          "homepage": "https://bhrt.ba/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "osloboenje-bos",
+          "name": "Oslobođenje",
+          "type": "private",
+          "homepage": "https://www.oslobodjenje.ba/",
+          "feeds": [
+            "https://www.oslobodjenje.ba/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "avaz-bos",
+          "name": "Avaz",
+          "type": "private",
+          "homepage": "https://avaz.ba/",
+          "feeds": [
+            "https://avaz.ba/rss/latest",
+            "https://avaz.ba/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "n1-bih-bos",
+          "name": "N1 BiH",
+          "type": "private",
+          "homepage": "https://n1info.ba/",
+          "feeds": [
+            "https://n1info.ba/feed",
+            "https://n1info.ba/feed/"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "Montenegro": {
+      "iso": "ME",
+      "language": "sr",
+      "outlets": [
+        {
+          "id": "rtcg-mon",
+          "name": "RTCG",
+          "type": "public",
+          "homepage": "https://rtcg.me/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "vijesti-mon",
+          "name": "Vijesti",
+          "type": "private",
+          "homepage": "https://www.vijesti.me/",
+          "feeds": [
+            "https://www.vijesti.me/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "pobjeda-mon",
+          "name": "Pobjeda",
+          "type": "private",
+          "homepage": "https://www.pobjeda.me/",
+          "feeds": [
+            "https://rss.pobjeda.me"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "cdm-mon",
+          "name": "CdM",
+          "type": "private",
+          "homepage": "https://www.cdm.me/",
+          "feeds": [
+            "https://www.cdm.me/feed/",
+            "https://www.cdm.me/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "dan-mon",
+          "name": "Dan",
+          "type": "private",
+          "homepage": "https://www.dan.co.me/",
+          "feeds": [
+            "https://www.dan.co.me/feed",
+            "https://www.dan.co.me/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "North Macedonia": {
+      "iso": "MK",
+      "language": "mk",
+      "outlets": [
+        {
+          "id": "mrt-nor",
+          "name": "MRT",
+          "type": "public",
+          "homepage": "https://mrt.com.mk/",
+          "feeds": [
+            "https://mrt.com.mk/rss.xml"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "sloboden-pecat-nor",
+          "name": "Sloboden pečat",
+          "type": "private",
+          "homepage": "https://www.slobodenpecat.mk/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "nova-makedonija-nor",
+          "name": "Nova Makedonija",
+          "type": "private",
+          "homepage": "https://novamakedonija.com.mk/",
+          "feeds": [
+            "https://novamakedonija.com.mk/feed/",
+            "https://novamakedonija.com.mk/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "kanal-5-nor",
+          "name": "Kanal 5",
+          "type": "private",
+          "homepage": "https://kanal5.com.mk/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "telma-nor",
+          "name": "Telma",
+          "type": "private",
+          "homepage": "https://telma.com.mk/",
+          "feeds": [
+            "https://telma.com.mk/feed/",
+            "https://telma.com.mk/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        }
+      ]
+    },
+    "Albania": {
+      "iso": "AL",
+      "language": "sq",
+      "outlets": [
+        {
+          "id": "rtsh-alb",
+          "name": "RTSH",
+          "type": "public",
+          "homepage": "https://rtsh.al/",
+          "feeds": [
+            "https://rtsh.al/rss",
+            "https://rtsh.al/feed"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "top-channel-alb",
+          "name": "Top Channel",
+          "type": "private",
+          "homepage": "https://top-channel.tv/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "panorama-alb",
+          "name": "Panorama",
+          "type": "private",
+          "homepage": "https://www.panorama.com.al/",
+          "feeds": [],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "balkanweb-alb",
+          "name": "Balkanweb",
+          "type": "private",
+          "homepage": "https://www.balkanweb.com/",
+          "feeds": [
+            "https://www.balkanweb.com/feed/",
+            "https://www.balkanweb.com/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
+        },
+        {
+          "id": "euronews-albania-alb",
+          "name": "Euronews Albania",
+          "type": "private",
+          "homepage": "https://euronews.al/",
+          "feeds": [
+            "https://euronews.al/feed/",
+            "https://euronews.al/rss"
+          ],
+          "ignores": [],
+          "weight": 1.0,
+          "tier": "reference",
+          "dnr_2026_online_reach_pct": null,
+          "selection": "provisional: no DNR market (A61)"
         }
       ]
     }

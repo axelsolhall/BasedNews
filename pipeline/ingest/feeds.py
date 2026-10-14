@@ -9,6 +9,7 @@ from email.utils import parsedate_to_datetime
 
 ATOM = {"atom": "http://www.w3.org/2005/Atom"}
 DC_DATE = "{http://purl.org/dc/elements/1.1/}date"
+RSS1 = "{http://purl.org/rss/1.0/}"                         # RSS 1.0 (RDF): items sit beside the channel, not in it (ORF)
 
 
 def _text(el) -> str | None:
@@ -25,6 +26,12 @@ def parse_feed(xml_bytes: bytes) -> list[dict]:
             {"title": _text(i.find("title")), "url": _text(i.find("link")) or _text(i.find("guid")),
              "published": _text(i.find("pubDate")) or _text(i.find(DC_DATE)), "summary": _text(i.find("description"))}
             for i in (channel.findall("item") if channel is not None else [])
+        ]
+    if root.tag.endswith("RDF"):
+        return [
+            {"title": _text(i.find(RSS1 + "title")), "url": _text(i.find(RSS1 + "link")),
+             "published": _text(i.find(DC_DATE)), "summary": _text(i.find(RSS1 + "description"))}
+            for i in root.findall(RSS1 + "item")
         ]
     if root.tag.lower().endswith("feed"):
         out = []
