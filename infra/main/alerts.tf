@@ -41,10 +41,10 @@ resource "aws_cloudwatch_metric_alarm" "refresh_unhealthy" {
   datapoints_to_alarm = 3
   threshold           = 1
   comparison_operator = "LessThanThreshold"
-  treat_missing_data  = "breaching" # no runs at all is unhealthy too (while the schedule is on)
-  actions_enabled     = var.refresh_enabled
-  alarm_actions       = [aws_sns_topic.alerts.arn]
-  ok_actions          = [aws_sns_topic.alerts.arn] # and an all-clear when it recovers
+  # no runs at all is unhealthy too — while the schedule is on; switched off, missing runs are expected (no false alarm)
+  treat_missing_data = var.refresh_enabled ? "breaching" : "notBreaching"
+  alarm_actions      = [aws_sns_topic.alerts.arn]
+  ok_actions         = [aws_sns_topic.alerts.arn] # and an all-clear when it recovers
 }
 
 # Kill switch (A48): if the month's AWS cost passes killswitch_usd, every schedule is switched off by a small Lambda.

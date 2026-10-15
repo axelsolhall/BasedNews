@@ -163,6 +163,10 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
 - **Evidence (2026-10-10, 2,460 articles, threshold 0.60):** components → largest cluster 403 articles (chaining
   confirmed); average linkage → largest 31, 206 multi-outlet events, 111 cross-country. Average linkage is the default.
   Same-topic-different-event pairs score up to ~0.55–0.62 cosine, so the threshold needs the labelled set.
+- **Decision (maintainer, 2026-10-15): a pair is a pair.** Once two articles are in one story, match strength
+  and time gap do not weight the pair, neither in the planner nor in the fit. Outlets that frame an event
+  differently write less similar articles, so weighting by similarity would discount the most slanted coverage —
+  the signal being measured. The threshold stays a yes/no gate for "same event".
 - **Status:** accepted (2026-10-11)
 
 ### A21 — The judge compares like with like: both articles as full text, or both as headline + summary
