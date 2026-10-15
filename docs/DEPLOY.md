@@ -112,18 +112,16 @@ The command is `<step> --run-id <execution name>`. Exit codes: 0 ok · 1 step fa
 | a step crashes, runs out of memory or is killed | its lease stops being renewed; the step is retried after 2 min and takes the lock over after 5 min; the stored database is unchanged |
 | a task is stopped (StopTask, timeout) | it ends cleanly: record written, nothing uploaded, lease released |
 | a task hangs | it stops renewing after 80 min and is stopped at 90; the next job takes over |
-| a broken image | the CI smoke test (`selftest`) keeps it from becoming `prod`; if it gets through and the refresh fails twice in a row with it, `prod` rolls back to `prev` and you get one email |
+| a broken image | the CI smoke test (`selftest`) keeps it from becoming `prod`; if one gets through, the runs fail and the 3-hour alarm says so |
 | a single failed refresh | no email: the next run (or the retry) repairs it |
 
 ## When an alarm email comes
-An email now means it did **not** heal: no successful refresh for 3 hours, a daily job failed after its retry, or an
-automatic rollback.
-1. Rollback email: production already runs the previous image. Read why the new one failed (below), fix, push.
-2. "refresh unhealthy": Step Functions console → the latest failed execution → its step → logs. The step's record
+An email now means it did **not** heal: no successful refresh for 3 hours, or a daily job failed after its retry.
+1. "refresh unhealthy": Step Functions console → the latest failed execution → its step → logs. The step's record
    (`runs/<execution>/<step>.json`) has the commit, the counts, the gate's numbers and the traceback.
    - **The gate's numbers are odd** (e.g. a source outage): it waits for the source to come back; nothing to do.
    - **A code error**: fix, push. CI tests, smoke-tests and ships it.
-3. You never delete `db/LOCK`: a dead job's lease expires by itself within 5 minutes.
+2. You never delete `db/LOCK`: a dead job's lease expires by itself within 5 minutes.
 Failure modes in more depth: [ARCHITECTURE.md → When something breaks](ARCHITECTURE.md#when-something-breaks).
 
 ## When the money brake fires

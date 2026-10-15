@@ -1,6 +1,7 @@
 # ADR-012 — Self-healing operations: a failure fixes itself or emails once
 
-**Status:** accepted 2026-10-15 · **Amends:** ADR-010 (single writer, alarms), A55 · **Records:** A62
+**Status:** accepted 2026-10-15; automatic deploy rollback removed the same day (the maintainer: self-healing
+belongs in the jobs, not in deploys) · **Amends:** ADR-010 (single writer, alarms), A55 · **Records:** A62
 
 ## Context
 In the first 36 hours of production the maintainer had to step in three times, each time for the same reason: a job
@@ -35,36 +36,29 @@ image until it ran out of memory. The maintainer's requirement: it must heal its
    - text extraction in 8 threads;
    - SQLite and Arrow;
    - the lease.
-5. **A bad deploy rolls itself back.** CI tags the outgoing `prod` image `prev` before pushing the new one. On every
-   failed execution, a Lambda (`infra/main/rollback`) checks whether the refresh has failed twice in a row with the new
-   image and never succeeded with it. If so, it points `prod` back at `prev` and emails why. After a rollback
-   `prod == prev`, so it cannot loop.
-6. **Email means "it did not heal".**
+5. **Email means "it did not heal".**
    - The hourly refresh alarms on *no success for 3 hours*, not on single failures, and sends an all-clear when it
      recovers.
    - Daily jobs alarm on a failed execution, which already includes its retry.
-   - A rollback emails once.
 
 ## Standard vs explored
 | | Common practice | Here |
 |---|---|---|
 | single writer | a database with transactions, or DynamoDB locks with TTL | a lease object in S3 with conditional writes (no extra service, ≈ free) |
-| bad deploys | blue/green or canary, health-checked | batch jobs have no traffic to shift: smoke test before, rollback on two failed runs after |
+| bad deploys | blue/green or canary, health-checked | a smoke test of the image in CI before it ships; no automatic rollback |
 | paging | alert on every failure | alert on lack of success after self-repair |
 
 ## Consequences
 - **Recovery times:**
   - a crashed, killed or stopped job costs at most one run and about 5–7 minutes;
-  - a broken image is caught in CI, or rolled back within about 2 hours (two hourly runs);
+  - a broken image is caught in CI by the smoke test; one that gets through fails runs until it is fixed (alarm);
   - a hung job is cut off at 80–90 minutes.
 - **What is left for a person:**
-  - a failure that persists after rollback, e.g. a source outage or a data bug. The 3-hour alarm says so, with a
+  - a failure that persists after the retry and takeover, e.g. a bad image, a source outage or a data bug. The 3-hour alarm says so, with a
     runbook (docs/DEPLOY.md);
-  - re-deploying a rolled-back change once it is fixed.
-- **Cost:** one Lambda invocation per failed run, and a retry run now and then: cents.
+- **Cost:** a retry run now and then: cents.
 - **Tested:**
   - `tests/test_lease.py`: crash, OOM, stop, hung holder, lost lease, takeover of an old-format lock;
-  - `tests/test_rollback.py`: two failures, one failure, an image that worked, no loop, manual stops;
   - `pipeline/job/selftest.py` in CI.
 - **Not covered:**
   - an AWS region outage;

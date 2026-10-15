@@ -796,16 +796,14 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
     upload);
   - SIGTERM ends a step cleanly;
   - a failed step is retried once (not the paid one);
-  - CI smoke-tests the image before it becomes `prod` and tags the outgoing one `prev`;
-  - a Lambda rolls `prod` back to `prev` after two failed refreshes in a row with a new image that never succeeded;
+  - CI smoke-tests the image before it becomes `prod` (a check, not healing: deploys are never rolled back
+    automatically — the maintainer, 2026-10-15: self-healing belongs in the jobs);
   - the refresh alarms on 3 hours without success, not on single failures (ADR-012).
 - **Why:** the maintainer (2026-10-15): "It's totally unacceptable for me to fix it". Three manual lock deletions in
   36 hours, all caused by a dead job's lock.
-- **Depends:** `pipeline/job/storage.py`, `pipeline/job/selftest.py`, `infra/main/{pipeline,jobs,alerts,rollback}.tf`,
-  `infra/main/rollback/handler.py`, `.github/workflows/ci.yml`.
-- **Test:** `tests/test_lease.py`, `tests/test_rollback.py`, `selftest` in CI. In production, the next crash should
+- **Depends:** `pipeline/job/storage.py`, `pipeline/job/selftest.py`, `infra/main/{pipeline,jobs,alerts}.tf`,
+  `.github/workflows/ci.yml`.
+- **Test:** `tests/test_lease.py`, `selftest` in CI. In production, the next crash should
   show `lock_taken_over` in the logs and no email.
-- **If wrong:** if 5 min is too short for a slow heartbeat (S3 latency), raise `LEASE_S` (one constant). If rollbacks
-  hit good images (e.g. a source outage right after a deploy), raise `MIN_FAILURES` or require a failed step whose
-  record shows a code error.
+- **If wrong:** if 5 min is too short for a slow heartbeat (S3 latency), raise `LEASE_S` (one constant).
 - **Status:** built 2026-10-15; live once pushed (code) and applied (infrastructure)

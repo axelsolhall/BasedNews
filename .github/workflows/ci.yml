@@ -50,18 +50,10 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
       - if: env.DEPLOY == 'true'
         uses: aws-actions/amazon-ecr-login@v2
-      - name: push the image (prev ← old prod, then commit tag + prod)
+      - name: push the image (commit tag + prod)
         if: env.DEPLOY == 'true'
         run: |
           REPO=${{ vars.ECR_REPOSITORY }}
-          NAME=${REPO##*/}
-          # ADR-012: the outgoing prod image becomes `prev`, the rollback Lambda's way back
-          OLD=$(aws ecr batch-get-image --repository-name "$NAME" --image-ids imageTag=prod \
-                  --query 'images[0].imageManifest' --output text 2>/dev/null || true)
-          if [ -n "$OLD" ] && [ "$OLD" != "None" ]; then
-            aws ecr put-image --repository-name "$NAME" --image-tag prev --image-manifest "$OLD" >/dev/null \
-              || echo "prev already points to this image"
-          fi
           docker tag basednews-job $REPO:${GITHUB_SHA::12}
           docker tag basednews-job $REPO:prod
           docker push $REPO:${GITHUB_SHA::12}

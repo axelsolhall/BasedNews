@@ -10,8 +10,8 @@ resource "aws_sns_topic_subscription" "alerts_email" {
   endpoint  = var.alert_email
 }
 
-# ADR-012: an email means "it did not heal itself". The hourly refresh retries a failed step, takes over a dead job's
-# lease and rolls back a bad image, so one failure is no news: the alarm is "no successful refresh for 3 hours". Daily
+# ADR-012: an email means "it did not heal itself". The hourly refresh retries a failed step and takes over a dead
+# job's lease, so one failure is no news: the alarm is "no successful refresh for 3 hours". Daily
 # jobs already retried inside their run, so a failed daily execution is worth an email.
 resource "aws_cloudwatch_metric_alarm" "job_failed" {
   for_each            = { for k, v in aws_sfn_state_machine.job : k => v if k != "refresh" }
@@ -31,7 +31,7 @@ resource "aws_cloudwatch_metric_alarm" "job_failed" {
 
 resource "aws_cloudwatch_metric_alarm" "refresh_unhealthy" {
   alarm_name          = "${local.name}-refresh-unhealthy"
-  alarm_description   = "No successful refresh for 3 hours, after retries, lease takeover and rollback: it did not heal itself. Runbook: docs/DEPLOY.md 'When an alarm email comes'."
+  alarm_description   = "No successful refresh for 3 hours, after retries and lease takeover: it did not heal itself. Runbook: docs/DEPLOY.md 'When an alarm email comes'."
   namespace           = "AWS/States"
   metric_name         = "ExecutionsSucceeded"
   dimensions          = { StateMachineArn = aws_sfn_state_machine.job["refresh"].arn }
