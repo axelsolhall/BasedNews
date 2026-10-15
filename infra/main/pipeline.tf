@@ -39,7 +39,12 @@ locals {
         )]
       }
     }
-    Retry = [{ ErrorEquals = ["ECS.AmazonECSException"], IntervalSeconds = 60, MaxAttempts = 2, BackoffRate = 2 }]
+    # ADR-012: a failed step is tried once more after 2 min. The lease (pipeline/job/storage.py) lets the retry take over
+    # the lock of a crashed attempt within 5 min. Not the paid step: a retry would start a second daily budget (A48).
+    Retry = concat(
+      [{ ErrorEquals = ["ECS.AmazonECSException"], IntervalSeconds = 60, MaxAttempts = 2, BackoffRate = 2 }],
+      step == "measure" ? [] : [{ ErrorEquals = ["States.TaskFailed"], IntervalSeconds = 120, MaxAttempts = 1 }]
+    )
   } }
 }
 

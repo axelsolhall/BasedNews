@@ -29,6 +29,8 @@ uncertainty, drawn as change graphs. Today every verdict is pooled into one fit.
 - [ ] Spend: judging the archive sample is paid → budget estimate + the maintainer's go
 
 ## Open — operate and infrastructure
+- [x] Self-healing operations (ADR-012, A62): lease lock, clean stop, step retry, image smoke test, auto-rollback,
+  heal-aware alarms — 2026-10-15
 - [ ] OpenTelemetry in the job runner → Grafana Cloud free tier (a trace per job, a span per step, pipeline metrics);
   token in SSM (docs/DEPLOY.md 2.8) — executable: no
 - [ ] The lake, queryable: Athena table definitions over `lake/` + a DuckDB query example in the docs (the Parquet files

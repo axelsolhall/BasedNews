@@ -126,10 +126,11 @@ resource "aws_ecs_task_definition" "job" {
     cpu_architecture        = "ARM64" # Graviton: ≈ 20 % cheaper; the same arch as the maintainer's Mac
   }
   container_definitions = jsonencode([{
-    name      = "job"
-    image     = "${aws_ecr_repository.job.repository_url}:${var.image_tag}"
-    essential = true
-    command   = ["list"]
+    name        = "job"
+    image       = "${aws_ecr_repository.job.repository_url}:${var.image_tag}"
+    essential   = true
+    stopTimeout = 120 # ADR-012: SIGTERM → the step ends, uploads nothing, releases its lease; SIGKILL only after 2 min
+    command     = ["list"]
     environment = [
       { name = "BASEDNEWS_STATE", value = "s3://${aws_s3_bucket.private.bucket}/prod" },
       { name = "BASEDNEWS_SITE_BUCKET", value = "s3://${aws_s3_bucket.site.bucket}/data" },

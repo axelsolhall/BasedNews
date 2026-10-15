@@ -10,7 +10,8 @@
 Options the runner does not know are passed to the module (one step only). With BASEDNEWS_STATE set, the database is
 downloaded first and uploaded only if every step succeeded (`pipeline/job/storage.py`).
 Exit codes: 0 ok · 1 step failed · 2 gate failed · 3 refused (configuration) · 4 the stored database changed meanwhile
-· 5 another job held the lock for longer than the wait (production only).
+or the lease was lost · 5 another job held the lock for longer than the wait · 143 stopped (SIGTERM; nothing uploaded).
+`selftest` runs the image's smoke test (CI runs it before an image becomes `prod`, ADR-012).
 """
 from __future__ import annotations
 
@@ -40,7 +41,7 @@ def history(n: int) -> None:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m pipeline.job", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("target", help="a job, a step, 'list', 'history' or 'push-db'")
+    ap.add_argument("target", help="a job, a step, 'list', 'history', 'selftest' or 'push-db'")
     ap.add_argument("--run-id", help="group steps of one execution (Step Functions passes its execution name)")
     ap.add_argument("--no-gate", action="store_true", help="skip the gate (debugging only; the record says so)")
     ap.add_argument("--init-state", action="store_true", help="allow starting without a stored database (first deploy)")
@@ -63,6 +64,9 @@ def main(argv: list[str] | None = None) -> int:
             os.environ["BASEDNEWS_DB"] = path
         history(args.n)
         return 0
+    if args.target == "selftest":
+        from pipeline.job.selftest import main as selftest
+        return selftest()
     if args.target == "push-db":
         if not os.environ.get("BASEDNEWS_STATE"):
             ap.error("push-db needs BASEDNEWS_STATE (s3://bucket/prefix or file:///folder)")
@@ -74,7 +78,13 @@ def main(argv: list[str] | None = None) -> int:
         ap.error(f"module options {extra} only apply to a single step, not the job '{args.target}'")
     state = os.environ.get("BASEDNEWS_STATE")
     if state:
-        from pipeline.job.storage import run_with_state
+        import signal
+
+        from pipeline.job.storage import Stopped, run_with_state
+
+        def stop(signum, frame):                        # ECS StopTask / a state-machine timeout: end cleanly (ADR-012)
+            raise Stopped()
+        signal.signal(signal.SIGTERM, stop)
         return run_with_state(state, args.target, args.run_id, extra, gate=not args.no_gate, init=args.init_state)
     code, _ = runner.run(args.target, args.run_id, extra, gate=not args.no_gate)
     return code

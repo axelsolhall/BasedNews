@@ -641,6 +641,10 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
 - **E7b (2026-10-12, free, the unbiased re-test):** 40 random anchors, both models' top 4 pooled, 270 pairs labelled
   blind. OpenAI @512 ahead on every measure (AUC 0.965 vs 0.925; clustering F1 0.71 vs 0.60 at threshold 0.56 vs
   0.60). E7's MiniLM comparison is withdrawn. Default switched; story threshold 0.56 (pre-registered rule).
+- **Input limit (2026-10-15 incident):** every input is cut at the API's 8,192-token limit counted with the
+  model's tokenizer (`cl100k_base`, baked into the image), not by characters: Greek costs ~5x the tokens of
+  English, and one over-long Greek article failed the embed step every hour for a day. An input the API still
+  rejects loses only itself (logged as `embedding_rejected`); the step goes on. Tests: tests/test_embed_limits.py.
 - **Status:** accepted 2026-10-12 (size from E7, model and threshold from E7b)
 
 ### A53 — A job step's output goes on only if a few eval numbers are in range (2026-10-12)
@@ -781,3 +785,23 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   scanned, $0). Gaps: outlets without a readable feed (worst: Mexico, 1/5 live) and young or renamed outlets in the
   history; fixes later (homepage mode; old domains in November's free tier).
 - **Status:** decided 2026-10-14
+
+### A62 — The pipeline heals itself; an email means it could not (2026-10-15)
+- **Rule:**
+  - the lock is a lease (60 s heartbeat, 5 min takeover, 80 min hold limit, owner-only release, fencing before
+    upload);
+  - SIGTERM ends a step cleanly;
+  - a failed step is retried once (not the paid one);
+  - CI smoke-tests the image before it becomes `prod` and tags the outgoing one `prev`;
+  - a Lambda rolls `prod` back to `prev` after two failed refreshes in a row with a new image that never succeeded;
+  - the refresh alarms on 3 hours without success, not on single failures (ADR-012).
+- **Why:** the maintainer (2026-10-15): "It's totally unacceptable for me to fix it". Three manual lock deletions in
+  36 hours, all caused by a dead job's lock.
+- **Depends:** `pipeline/job/storage.py`, `pipeline/job/selftest.py`, `infra/main/{pipeline,jobs,alerts,rollback}.tf`,
+  `infra/main/rollback/handler.py`, `.github/workflows/ci.yml`.
+- **Test:** `tests/test_lease.py`, `tests/test_rollback.py`, `selftest` in CI. In production, the next crash should
+  show `lock_taken_over` in the logs and no email.
+- **If wrong:** if 5 min is too short for a slow heartbeat (S3 latency), raise `LEASE_S` (one constant). If rollbacks
+  hit good images (e.g. a source outage right after a deploy), raise `MIN_FAILURES` or require a failed step whose
+  record shows a code error.
+- **Status:** built 2026-10-15; live once pushed (code) and applied (infrastructure)

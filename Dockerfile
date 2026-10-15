@@ -4,12 +4,14 @@
 #   docker build --build-arg WITH_ML=1 -t basednews-job:ml .   # + the local MiniLM baseline (≈ +1.5 GB), rarely needed
 FROM python:3.12-slim
 COPY --from=ghcr.io/astral-sh/uv:0.11.26 /uv /usr/local/bin/uv
-ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never PYTHONUNBUFFERED=1 HF_HOME=/opt/hf
+ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy UV_PYTHON_DOWNLOADS=never PYTHONUNBUFFERED=1 HF_HOME=/opt/hf TIKTOKEN_CACHE_DIR=/opt/tiktoken
 WORKDIR /app
 
 # dependencies first (cached until pyproject/uv.lock change), exactly as locked
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev --no-install-project
+# the embedding tokenizer's table, fetched once at build time: a job never downloads it (pipeline/embed/backend.py)
+RUN .venv/bin/python -c "import tiktoken; tiktoken.get_encoding('cl100k_base')" && chmod -R a+rX /opt/tiktoken
 
 # optional local embedding model: CPU-only torch (the default Linux wheel pulls ~2.5 GB of CUDA), versions as in uv.lock
 ARG WITH_ML=0

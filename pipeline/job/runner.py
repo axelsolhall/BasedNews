@@ -52,6 +52,12 @@ def records_dir() -> Path:
     return Path(os.environ.get("BASEDNEWS_RECORDS") or "logs/jobs")
 
 
+def records_of(run_id: str) -> list[dict]:
+    """The step records a run has written so far (a stopped run uploads whatever exists)."""
+    d = records_dir() / run_id
+    return [json.loads(p.read_text()) for p in sorted(d.glob("*.json"))] if d.exists() else []
+
+
 def log(event: str, stream=None, **fields) -> None:
     """One JSON line per event. CloudWatch Logs Insights can filter on any field."""
     print(json.dumps({"ts": utc_now_iso(), "event": event, **fields}, default=str, ensure_ascii=False),
@@ -131,6 +137,7 @@ def run_step(name: str, run_id: str, extra: list[str] | tuple = (), gate: bool =
     conn.close()
     t0 = time.monotonic()
     status = "refused" if refusal else "ok"
+    interrupted = None                                      # a stop (SIGTERM) or Ctrl-C: record first, then end
     if refusal:
         rec["error"] = refusal
     else:
@@ -148,7 +155,7 @@ def run_step(name: str, run_id: str, extra: list[str] | tuple = (), gate: bool =
             rec["error"] = redact(f"{type(e).__name__}: {e}")[:2000]
             rec["traceback"] = redact(traceback.format_exc())[-20000:]
             if isinstance(e, KeyboardInterrupt):
-                raise
+                interrupted = e
         finally:
             sys.argv = argv
             lines.flush()
@@ -159,7 +166,7 @@ def run_step(name: str, run_id: str, extra: list[str] | tuple = (), gate: bool =
     rec["counts_after"] = snapshot(conn)
     if not gate and step.gate:
         rec["gate"] = {"ok": None, "reason": "skipped (--no-gate)", "metrics": {}}
-    elif step.gate and status != "refused":
+    elif step.gate and status != "refused" and interrupted is None:
         ctx = {"started_at": rec["started_at"], "before": rec["counts_before"], "after": rec["counts_after"],
                "delta": _delta(rec["counts_before"], rec["counts_after"]), "budget_usd": budget}
         try:
@@ -184,6 +191,8 @@ def run_step(name: str, run_id: str, extra: list[str] | tuple = (), gate: bool =
     path.write_text(json.dumps(rec, indent=2, default=str))
     log("step_finished", out, run_id=run_id, step=name, status=status, duration_s=rec["duration_s"],
         delta=_delta(rec["counts_before"], rec["counts_after"]), gate=rec["gate"], error=rec["error"])
+    if interrupted is not None:
+        raise interrupted
     return rec
 
 

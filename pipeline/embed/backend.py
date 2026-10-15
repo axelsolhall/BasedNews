@@ -20,8 +20,27 @@ import numpy as np
 from pipeline.settings import MINILM, Settings, load_settings
 
 OPENAI_PREFIX = "openai:"
-MAX_EMBED_CHARS = 24_000      # ~6 k tokens, under the 8,191-token input limit; vectors only — the judge reads all (A41)
+MAX_INPUT_TOKENS = 8192       # the API's own limit per input (its 400 error, 2026-10-15); counted with the model's
+                              # tokenizer, because characters are not tokens: 7 tokens for an English sentence is 37 in
+                              # Greek. Vectors only — the judge reads the full text (A41).
+TOKENIZER = "cl100k_base"     # text-embedding-3-*; baked into the job image (Dockerfile), never downloaded at run time
 OPENAI_BATCH = 256
+
+
+def fit_to_limit(texts: list[str]) -> list[str]:
+    """Cut every text at MAX_INPUT_TOKENS tokens of the model's tokenizer; shorter texts are returned unchanged."""
+    import tiktoken
+    enc = tiktoken.get_encoding(TOKENIZER)
+    out = []
+    for t in texts:
+        ids = enc.encode(t or " ", disallowed_special=())
+        out.append(t or " " if len(ids) <= MAX_INPUT_TOKENS else enc.decode(ids[:MAX_INPUT_TOKENS]))
+    return out
+
+
+def _is_rejected(e: Exception) -> bool:
+    """The API refused the input itself (HTTP 400): retrying the same input can never succeed."""
+    return getattr(e, "status_code", None) == 400
 
 
 class LocalEncoder:
@@ -69,8 +88,8 @@ class OpenAIEncoder:
             try:
                 r = self.client.embeddings.create(model=self.api_model, input=batch, **kw)
                 break
-            except Exception:                               # rate limit / transient: back off, then give up loudly
-                if attempt == 4:
+            except Exception as e:                          # rate limit / transient: back off, then give up loudly
+                if attempt == 4 or _is_rejected(e):
                     raise
                 time.sleep(2 ** attempt)
         if self.conn is not None and getattr(r, "usage", None):
@@ -79,8 +98,24 @@ class OpenAIEncoder:
             store.log_usage(self.conn, "openai", self.name, "embedding", tokens, 0, tokens * self._price() / 1e6)
         return [d.embedding for d in sorted(r.data, key=lambda d: d.index)]
 
+    def _call_isolating(self, batch: list[str]) -> list[list[float] | None]:
+        """Like _call, but an input the API rejects only loses itself: the batch is split until the rejected text is
+        alone, which comes back as None (logged); everything else is embedded. One bad article never fails a step."""
+        try:
+            return self._call(batch)
+        except Exception as e:
+            if not _is_rejected(e):
+                raise
+            if len(batch) == 1:
+                import json
+                print(json.dumps({"event": "embedding_rejected", "chars": len(batch[0]), "error": str(e)[:300]}), flush=True)
+                return [None]
+            mid = len(batch) // 2
+            return self._call_isolating(batch[:mid]) + self._call_isolating(batch[mid:])
+
     def encode(self, texts, normalize_embeddings=True, batch_size=OPENAI_BATCH, show_progress_bar=False):
-        texts = [(t or " ")[:MAX_EMBED_CHARS] for t in texts]
+        """Rows the API rejected come back as NaN: callers drop them (pipeline/embed/run.py)."""
+        texts = fit_to_limit(list(texts))
         keys = [hashlib.sha1(t.encode()).hexdigest() for t in texts] if self.cache else []
         known: dict[str, np.ndarray] = {}
         if self.cache:
@@ -98,10 +133,15 @@ class OpenAIEncoder:
             if self.cache else texts
         fresh = []
         for k in range(0, len(todo), batch_size):
-            fresh += self._call(todo[k:k + batch_size])
+            fresh += self._call_isolating(todo[k:k + batch_size])
+        dim = next((len(v) for v in fresh if v is not None), self.dims or 1)
+        fresh = [np.full(dim, np.nan, dtype=np.float32) if v is None else v for v in fresh]
         if self.cache:
             from pipeline.ingest.feeds import utc_now_iso
-            new = {hashlib.sha1(t.encode()).hexdigest(): np.asarray(v, dtype=np.float32) for t, v in zip(todo, fresh)}
+            new = {hashlib.sha1(t.encode()).hexdigest(): np.asarray(v, dtype=np.float32) for t, v in zip(todo, fresh)
+                   if np.isfinite(v).all()}                    # a rejected text is never cached
+            known.update({hashlib.sha1(t.encode()).hexdigest(): np.asarray(v, dtype=np.float32)
+                          for t, v in zip(todo, fresh) if not np.isfinite(v).all()})
             self.conn.executemany("INSERT OR REPLACE INTO text_vectors VALUES (?,?,?,?)",
                                   [(self.name, h, v.tobytes(), utc_now_iso()) for h, v in new.items()])
             known.update(new)

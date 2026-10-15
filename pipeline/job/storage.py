@@ -4,9 +4,11 @@
     BASEDNEWS_STATE=file:///<folder>                  a local stand-in with the same rules (docker compose, tests)
     unset                                             plain local mode: the database at BASEDNEWS_DB or data/
 
-Single writer (A55): a job takes a lock object (`db/LOCK`, created only if absent) before it downloads and releases it
-after its uploads; a second job waits for it (up to LOCK_WAIT_S) instead of racing, and a lock older than LOCK_STALE_S
-(a crashed task) is taken over. As a second guard, the upload is conditional on the object still being the version that
+Single writer (A55), self-healing (ADR-012): the lock object `db/LOCK` is a lease. Its holder renews it every
+HEARTBEAT_S from a background thread; a lease not renewed for LEASE_S (the task crashed, ran out of memory or was
+killed) is taken over by the next job, so no person ever has to delete a lock. A holder renews for at most MAX_HOLD_S
+(a hung task cannot keep it), releases only a lease that is still its own, and never uploads after losing it. A stop
+signal (SIGTERM from ECS) ends the step, keeps the stored database unchanged and releases the lease. As a second guard, the upload is conditional on the object still being the version that
 was downloaded (S3 If-Match on its ETag): if anything else wrote it meanwhile the upload is refused (exit 4) and nothing
 is overwritten. Before the upload the WAL is folded into the file and
 `PRAGMA quick_check` must say ok. Step records are uploaded whatever the outcome. The export's site files are uploaded
@@ -22,6 +24,7 @@ import socket
 import shutil
 import sqlite3
 import tempfile
+import threading
 import time
 from pathlib import Path
 from urllib.parse import urlparse
@@ -32,8 +35,11 @@ from pipeline.job.runner import EXIT_CONFLICT, EXIT_OK, EXIT_REFUSED, log
 DB_KEY = "db/basednews.sqlite"
 LOCK_KEY = "db/LOCK"
 LOCK_WAIT_S = 45 * 60              # a judge run takes minutes; an hourly refresh that meets it waits
-LOCK_STALE_S = 3 * 3600            # no job runs this long: an older lock was left by a task that died
+HEARTBEAT_S = 60                   # the holder renews its lease this often
+LEASE_S = 5 * 60                   # not renewed for this long: the holder is gone (crash, OOM, kill) — take over
+MAX_HOLD_S = 80 * 60               # no step needs longer (the state machine stops a task at 90 min): stop renewing
 EXIT_BUSY = 5
+EXIT_STOPPED = 143                 # SIGTERM: the step was stopped; nothing uploaded, lease released
 SITE_CACHE_CONTROL = "public, max-age=300"         # the export changes daily; 5 min keeps a fix quick to show
 
 
@@ -181,31 +187,113 @@ def _s3_delete(self, key: str) -> None:
 S3Bucket.put_bytes, S3Bucket.get_bytes, S3Bucket.delete = _s3_put_bytes, _s3_get_bytes, _s3_delete
 
 
+class Stopped(KeyboardInterrupt):
+    """Raised in the main thread on SIGTERM (ECS StopTask, a state-machine timeout): end the step, upload nothing."""
+
+
+class Lease:
+    """`db/LOCK` as a lease: {run_id, at, heartbeat, host}. Acquire it, keep it alive from a thread, release it only
+    if it is still ours. `lost` turns true when someone else's write replaced ours (we were taken over)."""
+
+    def __init__(self, bucket, run_id: str, clock=time.time, heartbeat_s: float = HEARTBEAT_S,
+                 lease_s: float = LEASE_S, max_hold_s: float = MAX_HOLD_S):
+        self.bucket, self.run_id, self.clock = bucket, run_id, clock
+        self.heartbeat_s, self.lease_s, self.max_hold_s = heartbeat_s, lease_s, max_hold_s
+        self.etag, self.acquired_at, self.lost = None, None, False
+        self._stop = threading.Event()
+        self._thread = None
+        self._mu = threading.Lock()
+
+    def _body(self) -> bytes:
+        now = self.clock()
+        return json.dumps({"run_id": self.run_id, "at": self.acquired_at or now, "heartbeat": now,
+                           "host": socket.gethostname()}).encode()
+
+    def _expired(self, holder: dict) -> bool:
+        return self.clock() - holder.get("heartbeat", holder.get("at", 0)) > self.lease_s   # old locks have only "at"
+
+    def acquire(self, wait_s: float = LOCK_WAIT_S, poll_s: float = 30.0, sleep=time.sleep, beat: bool = True) -> bool:
+        deadline = self.clock() + wait_s
+        while True:
+            try:
+                self.acquired_at = self.clock()
+                self.etag = self.bucket.put_bytes(self._body(), LOCK_KEY, if_none_match=True)
+                break
+            except Conflict:
+                try:
+                    raw, etag = self.bucket.get_bytes(LOCK_KEY)
+                    holder = json.loads(raw)
+                except Missing:
+                    continue                                   # released between the two calls: try again
+                if self._expired(holder):
+                    try:
+                        self.acquired_at = self.clock()
+                        self.etag = self.bucket.put_bytes(self._body(), LOCK_KEY, if_match=etag)
+                        log("lock_taken_over", run_id=self.run_id, stale_holder=holder.get("run_id"),
+                            silent_s=round(self.clock() - holder.get("heartbeat", holder.get("at", 0))))
+                        break
+                    except Conflict:
+                        continue                               # someone else took it first
+                if self.clock() >= deadline:
+                    log("lock_busy", run_id=self.run_id, holder=holder.get("run_id"), waited_s=wait_s)
+                    return False
+                log("lock_wait", run_id=self.run_id, holder=holder.get("run_id"))
+                sleep(poll_s)
+        if beat:
+            self._thread = threading.Thread(target=self._beat, name="lease-heartbeat", daemon=True)
+            self._thread.start()
+        return True
+
+    def renew(self) -> bool:
+        """One heartbeat: rewrite the lease only if it is still the version we wrote. False = lost or too old."""
+        with self._mu:
+            if self.lost:
+                return False
+            if self.clock() - self.acquired_at > self.max_hold_s:
+                log("lock_hold_limit", run_id=self.run_id, held_s=round(self.clock() - self.acquired_at))
+                return False                                   # stop renewing: others may take over after LEASE_S
+            try:
+                self.etag = self.bucket.put_bytes(self._body(), LOCK_KEY, if_match=self.etag)
+                return True
+            except (Conflict, Missing):
+                self.lost = True
+                log("lock_lost", run_id=self.run_id)
+                return False
+            except Exception as e:                             # a network blip: try again at the next beat
+                log("lock_renew_error", run_id=self.run_id, error=str(e))
+                return True
+
+    def _beat(self):
+        while not self._stop.wait(self.heartbeat_s):
+            if not self.renew():
+                return
+
+    def still_ours(self) -> bool:
+        """Fencing check before any upload: the stored lease is the one we last wrote."""
+        if self.lost:
+            return False
+        try:
+            raw, etag = self.bucket.get_bytes(LOCK_KEY)
+        except Missing:
+            return False
+        return etag == self.etag and json.loads(raw).get("run_id") == self.run_id
+
+    def release(self) -> None:
+        self._stop.set()
+        if self._thread:
+            self._thread.join(timeout=10)
+        with self._mu:
+            if self.still_ours():
+                self.bucket.delete(LOCK_KEY)
+            else:
+                log("lock_not_released", run_id=self.run_id, reason="the lease is no longer ours: left to its holder")
+
+
 def acquire_lock(bucket, run_id: str, wait_s: float = LOCK_WAIT_S, poll_s: float = 30.0,
                  clock=time.time, sleep=time.sleep) -> str | None:
-    """Create the lock object if absent; wait while another job holds it; take over a stale one. ETag or None."""
-    body = json.dumps({"run_id": run_id, "at": clock(), "host": socket.gethostname()}).encode()
-    deadline = clock() + wait_s
-    while True:
-        try:
-            return bucket.put_bytes(body, LOCK_KEY, if_none_match=True)
-        except Conflict:
-            try:
-                raw, etag = bucket.get_bytes(LOCK_KEY)
-                holder = json.loads(raw)
-            except Missing:
-                continue                                   # released between the two calls: try again
-            if clock() - holder.get("at", 0) > LOCK_STALE_S:
-                try:
-                    log("lock_taken_over", run_id=run_id, stale_holder=holder.get("run_id"))
-                    return bucket.put_bytes(body, LOCK_KEY, if_match=etag)
-                except Conflict:
-                    continue
-            if clock() >= deadline:
-                log("lock_busy", run_id=run_id, holder=holder.get("run_id"), waited_s=wait_s)
-                return None
-            log("lock_wait", run_id=run_id, holder=holder.get("run_id"))
-            sleep(poll_s)
+    """Kept for callers and tests of the first version: acquire a lease without a heartbeat. ETag or None."""
+    lease = Lease(bucket, run_id, clock=clock)
+    return lease.etag if lease.acquire(wait_s, poll_s, sleep, beat=False) else None
 
 
 def open_bucket(url: str, client=None):
@@ -284,8 +372,8 @@ def run_with_state(state_url: str, target: str, run_id: str | None = None, extra
     os.environ["BASEDNEWS_LAKE"] = str(work / "lake")
     os.environ.setdefault("BASEDNEWS_SITE_OUT", str(work / "site"))
     run_id = run_id or runner.new_run_id()
-    lock = acquire_lock(bucket, run_id, wait_s=float(os.environ.get("BASEDNEWS_LOCK_WAIT_S", LOCK_WAIT_S)))
-    if lock is None:
+    lease = Lease(bucket, run_id)
+    if not lease.acquire(wait_s=float(os.environ.get("BASEDNEWS_LOCK_WAIT_S", LOCK_WAIT_S))):
         shutil.rmtree(work, ignore_errors=True)
         return EXIT_BUSY
     t0 = time.monotonic()
@@ -294,15 +382,24 @@ def run_with_state(state_url: str, target: str, run_id: str | None = None, extra
     except Missing:
         if not init:
             log("state_missing", run_id=run_id, key=DB_KEY, hint="first deploy: upload the database, or pass --init-state")
-            bucket.delete(LOCK_KEY)
+            lease.release()
             shutil.rmtree(work, ignore_errors=True)
             return EXIT_REFUSED
         etag = None
     log("state_downloaded", run_id=run_id, etag=etag, bytes=db.stat().st_size if db.exists() else 0,
         seconds=round(time.monotonic() - t0, 1))
 
-    code, recs = runner.run(target, run_id, extra, gate)
+    code, recs = runner.EXIT_FAILED, []
     try:
+        try:
+            code, recs = runner.run(target, run_id, extra, gate)
+        except Stopped:
+            code = EXIT_STOPPED
+            recs = runner.records_of(run_id)                  # what the stopped step managed to write
+            log("step_stopped", run_id=run_id, hint="SIGTERM: nothing uploaded, the lease is released")
+        if code == EXIT_OK and not lease.still_ours():         # fencing: taken over meanwhile (we hung or lost it)
+            log("state_not_saved", run_id=run_id, reason="the lease is no longer ours: another job may be writing")
+            code = EXIT_CONFLICT
         if code == EXIT_OK:
             check = finalize(db)
             lake_error = upload_lake(bucket, Path(os.environ["BASEDNEWS_LAKE"]), run_id)
@@ -335,6 +432,6 @@ def run_with_state(state_url: str, target: str, run_id: str | None = None, extra
                 bucket.put(path, f"runs/{rec['run_id']}/{rec['step']}.json", content_type="application/json")
             except Exception as e:                          # CloudWatch still has the step's log lines
                 log("record_not_uploaded", run_id=run_id, step=rec["step"], error=str(e))
-        bucket.delete(LOCK_KEY)
+        lease.release()
         shutil.rmtree(work, ignore_errors=True)
     return code

@@ -10,10 +10,13 @@ resource "aws_sns_topic_subscription" "alerts_email" {
   endpoint  = var.alert_email
 }
 
+# ADR-012: an email means "it did not heal itself". The hourly refresh retries a failed step, takes over a dead job's
+# lease and rolls back a bad image, so one failure is no news: the alarm is "no successful refresh for 3 hours". Daily
+# jobs already retried inside their run, so a failed daily execution is worth an email.
 resource "aws_cloudwatch_metric_alarm" "job_failed" {
-  for_each            = aws_sfn_state_machine.job
+  for_each            = { for k, v in aws_sfn_state_machine.job : k => v if k != "refresh" }
   alarm_name          = "${local.name}-${each.key}-failed"
-  alarm_description   = "A ${each.key} run failed or timed out: see its step record in runs/ and the logs in /basednews/jobs"
+  alarm_description   = "A ${each.key} run failed even after its retry: see its step record in runs/ and the logs in /basednews/jobs"
   namespace           = "AWS/States"
   metric_name         = "ExecutionsFailed"
   dimensions          = { StateMachineArn = each.value.arn }
@@ -24,6 +27,24 @@ resource "aws_cloudwatch_metric_alarm" "job_failed" {
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]
+}
+
+resource "aws_cloudwatch_metric_alarm" "refresh_unhealthy" {
+  alarm_name          = "${local.name}-refresh-unhealthy"
+  alarm_description   = "No successful refresh for 3 hours, after retries, lease takeover and rollback: it did not heal itself. Runbook: docs/DEPLOY.md 'When an alarm email comes'."
+  namespace           = "AWS/States"
+  metric_name         = "ExecutionsSucceeded"
+  dimensions          = { StateMachineArn = aws_sfn_state_machine.job["refresh"].arn }
+  statistic           = "Sum"
+  period              = 3600
+  evaluation_periods  = 3
+  datapoints_to_alarm = 3
+  threshold           = 1
+  comparison_operator = "LessThanThreshold"
+  treat_missing_data  = "breaching" # no runs at all is unhealthy too (while the schedule is on)
+  actions_enabled     = var.refresh_enabled
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn] # and an all-clear when it recovers
 }
 
 # Kill switch (A48): if the month's AWS cost passes killswitch_usd, every schedule is switched off by a small Lambda.

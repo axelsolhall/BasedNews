@@ -64,10 +64,19 @@ def embed_window(conn, model_name: str, days: int, batch: int = 64) -> tuple[int
     enc = get_encoder(model_name, conn=conn)
     flat = [t for _, texts, _ in todo for t in texts]
     V = enc.encode(flat, batch_size=batch, normalize_embeddings=True)
-    vecs = mean_vectors(V, [len(texts) for _, texts, _ in todo])
-    store.save_embeddings(conn, model_name, [i for i, _, _ in todo], vecs, [h for _, _, h in todo])
+    ok = np.isfinite(V).all(axis=1)                          # rows the API rejected are NaN (backend: one bad text
+    keep, rows, k = [], [], 0                                # never fails the step): average only the good versions
+    for aid, texts, h in todo:
+        good = [i for i in range(k, k + len(texts)) if ok[i]]
+        if good:
+            keep.append((aid, h)); rows.append(mean_vectors(V[good], [len(good)])[0])
+        k += len(texts)
+    if len(keep) < len(todo):
+        print(f"skipped {len(todo) - len(keep)} article(s) the embedding API rejected (logged as embedding_rejected)")
+    if keep:
+        store.save_embeddings(conn, model_name, [a for a, _ in keep], np.array(rows), [h for _, h in keep])
     conn.commit()
-    return len(todo), sum(len(texts) > 1 for _, texts, _ in todo), len(flat)
+    return len(keep), sum(len(texts) > 1 for _, texts, _ in todo), len(flat)
 
 
 def main():

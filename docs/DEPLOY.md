@@ -106,14 +106,25 @@ Set once per shell: `export AWS_PROFILE=basednews` and
 The command is `<step> --run-id <execution name>`. Exit codes: 0 ok · 1 step failed · 2 gate failed · 3 refused
 (configuration) · 4 the stored database changed meanwhile · 5 another job held the lock for 45 minutes (A55).
 
-## When something fails
-1. The alarm email names the job. Step Functions console → the failed execution shows the step, with a link to its
-   logs.
-2. The step's record (`runs/<execution>/<step>.json`, written also when the step fails) has the commit, the counts
-   before and after, the gate's numbers and the error with its traceback. The stored database is unchanged, so the
-   site still shows the last good data.
-3. Fix, push (CI ships the new image), and start the job again. Failure modes and what each one does:
-   [ARCHITECTURE.md → When something breaks](ARCHITECTURE.md#when-something-breaks).
+## What heals itself (ADR-012)
+| Failure | What happens, without anyone |
+|---|---|
+| a step crashes, runs out of memory or is killed | its lease stops being renewed; the step is retried after 2 min and takes the lock over after 5 min; the stored database is unchanged |
+| a task is stopped (StopTask, timeout) | it ends cleanly: record written, nothing uploaded, lease released |
+| a task hangs | it stops renewing after 80 min and is stopped at 90; the next job takes over |
+| a broken image | the CI smoke test (`selftest`) keeps it from becoming `prod`; if it gets through and the refresh fails twice in a row with it, `prod` rolls back to `prev` and you get one email |
+| a single failed refresh | no email: the next run (or the retry) repairs it |
+
+## When an alarm email comes
+An email now means it did **not** heal: no successful refresh for 3 hours, a daily job failed after its retry, or an
+automatic rollback.
+1. Rollback email: production already runs the previous image. Read why the new one failed (below), fix, push.
+2. "refresh unhealthy": Step Functions console → the latest failed execution → its step → logs. The step's record
+   (`runs/<execution>/<step>.json`) has the commit, the counts, the gate's numbers and the traceback.
+   - **The gate's numbers are odd** (e.g. a source outage): it waits for the source to come back; nothing to do.
+   - **A code error**: fix, push. CI tests, smoke-tests and ships it.
+3. You never delete `db/LOCK`: a dead job's lease expires by itself within 5 minutes.
+Failure modes in more depth: [ARCHITECTURE.md → When something breaks](ARCHITECTURE.md#when-something-breaks).
 
 ## When the money brake fires
 If the month's AWS cost passes `killswitch_usd` ($15), the kill-switch Lambda switches every schedule off and the

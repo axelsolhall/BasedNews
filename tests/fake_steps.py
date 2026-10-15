@@ -20,5 +20,20 @@ def main():
         raise RuntimeError("provider said: Incorrect API key sk-abcdef1234567890")
     elif what == "exit3":
         raise SystemExit(3)
+    elif what == "stopped":                          # ECS stops the task mid-step (SIGTERM → Stopped)
+        conn = store.connect()
+        conn.execute("INSERT INTO headlines VALUES ('a3', 'Half done', '2026-10-12T00:00:00Z', 'u', 'original')")
+        conn.commit()
+        from pipeline.job.storage import Stopped
+        raise Stopped()
+    elif what == "lose_lease":                       # a step that hangs so long another job takes the lease over
+        conn = store.connect()
+        conn.execute("INSERT INTO headlines VALUES ('a4', 'Too late', '2026-10-12T00:00:00Z', 'u', 'original')")
+        conn.commit()
+        import json
+        import os
+        from pipeline.job.storage import LOCK_KEY, open_bucket
+        b = open_bucket(os.environ["FAKE_BUCKET"])
+        b.put_bytes(json.dumps({"run_id": "someone-else", "at": 0, "heartbeat": 0}).encode(), LOCK_KEY)
     elif what == "args":
         print("args " + " ".join(sys.argv[1:]))

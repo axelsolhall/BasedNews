@@ -187,7 +187,7 @@ def test_lock_makes_a_second_job_wait_and_is_released(state, monkeypatch):
     assert storage.acquire_lock(b, "second", wait_s=60, poll_s=30, clock=lambda: clock[0],
                                 sleep=lambda s: (waits.append(s), clock.__setitem__(0, clock[0] + s))) is None
     assert waits == [30, 30]                                          # waited, then gave up
-    clock[0] += storage.LOCK_STALE_S + 1                              # the first job died long ago
+    clock[0] += storage.LEASE_S + 1                                   # the first job stopped renewing (died)
     assert storage.acquire_lock(b, "third", wait_s=0, clock=lambda: clock[0])
     b.delete(storage.LOCK_KEY)
     assert storage.acquire_lock(b, "fourth", wait_s=0)                # a live holder, on the real clock
