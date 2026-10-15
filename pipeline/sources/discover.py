@@ -63,7 +63,7 @@ def discover(o: dict) -> dict:
     try:
         html = net.fetch(home, timeout=20)[0].decode("utf-8", "replace")
         cands = feed_links(home, html)
-    except Exception as e:
+    except Exception:
         cands, html = [], None
     root = f"{urlsplit(home).scheme}://{urlsplit(home).netloc}"
     cands += [root + p for p in PATHS] + [home.rstrip("/") + p for p in PATHS if urlsplit(home).path.strip("/")]
