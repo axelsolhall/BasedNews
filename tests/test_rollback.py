@@ -39,10 +39,10 @@ class FakeECR:
 
 class FakeSFN:
     def __init__(self, runs):
-        self.runs = runs
+        self.runs = runs                                    # (status, hours after the new image was pushed), newest first
 
     def list_executions(self, stateMachineArn, maxResults):
-        return {"executions": [{"status": s, "startDate": T0 + dt.timedelta(hours=h)} for s, h in self.runs]}
+        return {"executions": [{"status": s, "startDate": T0 + dt.timedelta(hours=h)} for s, h in self.runs][:maxResults]}
 
 
 @pytest.fixture
@@ -98,3 +98,12 @@ def test_manual_stops_do_not_count(env):
     ecr = images()
     install(ecr, FakeSFN([("FAILED", 3), ("ABORTED", 2), ("FAILED", 1)]))
     assert rollback.handler({}, None)["event"] == "no_rollback" and not ecr.puts
+
+
+def test_never_roll_back_to_an_image_that_never_worked(env):
+    install, sent = env
+    ecr = images()                                          # prev was prod for the day before T0
+    install(ecr, FakeSFN([("FAILED", 2), ("FAILED", 1), ("FAILED", -2), ("FAILED", -5)]))   # it failed then too
+    out = rollback.handler({}, None)
+    assert out["event"] == "no_rollback" and "never succeeded" in out["reason"] and not ecr.puts
+    assert "nothing was rolled back" in sent[0]["Message"]

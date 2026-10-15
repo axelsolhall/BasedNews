@@ -2,7 +2,9 @@
 and it has not succeeded once with it, move `prod` back to `prev` (the image that ran before) and email why.
 
 Triggered by EventBridge on every failed or timed-out BasedNews execution. CI tags the outgoing image `prev` before it
-moves `prod`, so `prev` is always the last image that was live. Nothing is deleted: the bad image keeps its commit
+moves `prod`, so `prev` is always the last image that was live. It rolls back only to an image that has worked: a
+refresh must have succeeded while `prev` was `prod` (2026-10-15: both images failed — one on a token limit, the other
+out of memory — and rolling back would have swapped one failure for another). Otherwise it emails once and does nothing. Nothing is deleted: the bad image keeps its commit
 tag. After a rollback `prod` == `prev`, so a second failure streak cannot roll back again (no loop); the next push from
 CI is the way forward. Daily jobs are not used as evidence: two failures would take two days.
 """
@@ -43,6 +45,17 @@ def handler(event, context):
         streak += 1
     if streak < need:
         return _out("no_rollback", reason=f"{streak} failed refresh run(s) since the deploy; rolling back at {need}")
+    was_prod = [e for e in sfn.list_executions(stateMachineArn=sm, maxResults=100)["executions"]
+                if prev["imagePushedAt"] <= e["startDate"] < prod["imagePushedAt"]]
+    if not any(e["status"] == "SUCCEEDED" for e in was_prod):
+        boto3.client("sns").publish(
+            TopicArn=topic, Subject="BasedNews: failing, and no image to roll back to",
+            Message=(f"The hourly refresh failed {streak} times in a row with the newly deployed image "
+                     f"{commit_tags(prod) or prod['imageDigest'][:19]}, but the previous image "
+                     f"{commit_tags(prev) or prev['imageDigest'][:19]} never succeeded either, so nothing was rolled "
+                     f"back. The cause is probably not the code change (data, memory, an outside service): see the "
+                     f"failed step's record in runs/ and CloudWatch /basednews/jobs."))
+        return _out("no_rollback", reason="the previous image never succeeded either: rolling back would not help")
     manifest = ecr.batch_get_image(repositoryName=repo, imageIds=[{"imageTag": "prev"}])["images"][0]["imageManifest"]
     ecr.put_image(repositoryName=repo, imageTag="prod", imageManifest=manifest)
     bad, good = commit_tags(prod), commit_tags(prev)
