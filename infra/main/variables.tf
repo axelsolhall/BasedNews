@@ -27,9 +27,9 @@ variable "task_cpu" {
 }
 
 variable "task_memory" {
-  description = "2.3 clustering needs ≈ 8 bytes × n² for n articles in its 7-day window: ≈ 1.1 GB at 11,000"
+  description = "2.3 story grouping: 41 countries give ≈ 40 k articles in its 7-day window; real peak 2.68 GB on 2026-10-15 (one linked group of 17.8 k articles), so 4 GB — the most 0.5 vCPU allows"
   type        = number
-  default     = 2048
+  default     = 4096
 }
 
 # Schedules are created switched off: turning them on is a decision (docs/DEPLOY.md step 3).
