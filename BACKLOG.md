@@ -31,6 +31,10 @@ uncertainty, drawn as change graphs. Today every verdict is pooled into one fit.
 ## Open — operate and infrastructure
 - [x] Self-healing operations (ADR-012, A62): lease lock, clean stop, step retry, image smoke test (no deploy rollback),
   heal-aware alarms — 2026-10-15
+- [x] Performance report from every step attempt (time per phase, CPU, peak memory vs limit, cost; written while it
+  runs, so a killed step leaves its numbers) + `python -m pipeline.job perf` (A64) — 2026-10-16
+- [x] Ingest looks up only the URLs in this hour's feeds instead of loading every stored URL and headline (A63) —
+  2026-10-16
 - [ ] OpenTelemetry in the job runner → Grafana Cloud free tier (a trace per job, a span per step, pipeline metrics);
   token in SSM (docs/DEPLOY.md 2.8) — executable: no
 - [ ] The lake, queryable: Athena table definitions over `lake/` + a DuckDB query example in the docs (the Parquet files

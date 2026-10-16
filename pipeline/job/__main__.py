@@ -5,6 +5,7 @@
     uv run python -m pipeline.job export                      # one step
     uv run python -m pipeline.job measure --budget-usd 1      # a paid step needs an explicit budget (A48)
     uv run python -m pipeline.job history [--n 20]            # the last step records: what failed, where, why
+    uv run python -m pipeline.job perf [--days 2] [--job J]   # time, CPU, peak memory vs limit, cost per step (A64)
     BASEDNEWS_STATE=s3://… uv run python -m pipeline.job push-db   # once: seed the stored database (never overwrites)
 
 Options the runner does not know are passed to the module (one step only). With BASEDNEWS_STATE set, the database is
@@ -41,11 +42,13 @@ def history(n: int) -> None:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="python -m pipeline.job", description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("target", help="a job, a step, 'list', 'history', 'selftest' or 'push-db'")
+    ap.add_argument("target", help="a job, a step, 'list', 'history', 'perf', 'selftest' or 'push-db'")
     ap.add_argument("--run-id", help="group steps of one execution (Step Functions passes its execution name)")
     ap.add_argument("--no-gate", action="store_true", help="skip the gate (debugging only; the record says so)")
     ap.add_argument("--init-state", action="store_true", help="allow starting without a stored database (first deploy)")
     ap.add_argument("--n", type=int, default=20, help="rows for 'history'")
+    ap.add_argument("--days", type=float, default=2.0, help="period for 'perf'")
+    ap.add_argument("--job", help="only this job, for 'perf'")
     args, extra = ap.parse_known_args(argv)
 
     if args.target == "list":
@@ -63,6 +66,14 @@ def main(argv: list[str] | None = None) -> int:
             open_bucket(os.environ["BASEDNEWS_STATE"]).get(DB_KEY, path)
             os.environ["BASEDNEWS_DB"] = path
         history(args.n)
+        return 0
+    if args.target == "perf":
+        from pipeline.job import perf
+        bucket = None
+        if os.environ.get("BASEDNEWS_STATE"):
+            from pipeline.job.storage import open_bucket
+            bucket = open_bucket(os.environ["BASEDNEWS_STATE"])
+        print(perf.report(perf.load_docs(bucket, args.days), args.job))
         return 0
     if args.target == "selftest":
         from pipeline.job.selftest import main as selftest

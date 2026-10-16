@@ -143,13 +143,18 @@ def seed_headlines(conn) -> int:
 
 def headline_history(conn, article_ids: list[str] | None = None) -> dict[str, list[HeadlineVersion]]:
     """Versions per canonical article, oldest first (ISO strings sort chronologically; unparsed dates sort last)."""
-    rows = conn.execute("SELECT * FROM headlines ORDER BY article_id, first_seen, title").fetchall()
-    keep = set(article_ids) if article_ids is not None else None
+    if article_ids is None:
+        rows = conn.execute("SELECT * FROM headlines ORDER BY article_id, first_seen, title").fetchall()
+    else:                                                   # only the asked articles: the table grows with every run
+        ids, rows = list(dict.fromkeys(article_ids)), []
+        for k in range(0, len(ids), 900):                   # SQLite's parameter limit
+            chunk = ids[k:k + 900]
+            rows += conn.execute(f"SELECT * FROM headlines WHERE article_id IN ({','.join('?' * len(chunk))}) "
+                                 "ORDER BY article_id, first_seen, title", chunk).fetchall()
     out: dict[str, list[HeadlineVersion]] = {}
     for r in rows:
-        if keep is None or r["article_id"] in keep:
-            out.setdefault(r["article_id"], []).append(
-                HeadlineVersion(r["article_id"], r["title"], r["first_seen"], r["url"], r["how"]))
+        out.setdefault(r["article_id"], []).append(
+            HeadlineVersion(r["article_id"], r["title"], r["first_seen"], r["url"], r["how"]))
     return out
 
 

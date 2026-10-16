@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import sqlite3
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 
 from pipeline import net, store
 from pipeline.contracts import Article, HeadlineVersion, Outlet
@@ -23,16 +25,39 @@ def article_id(url: str, title: str) -> str:
     return hashlib.sha256(f"{url}|{title}".encode()).hexdigest()
 
 
-def ingest_outlet(o: Outlet, allow_text: bool, known: dict[str, tuple[str, set[str]]]
+def known_urls(urls: list[str], db=None) -> dict[str, tuple[str, set[str]]]:
+    """The stored articles among these URLs: url -> (canonical article id, headlines seen so far, lower-case).
+    Only these URLs are read (A63: loading every stored URL grows by ≈ 18 MB a day). A read-only connection of its
+    own, so outlets can look up in parallel while the main thread writes (WAL)."""
+    conn = sqlite3.connect(Path(db or store.default_db()).resolve().as_uri() + "?mode=ro", uri=True, timeout=120)
+    out: dict[str, tuple[str, set[str]]] = {}
+    try:
+        uniq = list(dict.fromkeys(urls))
+        for k in range(0, len(uniq), 900):                  # SQLite's parameter limit
+            chunk = uniq[k:k + 900]
+            for url, cid, t in conn.execute(
+                    f"""SELECT a.url, coalesce(a.canonical_id, a.id), lower(h.title) FROM articles a
+                        LEFT JOIN headlines h ON h.article_id = coalesce(a.canonical_id, a.id)
+                        WHERE a.url IN ({','.join('?' * len(chunk))})""", chunk):
+                out.setdefault(url, (cid, set()))[1].add(t or "")
+    finally:
+        conn.close()
+    return out
+
+
+def ingest_outlet(o: Outlet, allow_text: bool, lookup=known_urls
                   ) -> tuple[list[Article], list[str], list[HeadlineVersion]]:
-    """New articles, feed errors, and headline edits: a known URL whose feed title changed (A34, no download)."""
+    """New articles, feed errors, and headline edits: a known URL whose feed title changed (A34, no download).
+    `lookup(urls)` returns the stored ones among this outlet's feed URLs (`known_urls`)."""
     new, errors, seen, edits = [], [], set(), []
+    fetched = []
     for feed in o.feeds:
         try:
-            items = parse_feed(net.fetch(feed)[0])
+            fetched.append((feed, parse_feed(net.fetch(feed)[0])))
         except Exception as e:
             errors.append(f"{type(e).__name__}: {feed}")
-            continue
+    known = lookup([(it.get("url") or "").strip() for _, items in fetched for it in items if it.get("url")])
+    for feed, items in fetched:
         for it in items:
             url, title = (it.get("url") or "").strip(), clean_text(it.get("title")) or ""
             if not url or not title or url in seen:
@@ -63,16 +88,12 @@ def main():
     args = ap.parse_args()
     conn = store.connect()
     health = store.latest_health(conn)
-    known: dict[str, tuple[str, set[str]]] = {}            # url -> (canonical article id, headlines seen so far)
-    for r in conn.execute("""SELECT a.url, coalesce(a.canonical_id, a.id) cid, lower(h.title) t FROM articles a
-                             LEFT JOIN headlines h ON h.article_id = coalesce(a.canonical_id, a.id)"""):
-        known.setdefault(r["url"], (r["cid"], set()))[1].add(r["t"] or "")
     outlets = [o for o in load_outlets() if (not args.only or o.id in args.only)
                and o.id in health and health[o.id].feeds_ok > 0]
 
     def job(o):
         allow = health[o.id].full_text_allowed and not args.no_text
-        return o, *ingest_outlet(o, allow, known)
+        return o, *ingest_outlet(o, allow)
 
     started, total, n_edits, errs = utc_now_iso(), 0, 0, {}
     with ThreadPoolExecutor(max_workers=6) as pool:

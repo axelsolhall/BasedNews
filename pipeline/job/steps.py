@@ -22,11 +22,13 @@ class Step:
     needs_ml: bool = False                        # embeds: needs the local model only when MiniLM is configured (A56)
 
 
+RECENT_DAYS = "14"              # normalize and embed read only this window: stories (7 days) and the judge read inside it
+
 STEPS: dict[str, Step] = {s.name: s for s in (
     Step("sources", "pipeline.sources.run", gate=gates.sources),
     Step("ingest", "pipeline.ingest.run", gate=gates.ingest),
-    Step("normalize", "pipeline.normalize.run", gate=gates.normalize, needs_ml=True),
-    Step("embed", "pipeline.embed.run", ("--days", "14"), gate=gates.embed, needs_ml=True),
+    Step("normalize", "pipeline.normalize.run", ("--days", RECENT_DAYS), gate=gates.normalize, needs_ml=True),
+    Step("embed", "pipeline.embed.run", ("--days", RECENT_DAYS), gate=gates.embed, needs_ml=True),
     Step("stories", "pipeline.events.run", ("--days", "7"), gate=gates.stories),
     Step("measure", "pipeline.measure.run", gate=gates.measure, paid=True),
     Step("export", "pipeline.export.run", gate=gates.export, publishes=True),
@@ -35,7 +37,8 @@ STEPS: dict[str, Step] = {s.name: s for s in (
 )}
 
 JOBS: dict[str, tuple[str, ...]] = {
-    "refresh": ("ingest", "normalize", "embed", "stories"),     # hourly
+    "refresh": ("ingest",),                                    # hourly: feeds keep only their latest items
+    "process": ("normalize", "embed", "stories"),              # daily, before the judge: only the judge reads stories (A63)
     "feeds": ("sources",),                                     # daily: feed health once a day is enough
     "judge": ("measure", "export"),                            # daily, new pairs as they appear (A58); paid: carries a budget
     "maintenance": ("retention",),                             # daily, after the judge job

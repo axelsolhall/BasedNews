@@ -47,18 +47,22 @@ def mean_vectors(V: np.ndarray, counts: list[int]) -> np.ndarray:
 def embed_window(conn, model_name: str, days: int, batch: int = 64) -> tuple[int, int, int]:
     """Embed canonical articles of the last `days` whose input changed. Returns (articles, with history, versions)."""
     since = (dt.datetime.now(dt.UTC) - dt.timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    rows = conn.execute("""SELECT id, title, summary, full_text FROM articles
-                           WHERE canonical_id IS NULL AND kind IS NULL AND published >= ?""", (since,)).fetchall()
-    hist = store.headline_history(conn, [r["id"] for r in rows])
-    have = {r["article_id"]: r["input_hash"] for r in
-            conn.execute("SELECT article_id, input_hash FROM embeddings WHERE model = ?", (model_name,))}
+    ids = [r[0] for r in conn.execute("""SELECT id FROM articles
+                                         WHERE canonical_id IS NULL AND kind IS NULL AND published >= ?""", (since,))]
     todo = []
-    for r in rows:
-        titles = [h.title for h in hist.get(r["id"], [])] or [r["title"] or ""]
-        body = body_text(r)
-        h = input_hash(titles, body)
-        if have.get(r["id"]) != h:
-            todo.append((r["id"], version_texts(titles, body), h))
+    for k in range(0, len(ids), 900):                         # a chunk at a time: memory is one chunk of texts plus
+        chunk = ids[k:k + 900]                                 # the changed ones, however long the window (A61)
+        marks = ",".join("?" * len(chunk))
+        rows = conn.execute(f"SELECT id, title, summary, full_text FROM articles WHERE id IN ({marks})", chunk).fetchall()
+        hist = store.headline_history(conn, chunk)
+        have = dict(conn.execute(f"SELECT article_id, input_hash FROM embeddings WHERE model = ? AND article_id IN ({marks})",
+                                 (model_name, *chunk)).fetchall())
+        for r in rows:
+            titles = [h.title for h in hist.get(r["id"], [])] or [r["title"] or ""]
+            body = body_text(r)
+            h = input_hash(titles, body)
+            if have.get(r["id"]) != h:
+                todo.append((r["id"], version_texts(titles, body), h))
     if not todo:
         return 0, 0, 0
     enc = get_encoder(model_name, conn=conn)

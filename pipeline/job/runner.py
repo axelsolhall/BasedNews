@@ -23,6 +23,7 @@ import uuid
 from pathlib import Path
 
 from pipeline import store
+from pipeline.job import perf
 from pipeline.ingest.feeds import utc_now_iso
 from pipeline.job.steps import JOBS, STEPS, Step
 from pipeline.judge.calllog import redact
@@ -132,6 +133,7 @@ def run_step(name: str, run_id: str, extra: list[str] | tuple = (), gate: bool =
     rec = {"run_id": run_id, "step": name, "started_at": utc_now_iso(), "commit_sha": commit(), "args": args,
            "host": socket.gethostname(), "error": None, "traceback": None, "gate": None}
     log("step_started", out, run_id=run_id, step=name, args=args, commit=rec["commit_sha"])
+    meter = perf.Meter(run_id, name, write=perf.writer, phases=perf.task_phases).start()     # A64
     conn = store.connect()
     rec["counts_before"] = snapshot(conn)
     conn.close()
@@ -180,6 +182,10 @@ def run_step(name: str, run_id: str, extra: list[str] | tuple = (), gate: bool =
                 status, rec["error"] = "gate_failed", rec["gate"]["reason"]
                 rec["traceback"] = redact(traceback.format_exc())[-20000:]
     rec["status"], rec["finished_at"] = status, utc_now_iso()
+    rec["perf"] = meter.finish("stopped" if interrupted is not None else status)
+    p_ = rec["perf"]
+    log("step_perf", out, run_id=run_id, step=name, run_s=p_["phases"]["run_s"], cpu_share=p_["cpu_share"],
+        peak_rss_mb=p_["peak_rss_mb"], peak_share=p_["peak_share"], cost_usd=p_["cost_usd"])
     try:
         store.save_job_run(conn, rec)
         conn.commit()

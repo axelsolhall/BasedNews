@@ -17,6 +17,7 @@ before the database, and if that fails the database is not uploaded (A52: nothin
 """
 from __future__ import annotations
 
+import datetime as dt
 import hashlib
 import json
 import os
@@ -29,7 +30,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlparse
 
-from pipeline.job import runner
+from pipeline.job import perf, runner
 from pipeline.job.runner import EXIT_CONFLICT, EXIT_OK, EXIT_REFUSED, log
 
 DB_KEY = "db/basednews.sqlite"
@@ -99,6 +100,12 @@ class LocalBucket:
 
     def delete(self, key: str) -> None:
         self._path(key).unlink(missing_ok=True)
+
+    def list(self, prefix: str) -> list[tuple[str, dt.datetime]]:
+        """(key, last modified) under a prefix."""
+        base = self._path(prefix)
+        files = [f for f in (base.rglob("*") if base.is_dir() else []) if f.is_file() and not f.name.endswith(".part")]
+        return [(f.relative_to(self.root).as_posix(), dt.datetime.fromtimestamp(f.stat().st_mtime, dt.UTC)) for f in files]
 
 
 class S3Bucket:
@@ -184,7 +191,14 @@ def _s3_delete(self, key: str) -> None:
     self.client.delete_object(Bucket=self.bucket, Key=self._key(key))
 
 
-S3Bucket.put_bytes, S3Bucket.get_bytes, S3Bucket.delete = _s3_put_bytes, _s3_get_bytes, _s3_delete
+def _s3_list(self, prefix: str) -> list[tuple[str, dt.datetime]]:
+    out, cut = [], len(self._key(""))
+    for page in self.client.get_paginator("list_objects_v2").paginate(Bucket=self.bucket, Prefix=self._key(prefix)):
+        out += [(o["Key"][cut:], o["LastModified"]) for o in page.get("Contents", [])]
+    return out
+
+
+S3Bucket.put_bytes, S3Bucket.get_bytes, S3Bucket.delete, S3Bucket.list = _s3_put_bytes, _s3_get_bytes, _s3_delete, _s3_list
 
 
 class Stopped(KeyboardInterrupt):
@@ -373,6 +387,7 @@ def run_with_state(state_url: str, target: str, run_id: str | None = None, extra
     os.environ.setdefault("BASEDNEWS_SITE_OUT", str(work / "site"))
     run_id = run_id or runner.new_run_id()
     lease = Lease(bucket, run_id)
+    t_lock = time.monotonic()
     if not lease.acquire(wait_s=float(os.environ.get("BASEDNEWS_LOCK_WAIT_S", LOCK_WAIT_S))):
         shutil.rmtree(work, ignore_errors=True)
         return EXIT_BUSY
@@ -388,8 +403,14 @@ def run_with_state(state_url: str, target: str, run_id: str | None = None, extra
         etag = None
     log("state_downloaded", run_id=run_id, etag=etag, bytes=db.stat().st_size if db.exists() else 0,
         seconds=round(time.monotonic() - t0, 1))
+    # A64: every step attempt writes its performance document to the bucket, while it runs and at the end
+    perf.task_phases = {"lock_wait_s": round(t0 - t_lock, 2), "download_s": round(time.monotonic() - t0, 2),
+                        "db_mb": round(db.stat().st_size / 2**20, 1) if db.exists() else 0}
+    perf.writer = lambda doc: bucket.put_bytes(
+        json.dumps(doc, indent=1).encode(), f"runs/{doc['run_id']}/perf/{doc['step']}.{doc['attempt'].replace(':', '')}.json")
 
     code, recs = runner.EXIT_FAILED, []
+    t_up = None
     try:
         try:
             code, recs = runner.run(target, run_id, extra, gate)
@@ -397,6 +418,7 @@ def run_with_state(state_url: str, target: str, run_id: str | None = None, extra
             code = EXIT_STOPPED
             recs = runner.records_of(run_id)                  # what the stopped step managed to write
             log("step_stopped", run_id=run_id, hint="SIGTERM: nothing uploaded, the lease is released")
+        t_up = time.monotonic()
         if code == EXIT_OK and not lease.still_ours():         # fencing: taken over meanwhile (we hung or lost it)
             log("state_not_saved", run_id=run_id, reason="the lease is no longer ours: another job may be writing")
             code = EXIT_CONFLICT
@@ -426,12 +448,18 @@ def run_with_state(state_url: str, target: str, run_id: str | None = None, extra
         else:
             log("state_not_saved", run_id=run_id, reason=f"step status exit {code}: the stored database is unchanged")
     finally:
+        upload_s = time.monotonic() - t_up if t_up is not None else 0.0
         for rec in recs:                                    # the record of a failed step is the most useful one
             path = runner.records_dir() / rec["run_id"] / f"{rec['step']}.json"
+            if rec.get("perf"):
+                rec["perf"] = perf.after_upload(rec["perf"], upload_s)
+                perf.writer(rec["perf"])
+                path.write_text(json.dumps(rec, indent=2, default=str))
             try:
                 bucket.put(path, f"runs/{rec['run_id']}/{rec['step']}.json", content_type="application/json")
             except Exception as e:                          # CloudWatch still has the step's log lines
                 log("record_not_uploaded", run_id=run_id, step=rec["step"], error=str(e))
         lease.release()
         shutil.rmtree(work, ignore_errors=True)
+        perf.writer, perf.task_phases = perf.local_writer, {}
     return code

@@ -2,9 +2,11 @@
 # `python -m pipeline.job <step> --run-id <execution name>`. A failed step stops the execution; its record is in
 # s3://<private>/prod/runs/<execution name>/<step>.json and its logs in /basednews/jobs (docs/DEPLOY.md).
 locals {
-  # all rolling, nothing tied to calendar weeks: new story pairs are judged daily as stories grow (A58)
+  # all rolling, nothing tied to calendar weeks: new story pairs are judged daily as stories grow (A58). Collecting is
+  # hourly; processing (≈ 35 min at 41 countries) runs once a day between two collections and before the judge (A63)
   jobs = {
-    refresh     = { steps = ["ingest", "normalize", "embed", "stories"], cron = "cron(5 * * * ? *)", enabled = var.refresh_enabled }
+    refresh     = { steps = ["ingest"], cron = "cron(5 * * * ? *)", enabled = var.refresh_enabled }
+    process     = { steps = ["normalize", "embed", "stories"], cron = "cron(35 2 * * ? *)", enabled = var.refresh_enabled } # A63
     feeds       = { steps = ["sources"], cron = "cron(30 3 * * ? *)", enabled = var.refresh_enabled }
     judge       = { steps = ["measure", "export"], cron = "cron(35 4 * * ? *)", enabled = var.judge_enabled }
     maintenance = { steps = ["retention"], cron = "cron(35 5 * * ? *)", enabled = var.maintenance_enabled }

@@ -810,3 +810,58 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   show `lock_taken_over` in the logs and no email.
 - **If wrong:** if 5 min is too short for a slow heartbeat (S3 latency), raise `LEASE_S` (one constant).
 - **Status:** built 2026-10-15; live once pushed (code) and applied (infrastructure)
+
+### A63 — Hourly steps read only the last 14 days, one outlet or one chunk at a time (2026-10-16)
+- **Rule:** normalize and embed read articles published in the last `RECENT_DAYS` = 14 (`pipeline/job/steps.py`);
+  normalize also reads older copies sharing a text with them (matched inside SQLite). Normalize decides one outlet at
+  a time (every rule compares an outlet only with itself), embed reads its window 900 articles at a time, and
+  `store.headline_history` loads only the asked articles. Stories reads 7 days and clusters with `average_sparse`
+  (ADR-004).
+- **Why:** at 41 countries ≈ 24 k articles arrive a day, so a step that reads "everything" or "the whole window at once"
+  grows until it runs out of memory (stories failed 2026-10-16 07:05–17:05). Nothing downstream reads articles older
+  than 14 days (stories 7, the judge reads stories).
+- **Depends:** `pipeline/normalize/run.py`, `pipeline/embed/run.py`, `pipeline/store.py::headline_history`,
+  `pipeline/events/cluster.py`, `pipeline/ingest/run.py::known_urls`, `pipeline/job/steps.py`.
+- **Test (2026-10-16, production's database before and after the 18:05 normalize, vectors from its cache, no API
+  calls):**
+  - normalize, 14 days per outlet vs the 14-day single pass: identical (0 articles, repeated paragraphs, headlines and
+    backups differ); 0.23 GB instead of 1.5 GB;
+  - vs the previous all-time pass: 0 differences among the 63,727 articles in the window; 7 articles older than 14
+    days differ (one repeated 20 Minuten summary paragraph is found only when older articles are counted);
+  - stress test with 3 days instead of 14: 14 of 51,587 articles differ (0.03 %);
+  - embed, chunked vs whole window, with a stand-in encoder: identical rows (71,147), 0.10 GB instead of 0.52 GB;
+  - stories at a full window (≈ 171 k articles, 7 noisy copies of the busiest real day): 194 s on an M1 Pro, 0.58 GB
+    for the clustering; ≈ 1.6 GB for the whole step.
+- **If wrong:** if a rule turns out to need older articles, raise `RECENT_DAYS` (one constant); memory stays bounded
+  per outlet.
+- **Schedule (maintainer, 2026-10-16):** collecting stays hourly (`refresh` = ingest: feeds keep only their latest
+  items); normalize, embed and stories run once a day (`process`, 02:35 UTC), before the judge (04:35), the only reader
+  of stories. Why: Fargate (0.5 vCPU) runs these steps ≈ 5× slower than an M1 Pro, so at full volume every hourly run
+  would take ≈ 40 min — ≈ 480 task-hours ($0.0335 each in eu-north-1) ≈ $16 a month, over the $10 budget. Daily:
+  ≈ 24 × 4 min + 40 min a day ≈ 70 task-hours ≈ $2–3 a month.
+- **If wrong:** if something needs stories or vectors within the hour (a live site view), move the step back into
+  `refresh` in `infra/main/pipeline.tf` and `pipeline/job/steps.py`; nothing else changes.
+- **Ingest (2026-10-16):** looks up only the URLs in an outlet's feeds (`known_urls`) instead of loading every stored URL
+  and headline (≈ 750 bytes per article: 48 MB then, ≈ +18 MB a day). On production's database with synthetic feeds of
+  60 outlets (5,590 items: recent URLs, a third with an edited headline, merged copies, new URLs): identical new
+  articles and headline edits; 1 MB instead of 49 MB. Test: `tests/test_ingest_lookup.py`.
+- **Status:** accepted (2026-10-16)
+
+### A64 — Every step attempt writes a performance document (2026-10-16)
+- **Rule:** `pipeline/job/perf.py` measures each step attempt: phases (lock wait, database download, run, upload),
+  CPU time and share of the task's vCPUs, peak resident memory against the task's limit (ECS task metadata), memory
+  samples every 5 s, and cost at Fargate's on-demand price (Linux/ARM, eu-north-1, AWS Price List API 2026-10-16:
+  $0.0356 per vCPU-hour, $0.00392 per GB-hour). It is written to `runs/<run_id>/perf/<step>.<attempt>.json` every
+  minute while the step runs and once at the end; the step record carries the same numbers. Report:
+  `python -m pipeline.job perf [--days N] [--job J]`, with a monthly cost projection.
+- **Why:** three out-of-memory failures in two days were found only after they broke runs; the maintainer asked for
+  a performance report from every job. A step killed for memory leaves its last in-progress document ("killed?").
+- **Depends:** `pipeline/job/runner.py` (one meter per step), `pipeline/job/storage.py` (phases, bucket writer,
+  listing), the task role's write access to the private bucket (unchanged).
+- **Test:** `tests/test_perf.py` (CPU and memory measured, written while running, phases in the bucket, a failed step
+  still writes, the report marks a silent attempt as killed and projects cost); a local stories run on production's
+  database (36 s, 92 % CPU, 1.2 GB).
+- **If wrong:** cost misses the container start (≈ 30 s image pull) and Fargate's 1-minute minimum: an
+  underestimate; prices are two constants in `perf.py`. Peak memory is the process peak (ru_maxrss), exact for one
+  step per Fargate task.
+- **Status:** accepted (2026-10-16)

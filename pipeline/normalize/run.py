@@ -1,7 +1,7 @@
 """M3 run: merge renamed copies into one article with a headline history; strip container-page texts (A34);
 mark items that are not one article (rundowns, site pages) and strip consent/paywall walls (A38).
 
-    uv run --group ml python -m pipeline.normalize.run [--dry-run]
+    uv run --group ml python -m pipeline.normalize.run [--days 14] [--dry-run]
 
 Input: articles (M2). Output, all in the store:
   articles.canonical_id    set on copies; downstream modules read canonical articles only
@@ -10,10 +10,13 @@ Input: articles (M2). Output, all in the store:
   articles_shared_text     backup of texts removed from container entries (reversible)
   normalize_groups         one row per decision, for pipeline.normalize.eval
 Runs after M2 and before M4. Idempotent: stripped texts leave their group, merged copies are re-merged identically.
+Reads only articles published in the last `--days` (the embed step's window: nothing downstream reads older ones), plus
+older copies sharing a text with them, so a run costs the same on day 300 as on day 30.
 """
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import hashlib
 import json
 from collections import Counter, defaultdict
@@ -45,12 +48,16 @@ CREATE TABLE IF NOT EXISTS normalize_groups (
 """
 
 
-def shared_text_groups(conn) -> list[list]:
-    """Canonical rows sharing one stored text (same outlet) under at least two different headlines.
-    Copies merged by an earlier run are already resolved; their headlines live in the canonical's history."""
+def shared_text_groups(conn, since: str, outlet: str) -> list[list]:
+    """One outlet's canonical rows sharing one stored text under at least two different headlines, for texts carried
+    by an article published since `since` (older members included). Copies merged by an earlier run are already
+    resolved; their headlines live in the canonical's history. The text match runs in SQLite, so old texts are
+    compared there and never loaded."""
     groups = defaultdict(list)
     for r in conn.execute("""SELECT id, outlet_id, title, summary, published, ingested_at, url, full_text, text_source
-                             FROM articles WHERE full_text IS NOT NULL AND canonical_id IS NULL"""):
+                             FROM articles WHERE full_text IS NOT NULL AND canonical_id IS NULL AND outlet_id = ?
+                             AND full_text IN (SELECT full_text FROM articles WHERE full_text IS NOT NULL
+                                 AND canonical_id IS NULL AND published >= ? AND outlet_id = ?)""", (outlet, since, outlet)):
         groups[(r["outlet_id"], hashlib.sha1(r["full_text"].encode()).hexdigest())].append(r)
     return [g for g in groups.values() if len({(r["title"] or "").strip().lower() for r in g}) > 1]
 
@@ -91,8 +98,74 @@ def apply(conn, group, d, now: str) -> tuple[int, int]:
     return merged, stripped
 
 
+def decide_outlet(conn, model, outlet: str, since: str, cfg, prof: dict, site_names: list[str], known_db) -> dict:
+    """Every decision for one outlet's articles published since `since` (and older copies of their texts); no writes."""
+    decided = []
+    for g in shared_text_groups(conn, since, outlet):
+        S, T, L = similarities(model, g)
+        decided.append((g, decide([Member(r["id"], r["published"], bool(r["summary"])) for r in g], S, T, L, cfg), S, T, L))
+
+    # 1a. boilerplate by frequency and position (A40), for texts and summaries; known paragraphs are re-applied to
+    #     new articles even once their own count has dropped (they were stripped from the older ones)
+    rows = conn.execute("""SELECT id, outlet_id, title, summary, full_text FROM articles
+                           WHERE canonical_id IS NULL AND kind IS NULL AND published >= ? AND outlet_id = ?""",
+                        (since, outlet)).fetchall()
+    title_vec = dict(zip([r["id"] for r in rows],
+                         model.encode([r["title"] or "" for r in rows], normalize_embeddings=True, batch_size=128))) \
+        if rows else {}
+
+    def mean_title_sim(ids):
+        V = np.array([title_vec[i] for i in ids[:40]])
+        iu = np.triu_indices(len(V), 1)
+        return float((V @ V.T)[iu].mean())
+
+    new_bp = {field: find_boilerplate([(r["id"], r["outlet_id"], r[field]) for r in rows], mean_title_sim,
+                                      same_story_sim=prof["same_story"])
+              for field in ("full_text", "summary")}
+    known = {field: known_db[(outlet, field)] | {p for (_, p) in new_bp[field]} for field in ("full_text", "summary")}
+    bp_changes = []                                       # (article_id, field, old, new)
+    for r in rows:
+        for field in ("full_text", "summary"):
+            old_v = r[field]
+            new_v = strip_boilerplate(old_v, known[field])
+            if field == "full_text" and new_v and len(new_v) < MIN_TEXT_CHARS:
+                new_v = None                              # nothing left but the site (A19)
+            if new_v != old_v:
+                bp_changes.append((r["id"], field, old_v, new_v))
+
+    # 1c. title site suffixes (A42) and genre (A43)
+    title_changes, genres = [], []
+    for r in conn.execute("SELECT id, outlet_id, title, url, genre FROM articles WHERE canonical_id IS NULL "
+                          "AND published >= ? AND outlet_id = ?", (since, outlet)):
+        t = strip_site_suffix(r["title"], site_names)
+        if t != r["title"]:
+            title_changes.append((r["id"], r["title"], t))
+        g = genre_of(t, r["url"])
+        if g != r["genre"]:
+            genres.append((g, r["id"]))
+
+    # 1b. non-articles and walls (A38): rules on titles, then the model only for texts with a wall phrase
+    kinds = [(kind_of(r["title"], r["summary"], r["url"], r["full_text"]), r["id"]) for r in
+             conn.execute("""SELECT id, title, summary, url, full_text FROM articles
+                             WHERE canonical_id IS NULL AND kind IS NULL AND pruned_at IS NULL AND published >= ?
+                             AND outlet_id = ?""", (since, outlet))]                    # A52: no text ≠ no article
+    kinds = [(k, i) for k, i in kinds if k]
+    cand = [r for r in conn.execute("""SELECT id, title, full_text FROM articles
+                                       WHERE canonical_id IS NULL AND kind IS NULL AND full_text IS NOT NULL
+                                       AND published >= ? AND outlet_id = ?""", (since, outlet))
+            if has_wall_phrase(r["full_text"])]
+    walls = []
+    if cand:
+        T = model.encode([r["title"] or "" for r in cand], normalize_embeddings=True)
+        L = model.encode([r["full_text"][:WALL_LEAD_CHARS] for r in cand], normalize_embeddings=True)
+        walls = [r["id"] for r, s_ in zip(cand, (T * L).sum(1)) if is_wall(r["full_text"], float(s_), prof["wall_max"])]
+    return {"decided": decided, "new_bp": new_bp, "bp_changes": bp_changes, "title_changes": title_changes,
+            "genres": genres, "kinds": kinds, "walls": walls}
+
+
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--days", type=int, default=14, help="only articles published in the last N days (and their copies)")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -105,72 +178,28 @@ def main():
                           owns_text=prof["owns_text"], margin=prof["owns_margin"])
     model = get_encoder(MODEL, conn=conn, cache=True)       # A56: an hourly run pays only for new texts
     run_id, now = utc_now_iso(), utc_now_iso()
+    since = (dt.datetime.now(dt.UTC) - dt.timedelta(days=args.days)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # 1. decide everything first: reads + model only, so no write lock is held while encoding (backfill runs alongside)
-    decided = []
-    for g in shared_text_groups(conn):
-        S, T, L = similarities(model, g)
-        decided.append((g, decide([Member(r["id"], r["published"], bool(r["summary"])) for r in g], S, T, L, cfg), S, T, L))
-
-    # 1a. boilerplate by frequency and position (A40), for texts and summaries; known paragraphs are re-applied to
-    #     new articles even once their own count has dropped (they were stripped from the older ones)
-    rows = conn.execute("""SELECT id, outlet_id, title, summary, full_text FROM articles
-                           WHERE canonical_id IS NULL AND kind IS NULL""").fetchall()
-    title_vec = dict(zip([r["id"] for r in rows],
-                         model.encode([r["title"] or "" for r in rows], normalize_embeddings=True, batch_size=128)))
-
-    def mean_title_sim(ids):
-        V = np.array([title_vec[i] for i in ids[:40]])
-        iu = np.triu_indices(len(V), 1)
-        return float((V @ V.T)[iu].mean())
-
-    new_bp = {field: find_boilerplate([(r["id"], r["outlet_id"], r[field]) for r in rows], mean_title_sim,
-                                      same_story_sim=prof["same_story"])
-              for field in ("full_text", "summary")}
-    known = defaultdict(set)
-    for r in conn.execute("SELECT outlet_id, field, paragraph FROM boilerplate"):
-        known[(r["outlet_id"], r["field"])].add(r["paragraph"])
-    for field, found in new_bp.items():
-        for (outlet, p) in found:
-            known[(outlet, field)].add(p)
-    bp_changes = []                                       # (article_id, field, old, new)
-    for r in rows:
-        for field in ("full_text", "summary"):
-            old_v = r[field]
-            new_v = strip_boilerplate(old_v, known.get((r["outlet_id"], field), set()))
-            if field == "full_text" and new_v and len(new_v) < MIN_TEXT_CHARS:
-                new_v = None                              # nothing left but the site (A19)
-            if new_v != old_v:
-                bp_changes.append((r["id"], field, old_v, new_v))
-
-    # 1c. title site suffixes (A42) and genre (A43)
+    # 1. decide everything first: reads + model only, so no write lock is held while encoding (backfill runs alongside).
+    #    Every rule compares an outlet only with itself, so one outlet at a time: memory is one outlet's window, however
+    #    many outlets and countries there are (A61: a 14-day window of 41 countries is ≈ 336 k articles).
     from urllib.parse import urlparse
     from pipeline.sources.registry import load_outlets
     alias = json.load(open("data/outlet_aliases.json"))["aliases"]
     site_names = {o.id: [o.name, *alias.get(o.id, []), urlparse(o.homepage).netloc.removeprefix("www.")]
                   for o in load_outlets()}
-    title_changes, genres = [], []
-    for r in conn.execute("SELECT id, outlet_id, title, url, genre FROM articles WHERE canonical_id IS NULL"):
-        t = strip_site_suffix(r["title"], site_names.get(r["outlet_id"], []))
-        if t != r["title"]:
-            title_changes.append((r["id"], r["title"], t))
-        g = genre_of(t, r["url"])
-        if g != r["genre"]:
-            genres.append((g, r["id"]))
-
-    # 1b. non-articles and walls (A38): rules on titles, then the model only for texts with a wall phrase
-    kinds = [(kind_of(r["title"], r["summary"], r["url"], r["full_text"]), r["id"]) for r in
-             conn.execute("""SELECT id, title, summary, url, full_text FROM articles
-                             WHERE canonical_id IS NULL AND kind IS NULL AND pruned_at IS NULL""")]   # A52: no text ≠ no article
-    kinds = [(k, i) for k, i in kinds if k]
-    cand = [r for r in conn.execute("""SELECT id, title, full_text FROM articles
-                                       WHERE canonical_id IS NULL AND kind IS NULL AND full_text IS NOT NULL""")
-            if has_wall_phrase(r["full_text"])]
-    walls = []
-    if cand:
-        T = model.encode([r["title"] or "" for r in cand], normalize_embeddings=True)
-        L = model.encode([r["full_text"][:WALL_LEAD_CHARS] for r in cand], normalize_embeddings=True)
-        walls = [r["id"] for r, s_ in zip(cand, (T * L).sum(1)) if is_wall(r["full_text"], float(s_), prof["wall_max"])]
+    known_db = defaultdict(set)
+    for r in conn.execute("SELECT outlet_id, field, paragraph FROM boilerplate"):
+        known_db[(r["outlet_id"], r["field"])].add(r["paragraph"])
+    decided, bp_changes, title_changes, genres, kinds, walls = [], [], [], [], [], []
+    new_bp: dict[str, dict] = {"full_text": {}, "summary": {}}
+    outlets = [r[0] for r in conn.execute("SELECT DISTINCT outlet_id FROM articles WHERE published >= ? ORDER BY 1", (since,))]
+    for outlet in outlets:
+        d = decide_outlet(conn, model, outlet, since, cfg, prof, site_names.get(outlet, []), known_db)
+        decided += d["decided"]; bp_changes += d["bp_changes"]; title_changes += d["title_changes"]
+        genres += d["genres"]; kinds += d["kinds"]; walls += d["walls"]
+        for field in new_bp:
+            new_bp[field].update(d["new_bp"][field])
 
     # 2. then write in one short transaction
     kinds_n, versions, merged, stripped = Counter(), Counter(), 0, 0

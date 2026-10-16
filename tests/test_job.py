@@ -37,7 +37,7 @@ def test_ok_step_is_recorded_with_counts_and_json_logs(env, monkeypatch, capsys)
     assert row["run_id"] == "run1" and row["status"] == "ok" and row["gate"]["ok"] is True
     assert json.loads((env / "records" / "run1" / "t_ok.json").read_text())["status"] == "ok"
     out = lines(capsys)                                     # every stdout line is JSON with the run and step
-    assert [e["event"] for e in out] == ["step_started", "output", "output", "step_finished"]
+    assert [e["event"] for e in out] == ["step_started", "output", "output", "step_perf", "step_finished"]
     assert out[1] == {**out[1], "line": "wrote one headline", "run_id": "run1", "step": "t_ok"}
     assert "sk-abcdef" not in out[2]["line"]                # keys are redacted in module output too
 

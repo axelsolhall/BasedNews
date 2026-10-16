@@ -68,7 +68,8 @@ Run from the repo root after `aws sso login --profile basednews`. Everything is 
    line under "Run a job now" below). Read the four step records and the logs (see "What ran").
 8. **Open the site:** `terraform -chdir=infra/main output site_url`.
 9. **Schedules on:** in `terraform.tfvars`, then `apply`:
-   - `refresh_enabled = true`: hourly data and the daily feed check;
+   - `refresh_enabled = true`: hourly collection (`refresh`: ingest), daily processing (`process`: normalize,
+     vectors, stories at 02:35 UTC) and the daily feed check (A63);
    - `judge_enabled = true`: spends up to `daily_budget_usd` ($0.15) a day — **needs the maintainer's go**;
    - `maintenance_enabled` (retention `--apply`) and `publish_positions` (A54) are separate decisions.
 
@@ -81,7 +82,8 @@ Set once per shell: `export AWS_PROFILE=basednews` and
 
 | Task | How |
 |---|---|
-| **Run a job now** | `aws stepfunctions start-execution --state-machine-arn $(terraform -chdir=infra/main output -json state_machines \| jq -r .refresh)` (`refresh`, `feeds`, `judge`, `maintenance`) |
+| **How fast, how much memory, what it costs** | `BASEDNEWS_STATE=$(terraform -chdir=infra/main output -raw state_url) AWS_PROFILE=basednews uv run python -m pipeline.job perf --days 2` (A64; `--job process` for one job) |
+| **Run a job now** | `aws stepfunctions start-execution --state-machine-arn $(terraform -chdir=infra/main output -json state_machines \| jq -r .refresh)` (`refresh`, `process`, `feeds`, `judge`, `maintenance`) |
 | **What ran, what failed** | `aws s3 ls $P/runs/` → `aws s3 cp $P/runs/<execution>/<step>.json -` (commit, counts, gate numbers, error, traceback) |
 | **The logs of a run** | CloudWatch → Logs Insights → `/basednews/jobs`: `fields @timestamp, step, event, status, error \| filter run_id = "<execution>" \| sort @timestamp` |
 | **Production data, locally** | `aws s3 cp $P/db/basednews.sqlite /tmp/prod.sqlite` then `BASEDNEWS_DB=/tmp/prod.sqlite uv run python -m pipeline.job history` (a copy; nothing goes back) |
