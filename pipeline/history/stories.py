@@ -75,7 +75,7 @@ def vectors(docs: list[list[str]]) -> tuple[csr_matrix, np.ndarray]:
 
 def cluster(X: csr_matrix, rows: np.ndarray, threshold: float) -> dict[int, int]:
     """Exact average linkage on cosine, cut at `threshold`, for the given rows (same split-by-components argument as
-    pipeline.events.cluster.average_by_components). Returns {row: label}."""
+    the old pipeline.events.cluster.average_by_components). Returns {row: label}."""
     if len(rows) < 2:
         return {int(r): i for i, r in enumerate(rows)}
     Y = X[rows]

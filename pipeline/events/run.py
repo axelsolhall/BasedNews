@@ -48,12 +48,16 @@ def main():
     from pipeline.events.wire import same_item
     conn.execute("""CREATE TABLE IF NOT EXISTS same_text_pairs (
         run_id TEXT, a TEXT, b TEXT, jaccard REAL, PRIMARY KEY (run_id, a, b))""")
-    item = {r["id"]: (r["title"], r["full_text"] or r["summary"]) for r in conn.execute(
-        "SELECT id, title, full_text, summary FROM articles WHERE id IN (%s)" % ",".join("?" * len(rows)),
-        [r["id"] for r in rows])}
     by_event = defaultdict(list)
     for r, l in zip(rows, labels):
         by_event[l].append(r)
+    # texts only for stories with ≥ 2 outlets: the whole window's texts grow with it (A61, ≈ 0.4 G characters at 41 countries)
+    shared = [r["id"] for m in by_event.values() if len({r["outlet_id"] for r in m}) > 1 for r in m]
+    item = {}
+    for k in range(0, len(shared), 10_000):
+        chunk = shared[k:k + 10_000]
+        item.update({r["id"]: (r["title"], r["full_text"] or r["summary"]) for r in conn.execute(
+            "SELECT id, title, full_text, summary FROM articles WHERE id IN (%s)" % ",".join("?" * len(chunk)), chunk)})
     same = []
     for members in by_event.values():
         for i, x in enumerate(members):

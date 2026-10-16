@@ -32,7 +32,7 @@ def imports():
 def clustering():
     import numpy as np
 
-    from pipeline.events.cluster import ClusterConfig, average_by_components, average_linkage, cut
+    from pipeline.events.cluster import ClusterConfig, average_linkage, average_sparse, cut
     rng = np.random.default_rng(0)
     V = rng.normal(size=(600, 64)).astype(np.float32)
     V /= np.linalg.norm(V, axis=1, keepdims=True)
@@ -40,7 +40,7 @@ def clustering():
     V /= np.linalg.norm(V, axis=1, keepdims=True)
     hours = rng.uniform(0, 72, 600)
     cfg = ClusterConfig(method="average", threshold=0.56)
-    a, b = average_by_components(V, hours, cfg), cut(average_linkage(V, hours, cfg), 0.56)
+    a, b = average_sparse(V, hours, cfg), cut(average_linkage(V, hours, cfg), 0.56)
     part = lambda l: {frozenset(np.flatnonzero(l == x)) for x in set(l)}   # noqa: E731
     assert part(a) == part(b), "clustering differs from the full tree"
 

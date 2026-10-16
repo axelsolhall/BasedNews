@@ -27,7 +27,7 @@ variable "task_cpu" {
 }
 
 variable "task_memory" {
-  description = "2.3 story grouping: 41 countries give ≈ 40 k articles in its 7-day window; real peak 2.68 GB on 2026-10-15 (one linked group of 17.8 k articles), so 4 GB — the most 0.5 vCPU allows"
+  description = "The largest step is 2.3 story grouping: 1.3 GB on a 61 k-article window (2026-10-16, sparse average linkage, ADR-004); a full 41-country window is ≈ 170 k articles, so 4 GB — the most 0.5 vCPU allows"
   type        = number
   default     = 4096
 }

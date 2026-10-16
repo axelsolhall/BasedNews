@@ -167,6 +167,9 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   and time gap do not weight the pair, neither in the planner nor in the fit. Outlets that frame an event
   differently write less similar articles, so weighting by similarity would discount the most slanted coverage —
   the signal being measured. The threshold stays a yes/no gate for "same event".
+- **Scale (2026-10-16):** computed by `average_sparse` (ADR-004): memory grows with the close pairs, not with the
+  square of a linked group, so the full 41-country window (≈ 170 k articles) fits; identical partition to the full
+  tree on 41,677 real articles.
 - **Status:** accepted (2026-10-11)
 
 ### A21 — The judge compares like with like: both articles as full text, or both as headline + summary
