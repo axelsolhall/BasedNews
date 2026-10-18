@@ -19,7 +19,8 @@ MAX_LARGEST_STORY_SHARE = 0.05      # stories: one cluster holding > 5 % of the 
 MIN_MULTI_OUTLET_STORIES = 100      # stories: stories with ≥ 2 outlets, the pairs the judge can compare (701)
 MAX_FAILED_CALL_SHARE = 0.20        # measure: judge calls that failed after all retries
 BUDGET_SLACK_USD = 0.02             # measure: spend may exceed the run budget by one in-flight batch at most
-MAX_HOT_DB_BYTES = 1_000_000_000    # retention: the SQLite-in-S3 upgrade trigger (ADR-010)
+MAX_HOT_DB_BYTES = 3_000_000_000    # retention: the SQLite-in-S3 upgrade trigger (ADR-010); steady state ≈ 1.5 GB
+                                    # (14 days × ≈ 110 MB of text and vectors, measured 2026-10-18)
 
 
 @dataclass

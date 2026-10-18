@@ -32,7 +32,7 @@ STEPS: dict[str, Step] = {s.name: s for s in (
     Step("stories", "pipeline.events.run", ("--days", "7"), gate=gates.stories),
     Step("measure", "pipeline.measure.run", gate=gates.measure, paid=True),
     Step("export", "pipeline.export.run", gate=gates.export, publishes=True),
-    Step("retention", "pipeline.retention.run", gate=gates.retention),
+    Step("retention", "pipeline.retention.run", args=("--apply",), gate=gates.retention),   # archive, verify, delete (A52)
     Step("backfill", "pipeline.backfill.run"),
 )}
 

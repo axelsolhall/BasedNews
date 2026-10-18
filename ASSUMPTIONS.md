@@ -625,6 +625,7 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   index. The backup and legacy tables are reported, not touched (VERIFY.md). On a copy of today's database: 107 → 93 MB,
   lake 2.9 MB.
 - **Status:** accepted in principle 2026-10-11; built 2026-10-12; window length open
+- **2026-10-18:** window 14 days (tied to `RECENT_DAYS`), applied by the maintenance job (`--apply`); the hot-size gate at 3 GB (steady state ≈ 1.5 GB measured). The maintainer's rule: delete what no step can read again, keep the judgment history.
 
 ### A56 — OpenAI embeddings at 512 dimensions, with a vector cache by text (2026-10-12)
 - **Rule:** the maintainer chose the OpenAI API for embeddings (2026-10-12), so the job image carries no local model

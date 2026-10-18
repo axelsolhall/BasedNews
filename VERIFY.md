@@ -16,17 +16,14 @@ Things the maintainer confirms by hand. Each block: what to run, what "good" loo
 - [ ] **D4** A54: positions public on the site (labelled), and lifting "no claims" for the README and CV.
 - [ ] **D5** The public oval size (A25).
 - [ ] **D6** basednews.info on the site (Terraform: certificate in us-east-1, CloudFront alias, Route 53 zone).
-- [ ] **D7** `maintenance_enabled`, and what happens to text nobody has judged (judging is off, so today that is all of
-      it). Retention deletes text older than 30 days; live never judges outside the 7-day story window, so a text that
-      old would only matter for judging live's past later (the history covers those dates with headline +
-      description). Choose one:
-      (a) keep unjudged text in the hot database — it grows ≈ 1.6 GB a month while judging is off, and every step
-          downloads and uploads it;
-      (b) archive unjudged text to the private lake before deleting it — conflicts with A10 (publishers' text held
-          briefly);
-      (c) delete as designed — the history stands in for those weeks.
-- [ ] **D8** The backup and legacy tables (`articles_legacy` 25 MB, `articles_text_backup` 3 MB, `articles_shared_text`
-      2 MB): keep, move to the lake, or drop? Retention leaves them alone.
+- [x] **D7** (2026-10-18) Delete what no step can use again; keep the judgment history for good. Retention (A52)
+      runs with `--apply` at a 14-day window (= normalize's and embed's lookback; stories 7, the judge only the newest
+      run), keeps the newest 2 story runs, archives verdicts, positions and article metadata to the lake first.
+      Steady state ≈ 1.5 GB (14 × ≈ 110 MB a day); the size alarm moved to 3 GB. Tested on a copy of live: 1,568 →
+      1,342 MB, integrity ok. **To do:** `maintenance_enabled = true` in `infra/main/terraform.tfvars`, `terraform apply`.
+      Later: article metadata (≈ 4 MB a day) is kept in the hot database; trimming it needs the lake to stop
+      rewriting a month whose rows shrank.
+- [x] **D8** (2026-10-18) Keep the backup and legacy tables (≈ 70 MB).
 
 **Checks (≈ 10 min each)**
 - [ ] **V1** Spot-check 10 of Claude's blind E8 labels: `uv run python -m pipeline.experiments.e8 show --n 10` against
@@ -37,11 +34,10 @@ Things the maintainer confirms by hand. Each block: what to run, what "good" loo
       docs/experiments/e4b_results.md): accept, or fix before the history inherits them.
 - [ ] **V5** After a month: the AWS bill against the performance report (`pipeline.job perf`), the gate thresholds
       against the values in the records (A53), the retention window (A52, 30 days).
-- [ ] The kill-switch subscription email confirmed (the alerts one is: alarm emails arrive).
+- [x] Alert email confirmed; the kill switch is wired to a Lambda function (no email to confirm) — 2026-10-18.
 
 **Only you**
-- [ ] On the gaming PC, once (start the judge at boot without a login):
-      `ssh -t <user>@<pc> 'sudo loginctl enable-linger axel'`.
+- [x] On the gaming PC: linger on (the judge starts at boot without a login) — checked 2026-10-18.
 
 **Paid, needs a go**
 - [x] Repeat the pre-registered US/UK check on fresh stories (H7): E10, 2026-10-18, $1.00 — AllSides ρ +0.85 on 12

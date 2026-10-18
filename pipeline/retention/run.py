@@ -35,7 +35,12 @@ import pyarrow.parquet as pq
 from pipeline import store
 from pipeline.ingest.feeds import utc_now_iso
 
-WINDOW_DAYS = 30            # A52: bulky inputs older than this are deleted (open: window length)
+# A52: text and vectors are kept exactly as long as a step can still read them — normalize and embed look back
+# RECENT_DAYS (14), stories 7, the judge only the newest story run — and deleted after (the maintainer, 2026-10-18:
+# "the data that is older than what can be matched should be gone"); verdicts and metadata go to the lake for good
+from pipeline.job.steps import RECENT_DAYS  # noqa: E402
+
+WINDOW_DAYS = int(RECENT_DAYS)
 KEEP_STORY_RUNS = 2         # the latest run feeds the planner; one more as a fallback
 LAKE = Path("data/lake")
 ARTICLE_META = "id, outlet_id, country, url, title, published, ingested_at, text_source, canonical_id, kind, genre, pruned_at"
