@@ -4,47 +4,35 @@ Working agreement: **only items marked `executable: yes` get built.** Writing an
 authorised. Capture new wants and bugs here before a session ends. Paid runs always need the maintainer's go, even when
 the code exists. Done items are kept, condensed, at the end.
 
-## Now — the path to done (2026-10-17)
+## Now — the path to done (2026-10-18)
 Done = live judging daily from a history prior, public trajectories since 2015 on basednews.info, a README with
-results. The maintainer asked for this path to be built (2026-10-17); his decisions D1–D8 and checks V1–V5 are in
-VERIFY.md. Free, local work is `executable: yes`; anything paid still needs a go.
-- [x] E9 (pre-registered), harness 2, 2026-10-18: C1–C3 × 943 calls, 0 failures; none valid on the social axis
-  (agreement 0.54–0.59 vs ceiling 0.83 [0.73, 0.92]); the local models answer "same/na" on social in 81–86 % of
-  calls vs gpt-5.4-mini's 52 % (`reports/e9.md`) → D1
-- [x] Local judge speed with replay-shaped calls: ≈ 51,000 an hour at 64 in flight (A65) — 2026-10-18
-- [ ] E8 (pre-registered): embed the live window with the three local models on the PC's GPU, sample the pool, label
-  blind, analyse → D1, V1 — executable: yes (needs the gaming PC)
-- [ ] History: embed all ≈ 6 M articles with the chosen local model, group stories day by day, count story pairs per
-  day and outlet (a dry run, no judge) — executable: yes
-- [ ] History pilot: the replay judges planner-picked pairs with the local judge on a fixed daily budget or until a
-  target sd (A68), first on one year; per-outlet uncertainty per quarter → D2 — executable: yes (free, local)
-- [ ] Re-measure the local judge's speed with replay-shaped calls (`llm_check --db …`, 16/32/64 in parallel) and set
-  `LOCAL_PAIRS_PER_HOUR` (A65's correction) — executable: yes (needs the gaming PC, 5 minutes)
-- [ ] Per-story relevance for the planner: predict from a story's vector whether it has an economic / social angle
-  (the judge says "no angle" on econ in ≈ 6 of 7 calls), trained on the judge's own na/answer verdicts; the planner
-  already weighs each candidate by its relevance (A32), today a global constant. Evidence (2026-10-18, live's 2,625
-  gpt-5.4-mini v3/v4 calls, mean OpenAI@512 vector of the pair, logistic regression, 5-fold by story): econ AUC 0.90
-  — the top-scored 20 % of pairs are answered 60 % of the time vs 17 % overall (≈ 3.5× the econ information per
-  call); social AUC 0.79 — top 30 % answered 80 % vs 51 %. To check: the same on the history's local vectors, and
-  that choosing by predicted angle does not shift positions (it changes which stories carry the econ verdicts, which
-  only angled stories carry anyway) — executable: no (the maintainer's call)
-- [x] Replay fixes (2026-10-18): each day reads its own story run (after a dry run the newest run was the last day's,
-  so the pilot would have judged the wrong week); old story runs pruned (≈ 46 M rows over eleven years otherwise);
-  the joint planner's A09 stop restored, limited to targets a candidate can reach; the planner's per-pick updates
-  incremental — same picks, ≈ 9× faster (`tests/test_planner_incremental.py`)
-- [x] M8 v2: dynamic Bradley–Terry (weekly random walk, drift q by the evidence) + a simulator with planted drift
-  (A67) and H5: history verdicts → outlet and country lines for the site (`pipeline.history.trajectories`) — 2026-10-18
-- [ ] Live judging from the history prior: the live fit starts from the history's last positions — executable: yes
-  (switching it on is D3)
-- [ ] Retention and unjudged text: three options with their costs in VERIFY.md D7 — needs the maintainer (D7)
+results. The maintainer's decisions and checks are in VERIFY.md. Free, local work is `executable: yes`; anything paid
+still needs a go.
+
+| # | Step | State |
+|---|---|---|
+| 1 | Local judge trained on gpt-5.4-mini's verdicts (E11, LoRA) → E9's test (D1) | training on the PC |
+| 2 | Learning curve (⅓, ⅔ of the training days) → another batch of verdicts? (≈ $3.60, needs a go) | after 1 |
+| 3 | E8: local vector model test (pre-registered, blind labels) | after 1 (needs the GPU) |
+| 4 | Embed the 6.7 M history articles with E8's model | after 3, ≈ 1 GPU hour |
+| 5 | 2019 pilot: 5 % of all pairs, weekly floor (A69), angle model (A70) | after 4, ≈ 1 GPU hour |
+| 6 | Pilot trajectories on the hosted site → V2, V3 | after 5 |
+| 7 | The full history | ≈ 12 GPU hours |
+| 8 | Live judging from the history prior (D3) | needs the maintainer's go, ≤ $0.15 a day |
+| 9 | README / write-up with results | after 7 and 8 |
+| 10 | Oval size (D5), positions public (D4), then the domain (D6) | last, with the data |
+
+Done 2026-10-18: E9 (no off-the-shelf local judge valid), E10 (v4 holds on fresh stories, ρ +0.85), E11's training
+verdicts ($3.58), the judge's real speed (51,000 calls an hour), the angle model (A70, history and live), the weekly
+floor (A69), the history budget (A68) and replay fixes, retention by use (D7, A52: on with `terraform apply`).
+
+Later, not on the path:
 - [ ] Front pages for the 33 outlets without a working feed (homepage mode in ingest) — executable: no
 - [ ] Port the story-led prototype ("Story A") to the Angular site with real trajectories and anonymised judgment
   examples → V3 — executable: no
-- [ ] Repeat the pre-registered US/UK check (E6 Q2, H7) on stories collected after the method was frozen, ≈ $1 — needs the maintainer's go
 - [ ] After the next paid run: `pipeline.judge.calllog` → 100 % of paid calls logged, hashes match (A51)
-- [ ] Does gpt-5.4-mini return token logprobs with reasoning on (one call, ≈ $0.002)? If yes, store them as a
-  per-verdict confidence — needs the maintainer's go
-- [ ] Distil gpt-5.4-mini into the local judge (LoRA on its verdicts), measured with E9 — executable: no
+- [ ] Does gpt-5.4-mini return token logprobs with reasoning on (one call, ≈ $0.002)? — needs the maintainer's go
+- [ ] Article metadata in the hot database (≈ 4 MB a day): trim once the lake stops rewriting shrunken months
 
 ## MUST — historical change graphs: positions over time (A22)
 The product needs each outlet's and country's position per period since 2015-11, with uncertainty, drawn as change

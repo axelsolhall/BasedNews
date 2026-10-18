@@ -8,14 +8,15 @@ Things the maintainer confirms by hand. Each block: what to run, what "good" loo
 - [ ] **D1** E8 and E9 results: accept the local embedding model and threshold, and the local judge — or fall back
       (OpenAI Batch for history vectors ≈ $5.50). Reports: `reports/e8.json`, `reports/e9.json`. E9 (2026-10-18): no
       off-the-shelf model valid on social → E11 (LoRA on $3.58 of gpt-5.4-mini verdicts) is C4, tested the same way.
-- [ ] **D2** The history's budget (A68): the pilot's (one year; 5 % of new pairs, a fixed number a day, or a target
-  sd), then the full run's, from the per-outlet uncertainty the pilot measures. Also whether the planner may pick by
-  predicted angle (BACKLOG: per-story relevance, econ AUC 0.90 on live's verdicts) — it is the larger saving. And
-  the weekly floor per outlet (A69, placeholder 5).
+- [x] **D2** (2026-10-18) Pilot: 2019, 5 % of all pairs (each counted once, on the day it first appears), at least
+  5 comparisons per outlet per week (A69), the angle model on (A70). The pilot's trajectories go on the hosted site,
+  labelled as a pilot, to check how they look. The full run's budget follows from the pilot's uncertainty.
 - [ ] **D3** `judge_enabled` — paid, ≤ $0.15 a day — live judging from the history prior: **needs your go**.
 - [ ] **D4** A54: positions public on the site (labelled), and lifting "no claims" for the README and CV.
-- [ ] **D5** The public oval size (A25).
-- [ ] **D6** basednews.info on the site (Terraform: certificate in us-east-1, CloudFront alias, Route 53 zone).
+- [ ] **D5** The public oval size (A25): 1 sd (truth inside ≈ 39 %) or 2.45 sd (≈ 95 %, recommended) — judged on the
+      hosted pilot.
+- [ ] **D6** basednews.info on the site (Terraform: certificate in us-east-1, CloudFront alias, Route 53 zone) — last,
+      when the site is ready (the maintainer, 2026-10-18).
 - [x] **D7** (2026-10-18) Delete what no step can use again; keep the judgment history for good. Retention (A52)
       runs with `--apply` at a 14-day window (= normalize's and embed's lookback; stories 7, the judge only the newest
       run), keeps the newest 2 story runs, archives verdicts, positions and article metadata to the lake first.
@@ -23,14 +24,15 @@ Things the maintainer confirms by hand. Each block: what to run, what "good" loo
       1,342 MB, integrity ok. **To do:** `maintenance_enabled = true` in `infra/main/terraform.tfvars`, `terraform apply`.
       Later: article metadata (≈ 4 MB a day) is kept in the hot database; trimming it needs the lake to stop
       rewriting a month whose rows shrank.
-- [x] **D8** (2026-10-18) Keep the backup and legacy tables (≈ 70 MB).
+- [x] **D8** (2026-10-18) By the D7 rule: `articles_legacy` (the retired Nordic scraper, A37) is emptied; normalize's
+      undo copies (`articles_text_backup`, `articles_shared_text`) are deleted with their article's text at 14 days.
 
 **Checks (≈ 10 min each)**
 - [ ] **V1** Spot-check 10 of Claude's blind E8 labels: `uv run python -m pipeline.experiments.e8 show --n 10` against
       `data/eval/e8_labels.jsonl`.
 - [ ] **V2** The first trajectories: anything absurd? (Not "do they match my expectations" — that would be tuning.)
 - [ ] **V3** The new site with real data, locally, before it goes public.
-- [ ] **V4** Known judge quirks from E4 (social length lean 0.73; Fox News reading slightly liberal,
+- [x] **V4** (2026-10-18: accepted with prompt v4, locked by E10) Known judge quirks from E4 (social length lean 0.73; Fox News reading slightly liberal,
       docs/experiments/e4b_results.md): accept, or fix before the history inherits them.
 - [ ] **V5** After a month: the AWS bill against the performance report (`pipeline.job perf`), the gate thresholds
       against the values in the records (A53), the retention window (A52, 30 days).

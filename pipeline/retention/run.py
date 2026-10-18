@@ -14,7 +14,9 @@
    - the embeddings of those articles;
    - story runs except the latest KEEP_STORY_RUNS (`event_members`, `same_text_pairs`);
    - call-log request blobs older than WINDOW_DAYS whose month is a verified lake file (the hash stays in the row);
-   - cached text vectors not used for WINDOW_DAYS (A56).
+   - cached text vectors not used for WINDOW_DAYS (A56);
+   - normalize's undo copies of those articles' text (articles_text_backup, articles_shared_text);
+   - the retired pre-pipeline scraper's rows (articles_legacy, A37; D8).
 3. VACUUM, so the file actually shrinks.
 Eval (`verify`, also the job gate): database size, integrity, and a refit from the kept verdicts compared with the
 latest stored positions.
@@ -137,6 +139,14 @@ def deletions(conn, cut: str) -> dict[str, tuple[str, tuple]]:
     if has_stp:
         ops["same_text_pairs"] = (f"DELETE FROM same_text_pairs WHERE run_id NOT IN ({keep_runs})", ())
     ops["vector_cache"] = ("DELETE FROM text_vectors WHERE used_at < ?", (cut,))      # A56: re-bought if needed again
+    # normalize's undo copies (the text before cleaning, stripped boilerplate) go with their article's text: undoing a
+    # cleaning needs the text, and keeping them would hold publishers' text past the window (A10)
+    for t, col in (("articles_text_backup", "article_id"), ("articles_shared_text", "article_id")):
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (t,)).fetchone():
+            ops[t] = (f"DELETE FROM {t} WHERE {col} IN (SELECT id {old_live})", (cut, cut))
+    # the retired pre-pipeline scraper (A37): replaced by the GDELT history, of no use to any step (D8, 2026-10-18)
+    if conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'articles_legacy'").fetchone():
+        ops["legacy_articles"] = ("DELETE FROM articles_legacy WHERE 1", ())
     return ops
 
 
@@ -147,7 +157,9 @@ def _count(conn, sql: str, params: tuple) -> tuple[int, int]:
     table = sql.split(" FROM ", 1)[1].split()[0] if sql.startswith("DELETE") else sql.split()[1]
     size = {"articles": "COALESCE(LENGTH(full_text), 0) + COALESCE(LENGTH(summary), 0)", "embeddings": "LENGTH(vector)",
             "event_members": "60", "same_text_pairs": "60", "judge_call_log": "COALESCE(LENGTH(request_z), 0)",
-            "text_vectors": "LENGTH(vector)"}[table]
+            "text_vectors": "LENGTH(vector)", "articles_text_backup": "COALESCE(LENGTH(original), 0)",
+            "articles_shared_text": "COALESCE(LENGTH(full_text), 0)",
+            "articles_legacy": "COALESCE(LENGTH(full_text), 0) + COALESCE(LENGTH(summary), 0) + 200"}[table]
     n, b = conn.execute(f"SELECT COUNT(*), COALESCE(SUM({size}), 0) FROM {table} WHERE {where}", params).fetchone()
     return n, b
 
@@ -225,10 +237,6 @@ def main():
         n, b = _count(conn, sql, params)
         freed += b
         print(f"  {name:<18} {n:>8,} rows · ~{b / 1e6:.1f} MB")
-    for t in ("articles_legacy", "articles_text_backup", "articles_shared_text"):
-        if conn.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (t,)).fetchone():
-            n = conn.execute(f"SELECT COUNT(*) FROM {t}").fetchone()[0]
-            print(f"  {t:<18} {n:>8,} rows · not touched (backup/legacy table; the maintainer decides, VERIFY.md)")
 
     if not args.apply:
         print(f"would free ≈ {freed / 1e6:.1f} MB before VACUUM. Run with --apply to archive and delete.")

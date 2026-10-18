@@ -190,11 +190,70 @@
      0.329
     ]
    }
+  },
+  "C4": {
+   "spec": {
+    "model": "Qwen/Qwen3-14B-AWQ",
+    "served": "c4",
+    "thinking": false,
+    "sampling": {
+     "temperature": 0.0
+    }
+   },
+   "asked": 943,
+   "failed": 0,
+   "mean_output_tokens": 14.0,
+   "J1_econ": [
+    0.843,
+    0.82,
+    0.865
+   ],
+   "kappa_econ": 0.567,
+   "always_na_econ": 0.769,
+   "errors_econ": {
+    "flip": 0.063,
+    "flip_when_both_decide": 0.371,
+    "miss": 0.063,
+    "invent": 0.032
+   },
+   "same_or_na_econ": 0.8,
+   "J1_social": [
+    0.667,
+    0.637,
+    0.699
+   ],
+   "kappa_social": 0.4,
+   "always_na_social": 0.523,
+   "errors_social": {
+    "flip": 0.069,
+    "flip_when_both_decide": 0.285,
+    "miss": 0.235,
+    "invent": 0.029
+   },
+   "same_or_na_social": 0.73,
+   "gpt_same_or_na": {
+    "econ": 0.769,
+    "social": 0.523
+   },
+   "J3_positions_spearman": {
+    "calls": 693,
+    "outlets": 71,
+    "econ": [
+     0.38,
+     0.034,
+     0.495
+    ],
+    "social": [
+     0.394,
+     0.124,
+     0.522
+    ]
+   }
   }
  },
  "decision": {
-  "history_judge": "C2",
-  "mean_J1": 0.71,
+  "history_judge": "C4",
+  "mean_J1": 0.755,
   "overlaps_ceiling": {
    "econ": true,
    "social": false
