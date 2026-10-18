@@ -1,0 +1,46 @@
+{
+  "calls": 668,
+  "usd": 0.9993,
+  "na_share": {
+    "econ": 0.78,
+    "social": 0.516
+  },
+  "decisive_social": 323,
+  "icc": 0.342,
+  "sigma_a": 2.121,
+  "tau": 1.529,
+  "beta": -0.313,
+  "rated_outlets": 12,
+  "usd_per_decisive": 0.00309,
+  "rho": 0.847,
+  "positions": {
+    "nyt": -0.634,
+    "abcnews": 0.096,
+    "cbsnews": -0.07,
+    "nbcnews": -0.72,
+    "npr": -0.251,
+    "nypost": 1.402,
+    "foxnews": 0.348,
+    "breitbart": 0.942,
+    "guardian": -1.453,
+    "skynews": -1.042,
+    "bbc": 0.021,
+    "dailymail": 1.558
+  },
+  "allsides": {
+    "nyt": -1,
+    "abcnews": -1,
+    "cbsnews": -1,
+    "nbcnews": -1,
+    "npr": -1,
+    "nypost": 1,
+    "foxnews": 2,
+    "breitbart": 2,
+    "guardian": -2,
+    "skynews": -1,
+    "bbc": 0,
+    "dailymail": 1
+  },
+  "result": "Spearman +0.85 on 12 outlets",
+  "ok": true
+}

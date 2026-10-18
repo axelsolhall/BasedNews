@@ -42,10 +42,11 @@ def tokens(text: str) -> int:
     return len(text) // 4 + 1
 
 
-def load_items(conn, settle_hours: float = 0, now: dt.datetime | None = None):
-    """Latest story run → {story: {outlet: article}}. With settle_hours, only articles at least that old (A58)."""
+def load_items(conn, settle_hours: float = 0, now: dt.datetime | None = None, run: str | None = None):
+    """A story run (the latest unless given) → {story: {outlet: article}}. With settle_hours, only articles at least
+    that old (A58)."""
     cutoff = ((now or dt.datetime.now(dt.UTC)) - dt.timedelta(hours=settle_hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
-    run = store.latest_event_run(conn)
+    run = run or store.latest_event_run(conn)
     rows = conn.execute("""SELECT e.event_id, a.id, a.outlet_id, a.title, a.summary, a.full_text, a.genre, a.published
                            FROM event_members e JOIN articles a ON a.id = e.article_id
                            WHERE e.run_id = ? AND a.canonical_id IS NULL AND a.kind IS NULL""", (run,)).fetchall()
@@ -72,8 +73,9 @@ def rendered(art, hist, kind: str) -> str:
 
 
 def candidates(conn, settings, relevance, purpose="measure", countries=None, settle_hours: float = SETTLE_HOURS,
-               now: dt.datetime | None = None) -> tuple[list[Candidate], dict]:
-    run, ev, hist, ties, stats = load_items(conn, settle_hours, now)
+               now: dt.datetime | None = None, run: str | None = None,
+               published_after: str | None = None) -> tuple[list[Candidate], dict]:
+    run, ev, hist, ties, stats = load_items(conn, settle_hours, now, run)
     done = judged_pairs(conn, purpose)
     country = {o.id: o.country for o in load_outlets()}
     pin, pout = settings.price(settings.judge_model)
@@ -87,6 +89,8 @@ def candidates(conn, settings, relevance, purpose="measure", countries=None, set
                     continue
                 if countries and not (country[a["outlet_id"]] in countries and country[b["outlet_id"]] in countries):
                     continue
+                if published_after and min(a["published"] or "", b["published"] or "") < published_after:
+                    continue                                            # out-of-sample checks: only fresh articles
                 for kind, ok, disc in (("summary", a["summary"] and b["summary"], A_SUMMARY),
                                        ("full", a["full_text"] and b["full_text"], A_FULL)):
                     if not ok:
@@ -100,13 +104,26 @@ def candidates(conn, settings, relevance, purpose="measure", countries=None, set
     return cands, {"run": run, "texts": texts, **stats}
 
 
-def fit(conn, outlet_ids, purpose="measure", hyper=None):
+def with_angle(conn, cands: list, purpose: str, embed_model: str) -> tuple[list, int]:
+    """A70: each candidate's own predicted chance of an answer per axis, learned from this purpose's verdicts and the
+    articles' stored vectors (pipeline.plan.angle). Returns the candidates and how many verdicts taught it (0 = the
+    average is kept: fewer than MIN_LABELS verdicts, or no vectors)."""
+    from pipeline.plan import angle as AN
+    vec_of = lambda ids: store.load_embeddings(conn, embed_model, ids)       # noqa: E731
+    model = AN.learn(conn, purpose, vec_of)
+    return (AN.apply(cands, model, vec_of), model.n_labels) if model else (cands, 0)
+
+
+def fit(conn, outlet_ids, purpose="measure", hyper=None, since: str | None = None):
     """Hierarchical fit per axis (A49): {axis: HierPosterior}. hyper={axis: (τ, σ_a)} fixes the spreads (fast, used
-    inside the loop); None averages over the grid by evidence (used at the start and for the final positions)."""
+    inside the loop); None averages over the grid by evidence (used at the start and for the final positions).
+    since: only verdicts on articles both published from that date on (the history's planner window)."""
+    window = "" if since is None else (" AND c.first_article IN (SELECT id FROM articles WHERE published >= :since)"
+                                       " AND c.second_article IN (SELECT id FROM articles WHERE published >= :since)")
     rows = conn.execute("""SELECT c.first_outlet, c.second_outlet, c.first_article, c.second_article, c.text_kind,
                                   j.axis, j.first_wins FROM judgments j JOIN judge_calls c ON c.call_id = j.call_id
-                           WHERE c.purpose = ? AND c.prompt_version = ? AND j.first_wins IS NOT NULL""",
-                        (purpose, P.PROMPT_VERSION)).fetchall()
+                           WHERE c.purpose = :purpose AND c.prompt_version = :version AND j.first_wins IS NOT NULL"""
+                        + window, {"purpose": purpose, "version": P.PROMPT_VERSION, "since": since}).fetchall()
     known = set(outlet_ids)
     posts = {}
     for ax in P.AXES:
@@ -189,6 +206,9 @@ def main():
     ap.add_argument("--countries", default="", help='only pairs where both outlets are in these countries, e.g. "United States,United Kingdom"')
     ap.add_argument("--workers", type=int, default=6, help="parallel judge calls within a batch")
     ap.add_argument("--settle-hours", type=float, default=SETTLE_HOURS, help="judge only articles at least this old (A58)")
+    ap.add_argument("--purpose", default="measure", help="kept apart from live's verdicts, e.g. an experiment's name")
+    ap.add_argument("--published-after", help="only pairs whose two articles were published at or after this (ISO)")
+    ap.add_argument("--no-angle", action="store_true", help="A70 off: one average chance of an answer per axis")
     args = ap.parse_args()
     settings = load_settings()
     countries = {c.strip() for c in args.countries.split(",") if c.strip()}
@@ -196,9 +216,13 @@ def main():
     outlets = load_outlets()
     groups = reference_groups(outlets)
     rng = np.random.default_rng(args.seed)
-    purpose = "measure" if args.judge == "openai" else "simulation"     # simulated verdicts never mix with real ones
+    purpose = args.purpose if args.judge == "openai" else "simulation"  # simulated verdicts never mix with real ones
 
-    cands, ctx = candidates(conn, settings, relevance_so_far(conn, purpose), purpose, countries, args.settle_hours)
+    cands, ctx = candidates(conn, settings, relevance_so_far(conn, purpose), purpose, countries, args.settle_hours,
+                            published_after=args.published_after)
+    taught = 0
+    if not args.no_angle:
+        cands, taught = with_angle(conn, cands, purpose, settings.embed_model)
     outlet_ids = sorted({c.outlet_a for c in cands} | {c.outlet_b for c in cands} | {o for g in groups.values() for o in g})
     groups = {c: {o: w for o, w in g.items() if o in outlet_ids} for c, g in groups.items()}
     posts, n_obs = fit(conn, outlet_ids, purpose)
@@ -206,7 +230,8 @@ def main():
     held = f" · {ctx['settled']:,} of {ctx['articles']:,} articles ≥ {args.settle_hours:g} h old (A58)" if args.settle_hours else ""
     print(f"story run {ctx['run']}{held} · {len(cands):,} candidate comparisons ({sum(c.event_id.endswith(':full') for c in cands):,}"
           f" full text) · {n_obs} verdicts so far (prompt {P.PROMPT_VERSION}) · judge {args.judge}"
-          f"{' ' + settings.judge_model if args.judge == 'openai' else ''}")
+          f"{' ' + settings.judge_model if args.judge == 'openai' else ''} · angle model "
+          f"{f'from {taught:,} verdicts' if taught else 'off (the average per axis)'}")
 
     if args.dry_run:
         reqs = plan_joint_hier(posts, cands, PlannerConfig(mode="variance_per_cost", target_sd=0.0, batch_size=args.batch),

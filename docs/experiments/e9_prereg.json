@@ -1,0 +1,22 @@
+{
+ "experiment": "E9 — a local judge for the history vs gpt-5.4-mini (free, local, on the gaming PC)",
+ "written_at": "2026-10-17T07:29:51Z, before any local judgment",
+ "why": "The maintainer chose to judge the history locally (A61, A65). The local judge must answer like the live judge, or the history prior is measured on a different scale than live.",
+ "reference": "gpt-5.4-mini, prompt v4: every v4 call in the local database (693 live 'measure' calls + 250 'eval' calls = 943). None was chosen by a local model.",
+ "ceiling": "gpt-5.4-mini's own retest: the 60 v4 eval pairs it was asked twice (same order, same question). Agreement between its two answers is what 'answers like gpt-5.4-mini' can reach.",
+ "candidates": {
+  "C1": "Qwen/Qwen3-14B-AWQ, thinking off, temperature 0",
+  "C2": "Qwen/Qwen3-14B-AWQ, thinking on (Qwen's sampling: temperature 0.6, top_p 0.95), reasoning parsed out before the JSON",
+  "C3": "Qwen/Qwen3-8B-AWQ, thinking off, temperature 0"
+ },
+ "procedure": "Same prompt (v4), same rendered texts (the call's text kind and headline history), same A/B order and direction as the reference call, same JSON schema (strict, guided decoding), through pipeline.judge.client.OpenAIJudge pointed at the local server. Stored with purpose 'e9' so they never mix with live or history verdicts.",
+ "metrics": {
+  "J1_agreement": "Per axis (economic, social): share of calls where the candidate's verdict (A / B / same / na) equals gpt-5.4-mini's; 95 % interval by bootstrap over calls (2,000).",
+  "J2_ceiling": "The same agreement between gpt-5.4-mini's two asks on the 60 retest pairs, with its interval.",
+  "J3_positions": "On the 693 live calls: outlet positions per axis from the hierarchical fit with gpt's verdicts vs with the candidate's; Spearman correlation, interval by bootstrap over calls.",
+  "J4_behaviour": "Share of same / na verdicts, parse failures, and judge-sized pairs an hour on the 5080."
+ },
+ "decision": "The history judge = the candidate with the highest mean J1 over both axes. It is valid if its J1 interval overlaps J2's interval on both axes (not detectably less consistent with gpt-5.4-mini than gpt-5.4-mini is with itself). If none is valid, the maintainer decides. Speed (J4) breaks ties only.",
+ "limitations_known_in_advance": "gpt-5.4-mini is the reference, not the truth. 60 retest pairs give a wide ceiling interval. The live calls come from 10 countries (before the 41-country registry). The 943 calls were planned with gpt-5.4-mini's positions (a planner choice, not a candidate's).",
+ "rules": "No change to candidates, prompt, settings or metrics after seeing results. No claims."
+}

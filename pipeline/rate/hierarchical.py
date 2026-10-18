@@ -30,6 +30,9 @@ from pipeline.rate.model import BTConfig, sigmoid
 
 SIGMA_GRID = (0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 1.0, 1.5, 2.0, 3.0, 4.0)   # article spread around its outlet
 TAU_GRID = (0.25, 0.5, 1.0, 2.0)                                       # spread of outlets (was fixed at 1)
+SPARSE_FROM = 300       # articles: past this the sparse fit (same numbers, A66) is faster. Measured 2026-10-18 with the
+                        # spreads' grid, 12 outlets: m = 193 dense 0.10 s / sparse 0.14 s; 385: 0.43 / 0.19; 764: 2.8 /
+                        # 0.34; 1,548: 20 / 0.49 — and the dense matrices grow as (n+1+m)²
 
 
 @dataclass
@@ -38,7 +41,7 @@ class HierPosterior:
     outlets: list[str]
     articles: list[str]
     mean: np.ndarray            # [θ_outlets (n), β, ε_articles (m)]
-    cov: np.ndarray             # full Laplace covariance, same order
+    cov: np.ndarray             # full Laplace covariance, same order (a block-by-block SparseCov past SPARSE_FROM)
     sigma_a: float
     n_obs: int = 0
     evidence: dict = field(default_factory=dict)   # (τ, σ_a) → log marginal likelihood (Laplace)
@@ -105,19 +108,23 @@ class HierarchicalBT:
         return phi, H, evidence
 
     def fit(self, comps: list[tuple[str, str, str, str, float]], first_wins: list[bool],
-            sigma_a: float | None = None, average: bool = True, tau: float | None = None) -> HierPosterior:
+            sigma_a: float | None = None, average: bool = True, tau: float | None = None,
+            sparse: bool | None = None) -> HierPosterior:
         """comps[k] = (first_outlet, second_outlet, first_article, second_article, discrimination a_k).
-        sigma_a given → fixed. Else over SIGMA_GRID: average=True → evidence-weighted average (default), else the best."""
+        sigma_a given → fixed. Else over SIGMA_GRID: average=True → evidence-weighted average (default), else the best.
+        sparse: None → the sparse fit past SPARSE_FROM articles (same numbers, A66); True/False forces one."""
         articles = sorted({c[2] for c in comps} | {c[3] for c in comps})
         n = len(self.outlets)
         if not comps:
             prec = self._prior_precision(0, sigma_a or 0.5, tau)
             return HierPosterior(self.axis, self.outlets, [], np.zeros(n + 1), np.diag(1 / prec), sigma_a or 0.5, 0,
                                  tau=tau or self.cfg.prior_sd)
-        X = self._design(comps, articles)
         y = np.asarray(first_wins, dtype=float)
         sgrid = [sigma_a] if sigma_a is not None else list(SIGMA_GRID)
         tgrid = [tau] if tau is not None else list(TAU_GRID)
+        if sparse or (sparse is None and len(articles) > SPARSE_FROM):
+            return self._fit_sparse(comps, articles, y, sgrid, tgrid, average)
+        X = self._design(comps, articles)
         fits, ev = [], {}
         for t in tgrid:
             for s in sgrid:
@@ -133,6 +140,40 @@ class HierarchicalBT:
         tot = sum(wk for wk, _ in keep)
         mean = sum(wk * f[1] for wk, f in keep) / tot
         cov = sum(wk * (np.linalg.inv(f[2]) + np.outer(f[1] - mean, f[1] - mean)) for wk, f in keep) / tot
+        sig = float(sum(wk * f[0][1] for wk, f in keep) / tot)
+        tau_m = float(sum(wk * f[0][0] for wk, f in keep) / tot)
+        return HierPosterior(self.axis, self.outlets, articles, mean, cov, sig, len(comps), ev, tau_m)
+
+    def _fit_sparse(self, comps, articles, y, sgrid, tgrid, average) -> HierPosterior:
+        """The same fit, grid and averaging as above with sparse algebra (pipeline.rate.sparse). Each grid point starts
+        from the previous mode (the posterior is log-concave: one mode, so the answer is the same); only the points
+        that carry weight keep a factorisation."""
+        from pipeline.rate import sparse as S
+        n1 = len(self.outlets) + 1
+        X = S.design(comps, self.index, len(self.outlets), articles)
+        size, fits, ev, phi = X.shape[1], [], {}, None
+        for t in tgrid:
+            for s in sgrid:
+                phi, _, e = S.fit_at(X, y, self._prior_precision(len(articles), s, t), self.cfg.max_iter, self.cfg.tol,
+                                     phi, n1)
+                ev[(t, s)] = e
+                fits.append(((t, s), phi.copy(), e))
+
+        def factor(f):
+            (t, s), mode, _ = f
+            lu, order = S.fit_at(X, y, self._prior_precision(len(articles), s, t), self.cfg.max_iter, self.cfg.tol,
+                                 mode, n1)[1]
+            return S.SparseCov(lu, size, order)
+        if len(fits) == 1 or not average:
+            best = max(fits, key=lambda f: f[2])
+            return HierPosterior(self.axis, self.outlets, articles, best[1], factor(best), best[0][1],
+                                 len(comps), ev, best[0][0])
+        e = np.array([f[2] for f in fits])
+        w = np.exp(e - e.max()); w /= w.sum()
+        keep = [(wk, f) for wk, f in zip(w, fits) if wk > 1e-4]
+        tot = sum(wk for wk, _ in keep)
+        mean = sum(wk * f[1] for wk, f in keep) / tot
+        cov = S.MixtureCov([(wk, f[1], factor(f)) for wk, f in keep], mean)
         sig = float(sum(wk * f[0][1] for wk, f in keep) / tot)
         tau_m = float(sum(wk * f[0][0] for wk, f in keep) / tot)
         return HierPosterior(self.axis, self.outlets, articles, mean, cov, sig, len(comps), ev, tau_m)

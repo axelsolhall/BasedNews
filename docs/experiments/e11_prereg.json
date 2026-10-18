@@ -1,0 +1,24 @@
+{
+  "experiment": "E11 — a local judge trained on gpt-5.4-mini's v4 verdicts (LoRA), for the history",
+  "written_at": "2026-10-18T10:26:30Z, before any E11 call or training run",
+  "why": "E9: no local model answers like gpt-5.4-mini on the social axis (agreement 0.54–0.59 vs ceiling 0.83); they answer 'same/na' far more often. E10 kept prompt v4 (AllSides ρ +0.85 on fresh stories), so v4 is the target to learn.",
+  "training_data": {
+    "source": "history pairs (data/history/history.sqlite: headline + description, 2015-11 → 2026-09), judged by gpt-5.4-mini with prompt v4 and live's settings, purpose 'e11' (data/distil/distil.sqlite)",
+    "batches": "a batch = 2 days of every month, seeded by the batch's name, never a day of an earlier batch; within a day, stories grouped as the replay groups them (MiniLM @ 0.60) and pairs chosen to spread over outlets; order and direction random per pair; all choices stored before any call (pipeline/experiments/e11.py)",
+    "batch_b1": "3,000 pairs, ≈ $4 (the maintainer's go, 2026-10-18)",
+    "validation": "one day in ten (hash of day and batch): never trained on; picks the checkpoint",
+    "extra": "E10's 668 fresh US/UK v4 verdicts are added to training; they are never used to test",
+    "never": "E9's 943 reference calls (October 2026) are never trained on; no training day is in October 2026 or later"
+  },
+  "candidate": "C4: Qwen/Qwen3-14B-AWQ (the served base) + the LoRA adapter, trained on its 4-bit equivalent (unsloth/Qwen3-14B-unsloth-bnb-4bit, QLoRA: transformers + peft + bitsandbytes), served by vLLM with --enable-lora; thinking off, temperature 0, prompt v4 and its schema. If vLLM cannot serve the adapter on the AWQ base, the 4-bit training base + adapter is served and evaluated instead. Settled 2026-10-18, before any training run.",
+  "training": {
+    "lora": "rank 16, alpha 32, dropout 0.05, all attention and MLP projections",
+    "optimiser": "learning rate 1e-4, cosine, warmup 3 %, effective batch 16, 2 epochs, sequences ≤ 1,024 tokens, loss on the answer only",
+    "checkpoint": "the lowest validation loss",
+    "fixed": "no change after seeing E9-test results"
+  },
+  "test": "E9's harness 2, unchanged: the same 943 calls, metrics J1 (agreement per axis, bootstrap 95 %), J2 (gpt-5.4-mini's retest ceiling), J3 (outlet positions ρ), J4 (same/na shares, speed)",
+  "decision": "C4 is the history judge if its J1 interval overlaps J2's on both axes (E9's rule). If not valid, the maintainer decides (D1).",
+  "learning_curve": "C4 is also trained on the first third and two thirds of b1's training days (nested, by day). If J1 rises by more than 2 points from two thirds to all on either axis, another batch is proposed (its own go, its own name, the same procedure).",
+  "rules": "No change to data procedure, training settings, test or metrics after seeing test results. No claims (pipeline phase)."
+}

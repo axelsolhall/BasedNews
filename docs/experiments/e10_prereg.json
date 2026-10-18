@@ -1,0 +1,21 @@
+{
+  "experiment": "E10 — prompt v4 out of sample on fresh US/UK stories (H7), before v4 is locked into a trained local judge",
+  "written_at": "2026-10-18T10:18:59Z, before any E10 call",
+  "why": "Distilling gpt-5.4-mini into the local judge (E11) locks prompt v4. Its only outside evidence is 13 US/UK outlets on stories from before it was frozen (E4b, E6). This repeats E6 Q2 on stories collected after the freeze.",
+  "data": "The AWS story run 2026-10-16T04:20:43Z_average_0.56 (data/prod_snapshot.sqlite, copied to data/experiments/e10.sqlite). Pairs where both outlets are in the United States or the United Kingdom and both articles were published at or after 2026-10-12T00:00:00Z (after the v4 freeze 2026-10-11 and after E6's run). 1,641 candidate comparisons (533 full text), none judged before.",
+  "judge": "gpt-5.4-mini, prompt v4, live's settings; live's article-aware planner (plan_joint_hier, variance per cost); question direction random per call; purpose 'e10'.",
+  "budget_usd": {
+    "hard_stop": 1.0
+  },
+  "command": "BASEDNEWS_DB=data/experiments/e10.sqlite python -m pipeline.measure.run --purpose e10 --countries 'United States,United Kingdom' --published-after 2026-10-12T00:00:00Z --settle-hours 0 --budget-usd 1.0 --max-calls 1000",
+  "question": "Q: hierarchical fit on E10 calls only, social axis; Spearman between outlet positions and the same 14 AllSides ratings (docs/experiments/e4_prereg.json). Target >= 0.60. If fewer than 10 rated outlets have >= 5 decisive verdicts: 'undecided (too little data)'. Exactly E6 Q2's rule and code (pipeline/experiments/e6.py).",
+  "decision": ">= 0.60: v4 is locked for E11 and the training verdicts are bought. < 0.60: no training verdicts; the prompt is revisited under a new pre-registration. Undecided: v4 is kept (no evidence against it) and the shortfall is reported.",
+  "also_reported": [
+    "'na' share per axis",
+    "judge order bias β",
+    "cost per decisive verdict",
+    "ICC"
+  ],
+  "reuse": "E10's verdicts may also serve as training examples for the local judge (E11). They are then never used to test it.",
+  "rules": "No prompt change on the basis of these results without a new pre-registration. No claims (pipeline phase)."
+}

@@ -2,25 +2,50 @@
 
 Things the maintainer confirms by hand. Each block: what to run, what "good" looks like, tick when satisfied.
 
-## Open now (2026-10-12)
+## Open now (2026-10-17) — the path to done
 
-**Before the first deploy**
-- [ ] Commit and push; the `ci` run is green (tests, image, site, Terraform checks).
-- [ ] Read `terraform plan` for `infra/main` before `apply`: ≈ 58 resources to add, nothing changed or destroyed
-      (docs/DEPLOY.md step 3).
-- [ ] Decide A54: does the latest fit go public on the deployed site (labelled "not validated"), or stay private
-      until validation? Default: private.
+**Decisions (each a go or no-go)**
+- [ ] **D1** E8 and E9 results: accept the local embedding model and threshold, and the local judge — or fall back
+      (OpenAI Batch for history vectors ≈ $5.50). Reports: `reports/e8.json`, `reports/e9.json`. E9 (2026-10-18): no
+      off-the-shelf model valid on social → E11 (LoRA on $3.58 of gpt-5.4-mini verdicts) is C4, tested the same way.
+- [ ] **D2** The history's budget (A68): the pilot's (one year; 5 % of new pairs, a fixed number a day, or a target
+  sd), then the full run's, from the per-outlet uncertainty the pilot measures. Also whether the planner may pick by
+  predicted angle (BACKLOG: per-story relevance, econ AUC 0.90 on live's verdicts) — it is the larger saving. And
+  the weekly floor per outlet (A69, placeholder 5).
+- [ ] **D3** `judge_enabled` — paid, ≤ $0.15 a day — live judging from the history prior: **needs your go**.
+- [ ] **D4** A54: positions public on the site (labelled), and lifting "no claims" for the README and CV.
+- [ ] **D5** The public oval size (A25).
+- [ ] **D6** basednews.info on the site (Terraform: certificate in us-east-1, CloudFront alias, Route 53 zone).
+- [ ] **D7** `maintenance_enabled`, and what happens to text nobody has judged (judging is off, so today that is all of
+      it). Retention deletes text older than 30 days; live never judges outside the 7-day story window, so a text that
+      old would only matter for judging live's past later (the history covers those dates with headline +
+      description). Choose one:
+      (a) keep unjudged text in the hot database — it grows ≈ 1.6 GB a month while judging is off, and every step
+          downloads and uploads it;
+      (b) archive unjudged text to the private lake before deleting it — conflicts with A10 (publishers' text held
+          briefly);
+      (c) delete as designed — the history stands in for those weeks.
+- [ ] **D8** The backup and legacy tables (`articles_legacy` 25 MB, `articles_text_backup` 3 MB, `articles_shared_text`
+      2 MB): keep, move to the lake, or drop? Retention leaves them alone.
 
-**After the first deploy** (docs/DEPLOY.md step 3)
-- [ ] The two AWS subscription emails confirmed (alerts, kill switch).
-- [ ] One refresh by hand: four step records in `runs/<execution>/`, all `ok`, gates in range; the site URL opens.
-- [ ] Switch on `refresh_enabled`; after a day, `history` shows 24 refreshes and one feed check.
-- [ ] `judge_enabled` — paid, ≤ $0.15 a day: **needs your go**.
-- [ ] After a month: compare the real AWS bill with the estimate (README, Costs) and the gate thresholds with the
-      measured values in the records (A53); decide the retention window (A52, 30 days now).
+**Checks (≈ 10 min each)**
+- [ ] **V1** Spot-check 10 of Claude's blind E8 labels: `uv run python -m pipeline.experiments.e8 show --n 10` against
+      `data/eval/e8_labels.jsonl`.
+- [ ] **V2** The first trajectories: anything absurd? (Not "do they match my expectations" — that would be tuning.)
+- [ ] **V3** The new site with real data, locally, before it goes public.
+- [ ] **V4** Known judge quirks from E4 (social length lean 0.73; Fox News reading slightly liberal,
+      docs/experiments/e4b_results.md): accept, or fix before the history inherits them.
+- [ ] **V5** After a month: the AWS bill against the performance report (`pipeline.job perf`), the gate thresholds
+      against the values in the records (A53), the retention window (A52, 30 days).
+- [ ] The kill-switch subscription email confirmed (the alerts one is: alarm emails arrive).
+
+**Only you**
+- [ ] On the gaming PC, once (start the judge at boot without a login):
+      `ssh -t <user>@<pc> 'sudo loginctl enable-linger axel'`.
 
 **Paid, needs a go**
-- [ ] Repeat the pre-registered US/UK check on fresh stories (H7, ≈ $1), then `uv run python -m pipeline.judge.calllog`
+- [x] Repeat the pre-registered US/UK check on fresh stories (H7): E10, 2026-10-18, $1.00 — AllSides ρ +0.85 on 12
+      outlets (target ≥ 0.60), v4 locked (`reports/e10.md`). Still to run: `uv run python -m pipeline.judge.calllog`
       → every paid call logged (A51).
 - [ ] Does the judge return token log-probabilities (one call, ≈ $0.002)?
 
@@ -28,12 +53,15 @@ Things the maintainer confirms by hand. Each block: what to run, what "good" loo
 - [ ] Spot-check 10 of Claude's 270 blind E7b labels: `uv run python -m pipeline.experiments.e7b show --n 10` and
       `data/eval/e7b_labels.jsonl`.
 - [ ] Spot-check 10 of Claude's same-event labels (2.3).
-- [ ] Open from E4: social length lean 0.73; Fox News reading slightly liberal (docs/experiments/e4b_results.md).
+- [ ] Grafana Cloud (2.8).
 
-**Decisions that can wait**
-- [ ] The backup and legacy tables (`articles_legacy` 25 MB, `articles_text_backup` 3 MB, `articles_shared_text`
-      2 MB): keep, move to the lake, or drop? Retention leaves them alone.
-- [ ] Grafana Cloud (2.8), a domain, the public oval size (A25).
+**Done 2026-10-13 → 17**
+- [x] First deploy: `terraform apply`, CI green, `push-db`, one refresh by hand; refresh and feeds on (2026-10-14).
+- [x] Alarm emails arrive, and the all-clear after recovery (2026-10-15/16).
+- [x] Self-healing in the jobs (ADR-012), deploy rollback removed by decision (2026-10-15).
+- [x] 41 countries live (2026-10-14); every hourly/daily step bounded in memory at full volume (A63, 2026-10-16).
+- [x] Hourly collect + daily process (A63) and the performance report (A64) applied (2026-10-16).
+- [x] The gaming PC: Ubuntu's NVIDIA driver, SSH from the Mac, the local judge server (A65) (2026-10-16/17).
 
 **Done 2026-10-12**
 - [x] OpenAI: prepaid credits, auto-reload capped at $10/month.

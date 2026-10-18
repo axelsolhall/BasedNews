@@ -1,0 +1,14 @@
+# systemd user service: the local judge, OpenAI-compatible, on the home network only (A65). Installed by install.sh.
+[Unit]
+Description=BasedNews local judge (vLLM, OpenAI-compatible API)
+After=network-online.target
+
+[Service]
+EnvironmentFile=%h/llm/llm.env
+EnvironmentFile=%h/.config/llm/secret.env
+ExecStart=/bin/sh -c 'exec %h/llm/.venv/bin/vllm serve "$JUDGE_MODEL" --served-model-name judge --host 0.0.0.0 --port "$JUDGE_PORT" --gpu-memory-utilization "$JUDGE_GPU_SHARE" --max-model-len "$JUDGE_MAX_LEN" --max-num-batched-tokens "$JUDGE_BATCH_TOKENS" $JUDGE_EXTRA_ARGS'
+Restart=always
+RestartSec=15
+
+[Install]
+WantedBy=default.target

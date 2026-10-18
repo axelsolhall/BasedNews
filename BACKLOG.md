@@ -4,29 +4,56 @@ Working agreement: **only items marked `executable: yes` get built.** Writing an
 authorised. Capture new wants and bugs here before a session ends. Paid runs always need the maintainer's go, even when
 the code exists. Done items are kept, condensed, at the end.
 
-## Now — getting it running (2026-10-12)
-- [ ] First deploy: state bucket → OpenAI key in SSM → `terraform apply` → GitHub variables → push → `push-db` → one
-  refresh by hand (docs/DEPLOY.md step 3) — needs the maintainer
-- [ ] Switch on `refresh_enabled` after the first refresh looks right — needs the maintainer
-- [ ] Switch on `judge_enabled` (≤ $0.15 a day) — needs the maintainer's go
-- [ ] A54: publish the latest fit on the deployed site, labelled "not validated", or keep it private — needs the maintainer
+## Now — the path to done (2026-10-17)
+Done = live judging daily from a history prior, public trajectories since 2015 on basednews.info, a README with
+results. The maintainer asked for this path to be built (2026-10-17); his decisions D1–D8 and checks V1–V5 are in
+VERIFY.md. Free, local work is `executable: yes`; anything paid still needs a go.
+- [x] E9 (pre-registered), harness 2, 2026-10-18: C1–C3 × 943 calls, 0 failures; none valid on the social axis
+  (agreement 0.54–0.59 vs ceiling 0.83 [0.73, 0.92]); the local models answer "same/na" on social in 81–86 % of
+  calls vs gpt-5.4-mini's 52 % (`reports/e9.md`) → D1
+- [x] Local judge speed with replay-shaped calls: ≈ 51,000 an hour at 64 in flight (A65) — 2026-10-18
+- [ ] E8 (pre-registered): embed the live window with the three local models on the PC's GPU, sample the pool, label
+  blind, analyse → D1, V1 — executable: yes (needs the gaming PC)
+- [ ] History: embed all ≈ 6 M articles with the chosen local model, group stories day by day, count story pairs per
+  day and outlet (a dry run, no judge) — executable: yes
+- [ ] History pilot: the replay judges planner-picked pairs with the local judge on a fixed daily budget or until a
+  target sd (A68), first on one year; per-outlet uncertainty per quarter → D2 — executable: yes (free, local)
+- [ ] Re-measure the local judge's speed with replay-shaped calls (`llm_check --db …`, 16/32/64 in parallel) and set
+  `LOCAL_PAIRS_PER_HOUR` (A65's correction) — executable: yes (needs the gaming PC, 5 minutes)
+- [ ] Per-story relevance for the planner: predict from a story's vector whether it has an economic / social angle
+  (the judge says "no angle" on econ in ≈ 6 of 7 calls), trained on the judge's own na/answer verdicts; the planner
+  already weighs each candidate by its relevance (A32), today a global constant. Evidence (2026-10-18, live's 2,625
+  gpt-5.4-mini v3/v4 calls, mean OpenAI@512 vector of the pair, logistic regression, 5-fold by story): econ AUC 0.90
+  — the top-scored 20 % of pairs are answered 60 % of the time vs 17 % overall (≈ 3.5× the econ information per
+  call); social AUC 0.79 — top 30 % answered 80 % vs 51 %. To check: the same on the history's local vectors, and
+  that choosing by predicted angle does not shift positions (it changes which stories carry the econ verdicts, which
+  only angled stories carry anyway) — executable: no (the maintainer's call)
+- [x] Replay fixes (2026-10-18): each day reads its own story run (after a dry run the newest run was the last day's,
+  so the pilot would have judged the wrong week); old story runs pruned (≈ 46 M rows over eleven years otherwise);
+  the joint planner's A09 stop restored, limited to targets a candidate can reach; the planner's per-pick updates
+  incremental — same picks, ≈ 9× faster (`tests/test_planner_incremental.py`)
+- [x] M8 v2: dynamic Bradley–Terry (weekly random walk, drift q by the evidence) + a simulator with planted drift
+  (A67) and H5: history verdicts → outlet and country lines for the site (`pipeline.history.trajectories`) — 2026-10-18
+- [ ] Live judging from the history prior: the live fit starts from the history's last positions — executable: yes
+  (switching it on is D3)
+- [ ] Retention and unjudged text: three options with their costs in VERIFY.md D7 — needs the maintainer (D7)
+- [ ] Front pages for the 33 outlets without a working feed (homepage mode in ingest) — executable: no
+- [ ] Port the story-led prototype ("Story A") to the Angular site with real trajectories and anonymised judgment
+  examples → V3 — executable: no
 - [ ] Repeat the pre-registered US/UK check (E6 Q2, H7) on stories collected after the method was frozen, ≈ $1 — needs the maintainer's go
 - [ ] After the next paid run: `pipeline.judge.calllog` → 100 % of paid calls logged, hashes match (A51)
 - [ ] Does gpt-5.4-mini return token logprobs with reasoning on (one call, ≈ $0.002)? If yes, store them as a
   per-verdict confidence — needs the maintainer's go
+- [ ] Distil gpt-5.4-mini into the local judge (LoRA on its verdicts), measured with E9 — executable: no
 
 ## MUST — historical change graphs: positions over time (A22)
-Not optional: the product needs each outlet's and country's position per period over the last 10 years, with
-uncertainty, drawn as change graphs. Today every verdict is pooled into one fit.
-- [ ] Data: finish the backfill (2021–2025 not fetched; resumable), then measure same-story pairs per period in the
-  archive sample (≈ 4 articles per outlet per date may give thin overlap → decide the period length from this) — executable: no
-- [ ] M8 v1: per-window fits (rolling 30 days or monthly), the same hierarchical model per window — executable: no
-- [ ] M8 v2: dynamic Bradley–Terry (random walk, drift q as config) + a simulator with planted drift: detects real
-  moves, no false moves from outlet-set changes; calls per period to track at a given sd — executable: no
+The product needs each outlet's and country's position per period since 2015-11, with uncertainty, drawn as change
+graphs. The history is built locally (A61, A65); its steps are in "Now" above.
+- [ ] M8 v1: per-window fits (rolling 30 days or monthly), the same hierarchical model per window — a baseline for v2 — executable: no
 - [ ] M6: budget split "converge today" vs "track the past" — executable: no
 - [ ] M9: trend aggregates at time t over the outlets active at t; optional drift-vs-composition split — executable: no
 - [ ] Export + site: trends in the export (4.2); change graphs per outlet and per country with uncertainty bands — executable: no
-- [ ] Spend: judging the archive sample is paid → budget estimate + the maintainer's go
+- [ ] Data: GDELT + publisher pages replace the archive.org sample, 2015-11 → today, daily (A61): the fetch finishes ≈ 2026-10-18 15:00
 
 ## Open — operate and infrastructure
 - [x] Self-healing operations (ADR-012, A62): lease lock, clean stop, step retry, image smoke test (no deploy rollback),
@@ -50,7 +77,7 @@ uncertainty, drawn as change graphs. Today every verdict is pooled into one fit.
 - [ ] tflint in CI (checkov is there) — executable: no
 - [ ] Security baseline gaps (PLAN §4): a Content-Security-Policy header on CloudFront; dependency scanning in CI
   (pip-audit / npm audit); a tested database restore from an S3 version after the first deploy — executable: no
-- [ ] A domain (Route 53), then the certificate (us-east-1) and the CloudFront alias — needs the maintainer
+- [ ] basednews.info (registered at one.com): Route 53 zone, certificate (us-east-1), CloudFront alias — needs the maintainer (D6)
 - [ ] The backup and legacy tables (`articles_legacy`, `articles_text_backup`, `articles_shared_text`, ≈ 30 MB):
   keep, move to the lake, or drop — needs the maintainer
 
@@ -58,7 +85,7 @@ uncertainty, drawn as change graphs. Today every verdict is pooled into one fit.
 - [ ] M2 contract: record *why* an article has no full text (`text_note`: tdm_reserved | http_403 | bot_challenge |
   too_short), so the report can split policy from extraction bugs (A33) — executable: yes
 - [ ] Filter non-news pages (contact, promo) in backfill at the source — executable: no
-- [ ] If archive.org stays restricted: GDELT / Common Crawl News as a history fallback — executable: no
+- [x] archive.org stayed restricted: GDELT + publisher pages became the history source (A61) — 2026-10-15
 - [ ] Backfill history for the 20 outlets added to the reference set (the backfill picks them up on its next pass) — executable: no
 - [ ] Headless browser or another text source for 0 %-text outlets (NYT, WaPo, Daily Mail, Sky, Le Monde,
   Libération), only where robots/TDM allow — executable: no
@@ -72,7 +99,7 @@ uncertainty, drawn as change graphs. Today every verdict is pooled into one fit.
 ## Open — method (3 · Measure)
 - [ ] Judge eval: a quoted-speech check (pairs whose headline quotes a politician: is the quote attributed to the
   outlet?) — E4c found this error — executable: yes (running it is paid)
-- [ ] Hierarchical fit at scale: sparse Newton/Cholesky when articles reach thousands (dense now) — executable: yes
+- [x] Hierarchical fit at scale: sparse Newton/LU past 300 articles, the dense fit's numbers (A66) — 2026-10-17
 - [ ] σ_a underestimated with few repeats (Laplace, E5): a half-normal prior on σ_a, or a check against MCMC — executable: yes
 - [ ] Tie-aware Bradley–Terry (Davidson) so same-text pairs and judge ties count as "equal" (A44, A06) — executable: no
 - [ ] Economic axis: most stories have no economic angle → filter by topic before planning — executable: no
@@ -88,8 +115,8 @@ uncertainty, drawn as change graphs. Today every verdict is pooled into one fit.
   - Cost: ≈ 1.4 M input tokens per round (10 prompts × 100 pairs × 2 orders); cut losers early (successive halving).
 
 ## Open — coverage: Europe and North America (proposal: docs/decisions/proposal-more-countries.md)
-- [ ] Decide scope, order, judge budget and the reference-tier rule outside DNR — needs the maintainer
-- [ ] Story clustering that scales past ≈15k articles per window (≈34k at 41 countries needs ≈4.6 GB today) — executable: no
+- [x] Scope decided: 41 countries, Europe + North America without Turkey, Russia, Belarus — 2026-10-14
+- [x] Story clustering that scales past ≈15k articles per window: exact sparse average linkage (ADR-004) — 2026-10-16
 - [ ] Phase 1: DNR-covered countries — sources, feeds, robots/TDM checks, a small judge eval per new language (paid) — executable: no
 - [ ] Phase 2: countries outside DNR, once A29 has a rule for them — executable: no
 

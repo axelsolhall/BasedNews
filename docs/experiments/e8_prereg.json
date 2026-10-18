@@ -1,0 +1,22 @@
+{
+ "experiment": "E8 — local embeddings for the history: three open models vs live's OpenAI text-embedding-3-small@512 (free, local)",
+ "written_at": "2026-10-17T07:29:51Z, before sampling, embedding or labelling",
+ "why": "The maintainer chose to vectorize the 6.3 M history articles locally (A61). History stories must be as good as live's, or the history prior and trajectories rest on different pairs than live. E7b's labelled pool was chosen by MiniLM and OpenAI, so it cannot rank new models: a new pooled set is needed.",
+ "candidates": {
+  "reference": "openai:text-embedding-3-small@512 (live; vectors already stored, no new calls)",
+  "local": ["Qwen/Qwen3-Embedding-0.6B", "BAAI/bge-m3", "intfloat/multilingual-e5-large-instruct"],
+  "input": "exactly what live embeds: pipeline.embed.run.version_texts (headline + body, one vector per headline version, mean, L2-normalised); full native dimension. Instruction models get one fixed instruction on both sides: 'Instruct: Retrieve news articles that report the same event\nQuery: '. bge-m3: dense vector, no prefix."
+ },
+ "data": "The live 7-day story window of the production snapshot (2026-10-16, 41 countries, ≈ 61 k canonical articles with OpenAI vectors).",
+ "design": "Pooled evaluation with equal depth, as E7b. 1) 40 anchor articles drawn uniformly at random (seed 2027) from the window — no model involved. 2) For each anchor and each of the 4 models, the 4 most similar articles from OTHER outlets within the 72 h clustering window, by the model's time-aware similarity (what 2.3 clusters on). 3) The pool = the union. 4) Every pooled pair labelled same story / different story, blind: shuffled, no model names, no scores. Labeller: Claude (the maintainer may spot-check).",
+ "label_definition": "Same story = both articles report the same specific event or development (A02), not merely the same topic.",
+ "metrics": {
+  "M1_threshold_free": "AUC of each model's time-aware similarity on the pooled pairs, 95 % interval by bootstrap over anchors (2,000).",
+  "M2_clustering": "Per model and threshold (0.30–0.90, step 0.02): cluster the whole window with 2.3's method (average_sparse); a pooled pair is predicted 'same' if both articles share a cluster. Precision, recall, F1; intervals by bootstrap over anchors.",
+  "M3_like_live": "For each local model at its chosen threshold: pairwise co-membership agreement with OpenAI@0.56's clusters over the whole window (precision and recall of its same-cluster pairs against OpenAI's).",
+  "M4_paired": "F1(local at its threshold) − F1(OpenAI at 0.56), paired bootstrap over anchors, 95 % interval."
+ },
+ "decision": "Each local model's threshold = the highest-F1 threshold among those with precision ≥ 0.90 (E7b's rule, which gave live 0.56). The history embedding model = the local candidate with the highest M1 AUC. It is valid for the history if M4's interval includes 0 or lies above it (not detectably worse than live). If no local candidate is valid, the maintainer decides (OpenAI Batch ≈ $5.50 is the fallback).",
+ "limitations_known_in_advance": "Recall is relative to the pool. 40 anchors give wide intervals. Thresholds are chosen and scored on the same pool (as for OpenAI in E7b): optimistic for every model alike. Labels by Claude. Live window, not history text: history pages give headline + og:description, live gives headline + feed summary — similar, not identical.",
+ "rules": "No change to candidates, instruction, anchors, depth, grid or label definition after seeing results. No claims; method findings may go to FINDINGS.md."
+}

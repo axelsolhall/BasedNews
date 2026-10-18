@@ -64,3 +64,32 @@ def test_planner_values_a_new_article_more_than_a_repeat():
     cfg = PlannerConfig(mode="variance", batch_size=1, randomise_order=False)
     gain = lambda art: plan_joint_hier(h, [Candidate("e", "x", "y", art, "y_new")], cfg, rng=np.random.default_rng(0))[0].expected_info_gain
     assert gain("x2") > 2 * gain("x1")
+
+
+def test_the_target_stop_ignores_outlets_no_candidate_can_reach():
+    """A09 in the joint planner: x and y are already certain enough; z is not, but no pair today involves z — so
+    nothing is bought, instead of filling the batch with pairs worth almost nothing."""
+    outs = ["x", "y", "z"]
+    comps = [("x", "y", f"x{k}", f"y{k}", 1.0) if k % 2 else ("y", "x", f"y{k}", f"x{k}", 1.0) for k in range(400)]
+    wins = list(np.random.default_rng(0).random(400) < 0.5)
+    h = {ax: HierarchicalBT(outs, ax).fit(comps, wins, sigma_a=0.3, tau=1.0) for ax in ("econ", "social")}
+    sd = {ax: np.sqrt(np.diag(h[ax].cov[:3, :3])) for ax in h}             # the outlet block (sparse past 300)
+    assert all(s[0] < 0.8 and s[1] < 0.8 and s[2] > 0.95 for s in sd.values())   # only x − y is pinned: ≈ τ/√2
+    pool = [Candidate("e", "x", "y", f"xn{k}", f"yn{k}") for k in range(5)]
+    cfg = PlannerConfig(mode="variance", target_sd=0.85, batch_size=5)
+    assert plan_joint_hier(h, pool, cfg, rng=np.random.default_rng(0)) == []
+    assert len(plan_joint_hier(h, pool, PlannerConfig(mode="variance", target_sd=0.0, batch_size=5),
+                               rng=np.random.default_rng(0))) == 5
+
+
+def test_the_floor_is_served_even_when_the_target_says_stop():
+    """A69: x and y are certain enough, so the target stop buys nothing — but x is owed two comparisons this week."""
+    outs = ["x", "y", "z"]
+    comps = [("x", "y", f"x{k}", f"y{k}", 1.0) if k % 2 else ("y", "x", f"y{k}", f"x{k}", 1.0) for k in range(400)]
+    wins = list(np.random.default_rng(0).random(400) < 0.5)
+    h = {ax: HierarchicalBT(outs, ax).fit(comps, wins, sigma_a=0.3, tau=1.0) for ax in ("econ", "social")}
+    pool = [Candidate("e", "x", "y", f"xn{k}", f"yn{k}") for k in range(5)]
+    cfg = PlannerConfig(mode="variance", target_sd=0.85, batch_size=5)
+    assert plan_joint_hier(h, pool, cfg, rng=np.random.default_rng(0)) == []
+    picks = plan_joint_hier(h, pool, cfg, rng=np.random.default_rng(0), quota={"x": 2, "z": 3})
+    assert len(picks) == 2 and all("x" in (r.first_outlet, r.second_outlet) for r in picks)   # z has no pair today

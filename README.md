@@ -4,25 +4,26 @@
 
 BasedNews places **news outlets and whole countries on a two-axis political map** (economic left–right ×
 social liberal–conservative), **relative to each other**, with an **uncertainty oval** around every position.
-An LLM compares **pairs of articles about the same story**, across 73 outlets in 10 countries and 7 languages. A
-hierarchical Bayesian model turns those verdicts into positions, and also chooses which comparison is worth paying
-for next.
+An LLM compares **pairs of articles about the same story**, across 228 outlets in 41 countries (Europe and North
+America) and 30 languages. A hierarchical Bayesian model turns those verdicts into positions, and also chooses which
+comparison is worth paying for next.
 
-> **Status (2026-10-12): the measuring method is complete for one snapshot in time and runs on real data; the
-> production infrastructure is built and checked but not deployed yet. Not finished: positions over time (a must),
-> validation and the first deploy. No positions are claimed yet.** Real-data experiments are exploratory
-> ([docs/experiments](docs/experiments)); the ones that test something are pre-registered. The site shows a labelled
-> demo.
+> **Status (2026-10-17): live on AWS since 2026-10-13, collecting ≈ 24 k articles a day from 41 countries and grouping
+> them into stories; it heals its own failures. The measuring method is complete for one snapshot in time. In
+> progress: the 2015→2026 history, built locally with an open-weights judge on a gaming GPU, which gives positions over
+> time and the starting point for daily live judging. No positions are claimed yet.** Real-data experiments are
+> exploratory ([docs/experiments](docs/experiments)); the ones that test something are pre-registered. The site shows a
+> labelled demo.
 
 ## Where it stands
 
 | Stage | State |
 |---|---|
-| **1 · Collect** | 🟩 Done, signed off 2026-10-11. Live RSS ingest plus a sparse 10-year archive sample; the sample is about half fetched (2021–2025 pending) and resumes where it stopped. |
-| **2 · Clean & understand** | 🟩 Done, signed off 2026-10-11. Embeddings come from the OpenAI API since 2026-10-12 (512 dimensions, A56, chosen by the unbiased test E7b); MiniLM stays as the local baseline. |
-| **3 · Measure** | 🟩 Method complete for one snapshot: article-aware planner, judge prompt v4, hierarchical rating; in production new story pairs are judged daily as they appear (A58). 2,126 paid judge calls on real story pairs so far ($4.79 of AI spend in total, evals and embeddings included). Validation against an external rating is pre-registered and in progress (E4–E6). ⬜ **Positions over time not built yet (a must, see What's left).** |
-| **4 · Serve** | 🟧 Prototype. The site replays a simulated demo and the first real run (E4, whose prompt and model are now replaced). The export (4.2) writes the current fit as static JSON; the site shows it locally as "Latest fit", labelled not validated. Publishing it is the maintainer's decision (A54). |
-| **5 · Operate** | 🟧 Built, not deployed: job runner with a record and an eval gate per step, retention with a Parquet lake, SQLite-in-S3 with a lock, the Docker image, the AWS infrastructure in Terraform (Fargate, Step Functions, schedules, alarms, a kill switch) and the CI deploy. How it fits together: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); first deploy: [docs/DEPLOY.md](docs/DEPLOY.md) step 3. |
+| **1 · Collect** | 🟩 Live: 228 outlets in 41 countries (191 publishing in the last 72 h), hourly. History 2015-11 → today: GDELT lists the URLs, each publisher's own page gives headline and description (≈ 6 M articles, fetch finishing). |
+| **2 · Clean & understand** | 🟩 Live, daily: normalize, OpenAI embeddings (512 dimensions, chosen by the unbiased test E7b), stories over a 7-day window, all bounded in memory at full volume (A63). For the history: local embeddings, tested against live's in E8 (pre-registered). |
+| **3 · Measure** | 🟩 Method complete for one snapshot: article-aware planner, judge prompt v4, hierarchical rating. 2,126 paid judge calls on real story pairs so far ($4.79 of AI spend in total). Live judging is built and off until the history gives it a starting point. A local open-weights judge for the history is being tested against gpt-5.4-mini (E9, pre-registered). ⬜ **Positions over time: the history pilot comes next.** |
+| **4 · Serve** | 🟧 Prototype. The site replays a simulated demo and the first real run (E4). The new design (story-led map, 41 countries, trajectories) is a prototype in `frontend/prototypes`. Publishing positions is the maintainer's decision (A54). |
+| **5 · Operate** | 🟩 Live on AWS since 2026-10-13: Fargate jobs on schedules, SQLite-in-S3 behind a self-healing lease, a record, a gate and a performance file per step, alarms that mean "it did not heal", a cost kill switch, CI that smoke-tests the image and cannot change infrastructure. How it fits together, and the problems it solved: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). |
 
 What remains is listed under [What's left](#whats-left).
 
@@ -33,7 +34,7 @@ flowchart TB
   subgraph S1["<b>1 · Collect</b>"]
     direction LR
     s11["<b>1.1 Sources</b><br/>outlets · feed health · robots/TDM"] --> s12["<b>1.2 Ingest</b><br/>RSS · text · headline edits"]
-    s11 --> s13["<b>1.3 Backfill</b><br/>10-year archive sample"]
+    s11 --> s13["<b>1.3 History</b><br/>GDELT + publisher pages,<br/>2015 → today (local)"]
   end
   subgraph S2["<b>2 · Clean & understand</b>"]
     direction LR
@@ -50,7 +51,7 @@ flowchart TB
   end
   subgraph S5["<b>5 · Operate</b>"]
     direction LR
-    s51["<b>5.1 Jobs</b><br/>hourly refresh · daily judge<br/>a record and a gate per step"] ~~~ s52["<b>5.2 Deploy</b><br/>Docker · Terraform · AWS"]
+    s51["<b>5.1 Jobs</b><br/>hourly collect · daily process + judge<br/>record, gate, perf per step · self-healing"] ~~~ s52["<b>5.2 Deploy</b><br/>Docker · Terraform · AWS"]
   end
   S1 --> S2 --> S3 --> S4
   S4 ~~~ S5
@@ -58,16 +59,16 @@ flowchart TB
   classDef real fill:#e6f4f2,stroke:#1b7f79,stroke-width:1px,color:#0b3b37
   classDef sim fill:#fdf1dc,stroke:#c98a1b,stroke-width:1px,color:#4a3205
   classDef todo fill:#f4f4f4,stroke:#8a8a8a,stroke-width:1px,stroke-dasharray:4 3,color:#555
-  class s11,s12,s13,s21,s22,s23,s31,s32,s33,s41,s42 real
-  class s43,s51,s52 sim
+  class s11,s12,s13,s21,s22,s23,s31,s32,s33,s41,s42,s51,s52 real
+  class s43 sim
   style S1 fill:transparent,stroke:#9fb8b5,stroke-dasharray:3 3
   style S2 fill:transparent,stroke:#9fb8b5,stroke-dasharray:3 3
   style S3 fill:transparent,stroke:#9fb8b5,stroke-dasharray:3 3
   style S4 fill:transparent,stroke:#c98a1b,stroke-dasharray:3 3
-  style S5 fill:transparent,stroke:#c98a1b,stroke-dasharray:3 3
+  style S5 fill:transparent,stroke:#9fb8b5,stroke-dasharray:3 3
 ```
 
-🟩 runs on real data · 🟧 prototype, or built but not deployed
+🟩 runs on real data · 🟧 prototype
 
 Every step has one job, a typed contract, persisted output and **its own check** that runs in isolation. That way a
 problem can be traced to the step that causes it. Each stage below has a short summary; open **Details** for the
@@ -77,28 +78,30 @@ steps. Step numbers match the diagram. `M1`…`M9` are the module IDs used in th
 ---
 
 ## 1 · Collect
-Pick the outlets and check we may read them (1.1). Pull every new article on each run (1.2). Add a sparse 10-year
-history from archive.org (1.3).
-**Status:** 🟩 done, signed off 2026-10-11. The history sample is about half fetched (2021–2025 pending); the backfill
-resumes where it stopped.
+Pick the outlets and check we may read them (1.1). Pull every new article every hour (1.2). Build the history from
+2015-11, a year before the 2016 US election, from GDELT and the publishers' own pages (1.3).
+**Status:** 🟩 live since 2026-10-13 (41 countries since 2026-10-14). The history fetch finishes 2026-10-18; it runs
+on the maintainer's machine and resumes where it stopped.
 **Sign-off:** `uv run python -m pipeline.signoff --stage collect`
 
 <details>
-<summary><b>Details: 1.1 Sources · 1.2 Ingest · 1.3 Backfill</b></summary>
+<summary><b>Details: 1.1 Sources · 1.2 Ingest · 1.3 History</b></summary>
 
 ### 1.1 Sources · `M1` · `pipeline/sources/`
 - **Does:** keeps the outlet registry and checks each outlet: feeds alive, freshness, robots.txt and the W3C TDM
   opt-out.
-- **In → out:** `data/outlets.json` (73 outlets, 10 countries) → `feed_health`.
+- **In → out:** `data/outlets.json` (228 outlets, 41 countries, 30 languages) → `feed_health`.
 - **Reference set:** in each country, the five largest online news brands in the Reuters Institute *Digital News
-  Report 2026* define that country's position (A29). Other outlets are extras.
+  Report 2026* define that country's position (A29; 205 outlets). Other outlets are extras. 195 outlets have a working
+  feed; the rest are read from their front pages next (BACKLOG).
 - **Policy:** publishers that opt out or block bots are read as headline + summary only (A10, A33). We never spoof a
   browser or solve a challenge.
 - **Check:** `uv run python -m pipeline.sources.run && uv run python -m pipeline.sources.eval`
 
 ### 1.2 Ingest · `M2` · `pipeline/ingest/`
 - **Does:**
-  - reads RSS and skips known URLs before downloading;
+  - reads RSS (and RSS 1.0) and skips known URLs before downloading — it looks up only the URLs in the current feeds,
+    so a run costs the same on day 300 as on day 3 (A63);
   - extracts text (JSON-LD → trafilatura → summary, A19);
   - strips HTML, site notices and paywall pages (A38);
   - records a new headline when a known URL's headline changes (A34);
@@ -109,9 +112,10 @@ resumes where it stopped.
 
 ![Ingest coverage: articles per outlet over time, and how much text is available](reports/m2_coverage.png)
 
-Left: the sparse archive.org sample, taken on the same dates for every outlet (hatched = not fetched yet), then the
-live RSS ingest. Right: what the judge can read; orange is policy, not a bug. Per-outlet detail:
-[`reports/m2_ingest.md`](reports/m2_ingest.md).
+*The chart and the table below are the 10-country snapshot of 2026-10-11 (their history column is the archive.org
+sample that 1.3 has since replaced).* Left: articles per month; right: what the judge can read — orange is policy, not
+a bug. Per-outlet detail: [`reports/m2_ingest.md`](reports/m2_ingest.md). On 2026-10-16 the live database held 66,727
+articles from 41 countries, 190 of 228 outlets passing the M2 checks.
 
 <!-- m2:begin -->
 *Snapshot 2026-10-11, regenerated by `uv run python -m pipeline.ingest.report --readme`.*
@@ -131,13 +135,25 @@ live RSS ingest. Right: what the judge can read; orange is policy, not a bug. Pe
 | **All** | 50 / 73 | **8,475** | 6,658 | 7,179 | 4.5 | 75 % | 25 % | 100 % | 72/73 |
 <!-- m2:end -->
 
-### 1.3 Backfill · `M2b` · `pipeline/backfill/`
-- **Does:** fetches archived homepages and feeds on a fixed date grid (yearly → quarterly → monthly, on the 15th).
-  It takes about 4 articles per outlet per date, on the same dates for every outlet, so countries stay comparable
-  (A23, A24). History comes only from this sample; rows from the pre-pipeline scraper are retired (A37).
-- **In → out:** archive.org snapshots → `articles` (`text_source = wayback-*`). Progress is kept in `backfill_jobs`
-  (resumable).
-- **Check:** `uv run python -m pipeline.backfill.eval`
+### 1.3 History · `pipeline/history/` (A61)
+- **Does:** the history from 2015-11-01, for the five reference outlets of every country (205 outlets), at daily
+  resolution:
+  1. **Candidates** (`gdelt.py`): GDELT's GKG on BigQuery (the free sandbox) lists each outlet's URLs per day; a cheap
+     pre-filter keeps up to 20 per outlet and day that mention entities other outlets mention too.
+  2. **Pages** (`fetch.py`, `prefetch.py`): each publisher's own page gives headline, description and publish time —
+     headline + snippet only, never the full text (A10); one request at a time per site, ≥ 1 s apart, robots.txt
+     respected; a month at a time, resumable.
+  3. **Replay** (`replay.py`): a 7-day window moves day by day through the timeline with the live modules — embed,
+     stories, plan, judge — so every day is measured the way live measures today.
+- **Local, not paid:** judging eleven years with a paid model would cost far more than the budget, so the judge and
+  the embeddings run on the maintainer's gaming PC (RTX 5080) behind an OpenAI-compatible server
+  ([docs/LOCAL_LLM.md](docs/LOCAL_LLM.md), A65). Both are tested against live's models first (E8, E9).
+- **Pilot first:** every article is embedded and grouped (free); the judge spends 5 % of each day's new pairs (picked by
+  the live planner from the whole window). Its per-outlet uncertainty says how much more the full run needs.
+- **Trajectories** (`trajectories.py`, A67): each outlet's position on a weekly random walk, relative to the week's
+  average reference outlet, with its uncertainty. Step by step: [docs/HISTORY.md](docs/HISTORY.md).
+- **Superseded:** the archive.org sample (`pipeline/backfill/`, ADR-008) — rate limits made eleven years of it
+  impractical.
 
 </details>
 
@@ -164,13 +180,15 @@ pooled test (E7b, [ADR-011](docs/decisions/ADR-011-embeddings.md)); stories rebu
     stories: footers, pop-ups, tip boxes, copyright lines. Repeats in the body text are kept (A40).
   - **Non-articles:** marks items that are not one article (multi-topic show pages, site pages, headline-only items)
     and drops consent walls (A38).
+  - **Bounded:** reads the last 14 days (plus older copies of their texts), one outlet at a time, since every rule
+    compares an outlet only with itself (A63).
   - **Blinding and genre:** removes the outlet's own name from titles (A42) and tags opinion pieces (A43).
   - **Article content is never shortened or rewritten**; only non-content is removed (A41).
 - **In → out:** `articles` → `articles.canonical_id`, `kind`, `genre`, `headlines`. Removed texts are backed up, so
   every step can be reversed.
 - **Check:** `uv run python -m pipeline.normalize.run`, then
   `uv run python -m pipeline.normalize.eval --samples 3` → `reports/m3_normalize.png`. The vectors it compares are
-  cached by text, so an hourly run only pays for new headlines (A56).
+  cached by text, so a daily run only pays for new headlines (A56).
 
 ### 2.2 Embed · `M4` · `pipeline/embed/`
 - **Does:** one multilingual vector per article. An article with several headlines gets the mean over its
@@ -180,15 +198,18 @@ pooled test (E7b, [ADR-011](docs/decisions/ADR-011-embeddings.md)); stories rebu
   1,536 at a third of the storage (E7). The local multilingual MiniLM stays as the baseline (`uv sync --group ml`).
 - **Thresholds belong to the model:** each model has a calibrated profile, and a model without one refuses to run
   2.1 and 2.3 (A47, `pipeline.embed.calibrate`).
-- **Cost:** ≈ $0.01 a day for new articles, inside the monthly AI cap, which the encoder enforces (A48).
+- **Cost:** ≈ $0.07–0.12 a day at 41 countries, inside the monthly AI cap, which the encoder enforces (A48).
+- **Bounded:** reads its 14-day window in chunks of 900 articles (A63).
 - **In → out:** canonical `articles` + `headlines` → `embeddings` (re-embedded when a new headline arrives).
 - **Check:** `uv run python -m pipeline.embed.eval`: are an article's nearest neighbours the same story in other
   languages?
 
 ### 2.3 Stories · `M5` · `pipeline/events/`
 - **Does:** time-aware average-linkage clustering over a rolling 7-day window (72 h window, 96 h decay, threshold
-  0.56 from the model's profile; A20, ADR-004). Re-run every hour: a later article joins its story and adds new
-  pairs. A story with articles from two outlets gives a comparable pair (A02). Two outlets publishing the same
+  0.56 from the model's profile; A20, ADR-004). Re-run daily: a later article joins its story and adds new pairs.
+- **At scale:** computed exactly from the close pairs and running sums of distances, never the full distance matrix,
+  so a full 41-country window (≈ 170 k articles) fits in ≈ 1.6 GB; identical partitions to the full method on real
+  windows of 41,677 and 60,778 articles (ADR-004). A story with articles from two outlets gives a comparable pair (A02). Two outlets publishing the same
   headline and the same text is a known tie: it is kept but never sent to the judge (A44).
 - **In → out:** `embeddings` → `event_members`, `same_text_pairs`.
 - **Check:** `uv run python -m pipeline.events.eval` (precision and recall per threshold on the labelled pairs in
@@ -232,7 +253,8 @@ The active-learning loop:
     Full text in [`pipeline/judge/prompt.py`](pipeline/judge/prompt.py).
 - **Input:** the whole article, never shortened (A41); the latest headline plus earlier versions (A36); the outlet's
   own name masked (A42).
-- **Model and logging:** `gpt-5.4-mini` with low reasoning effort (A11, A45). Every call, verdict, token and cent is
+- **Model and logging:** `gpt-5.4-mini` with low reasoning effort (A11, A45) live; for the history an open-weights
+  model on a local GPU, if E9 shows it answers like gpt-5.4-mini (A65). Every call, verdict, token and cent is
   stored with the prompt version (`judge_calls`, `judgments`, `api_usage`; A48).
 - **Full archive of every paid call (A51):** the exact request with the rendered articles, the provider's full
   response (model snapshot, fingerprint, token breakdown), timing, retries and failures, and what the planner knew
@@ -251,6 +273,8 @@ The active-learning loop:
   - **Spreads:** the outlet spread τ and article spread σ_a are estimated from the data (Laplace evidence) and
     averaged over a grid, not set by hand (A49, ADR-009).
   - **Output:** a Laplace posterior gives every outlet a position and an sd per axis (A05, ADR-001, ADR-003).
+  - **At scale:** past 300 judged articles the same fit runs on sparse algebra, with the same numbers (A66): ≈ 60 k
+    articles fit in about a second.
 - **In → out:** `judgments` → `positions` (mean, sd, number of comparisons per outlet and axis) + covariance.
 - **Check:** `uv run python -m pytest -q` (recovery tests). Coverage under article reuse:
   `uv run python -m pipeline.sim.eval_articles` (E5).
@@ -266,7 +290,8 @@ The active-learning loop:
   final fit is written to `positions`. `--dry-run` prints the first prompt and the cost estimate;
   `--countries "United States,United Kingdom"` restricts the pool; `--settle-hours N` holds back articles younger
   than N hours (default 0: pairs are judged as they appear, A58).
-- In production the `judge` job runs it daily with a daily budget ($0.15 by default), followed by the export.
+- In production the `judge` job runs it daily with a daily budget ($0.15 by default), followed by the export. It is
+  switched off until the history gives live judging its starting point.
 
 </details>
 
@@ -322,10 +347,11 @@ validated. Whether it goes public is the maintainer's decision (A54).
 ---
 
 ## 5 · Operate
-Run every step on a schedule, record what each run did, stop bad data at the step that made it, and keep it cheap.
-Nothing runs between jobs and nothing serves requests: jobs write files, a CDN serves them (ADR-010).
-**Status:** 🟧 built and checked, not deployed yet ([docs/DEPLOY.md](docs/DEPLOY.md) step 3). How the parts fit
-together, with diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Run every step on a schedule, record what each run did, stop bad data at the step that made it, heal what breaks, and
+keep it cheap. Nothing runs between jobs and nothing serves requests: jobs write files, a CDN serves them (ADR-010).
+**Status:** 🟩 live since 2026-10-13. How the parts fit together, what heals itself, and the engineering problems the
+first week posed (a self-healing lease, memory that does not grow with the window, cost at full volume):
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 <details>
 <summary><b>Details: 5.1 Jobs · 5.2 Deploy · costs</b></summary>
@@ -336,16 +362,21 @@ together, with diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
   **record**: commit, arguments, table counts before and after, the gate's numbers, the error and traceback (in
   `job_runs`, and as JSON). Logs are JSON lines. A paid step refuses to run without an explicit budget (A48).
 
-  | Job | Steps | Schedule (UTC) |
-  |---|---|---|
-  | refresh | ingest → normalize → embed → stories | hourly |
-  | feeds | sources | daily |
-  | judge | measure → export | daily, with a daily budget (A58) |
-  | maintenance | retention | daily |
+  | Job | Steps | Schedule (UTC) | State |
+  |---|---|---|---|
+  | refresh | ingest | hourly | on |
+  | process | normalize → embed → stories | daily 02:35 (A63) | on |
+  | feeds | sources | daily | on |
+  | judge | measure → export | daily, with a daily budget (A58) | off until the history prior |
+  | maintenance | retention | daily | off until it can never delete unjudged text |
 
-- **State:** in production the SQLite file lives in S3. A step takes a lock, downloads it, runs, and uploads it only if
-  the step and its gate passed, conditional on the version it downloaded (A55). A failed step leaves the stored
-  database as it was, so the site keeps its last good data.
+- **State:** in production the SQLite file lives in S3. A step takes a lease, downloads it, runs, and uploads it only
+  if the step and its gate passed, the lease is still its own, and the stored file is still the version it downloaded
+  (A55). A failed step leaves the stored database as it was, so the site keeps its last good data.
+- **Self-healing (ADR-012, A62):** the lease is renewed every minute and taken over when silent for 5 min; a stopped
+  task ends cleanly; the state machine retries a crashed step once; alarms fire only when it did not heal.
+- **Performance (A64):** every step attempt writes its phases, CPU, peak memory against the limit and its cost —
+  every minute while it runs. `uv run python -m pipeline.job perf --days 1` prints the report and a monthly projection.
 - **Retention (A52):** text and vectors older than 30 days are deleted, after verdicts, positions, records and the
   full judge requests are written to monthly Parquet files and read back (`pipeline/retention/`, a dry run unless
   `--apply`).
@@ -355,19 +386,26 @@ together, with diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 ### 5.2 Deploy · `infra/`, `Dockerfile`, `.github/workflows/ci.yml`
 - **Does:** one Docker image (arm64) for every step; Terraform for every AWS resource: S3 + CloudFront for the site,
   ECS Fargate tasks started by Step Functions on EventBridge schedules (created off), alarms by email, and a kill
-  switch that turns the schedules off if the month's AWS cost passes $15. GitHub Actions tests everything on each
-  push and, on main, ships the image and the site through narrow OIDC roles; it never changes infrastructure (A57).
+  switch that turns the schedules off if the month's AWS cost passes $15. GitHub Actions runs lint, tests, Terraform
+  checks and a smoke test inside the built image on each push and, on main, ships the image and the site through
+  narrow OIDC roles; it never changes infrastructure (A57).
 - **Check:** `terraform -chdir=infra/main validate`; `uvx checkov -d infra --config-file infra/.checkov.yaml` (every
   skipped check has its reason); `docker compose run --rm job list`.
 
-### Costs (estimates, per month)
+### Costs (per month)
+AWS measured by the performance report (A64) on 2026-10-17, with the 7-day window still filling; OpenAI from the
+spend log (`api_usage`):
+
 | | AWS | OpenAI |
 |---|---|---|
-| refresh (hourly) | ≈ $1.80 (Fargate ≈ 6 min an hour) | ≈ $0.30 (embeddings) |
-| feeds, maintenance | ≈ $0.10 | — |
-| judge (daily) | ≈ $0.10 | ≤ $4.50 ($0.15 a day) |
-| storage, CDN, alarms | ≈ $0.50 | — |
-| **Total** | **≈ $2.50** | **≤ $4.80** |
+| refresh (hourly collect) | ≈ $0.45 (≈ 1 min an hour) | — |
+| process (daily) | ≈ $0.15 (≈ 10 min a day) | ≈ $2.50 (embeddings: $0.07–0.12 a day at 41 countries) |
+| feeds | ≈ $0.01 | — |
+| judge (daily, off) | ≈ $0.10 when on | ≤ $4.50 ($0.15 a day) when on |
+| storage, CDN, alarms | ≈ $0.50 (estimate) | — |
+| **Total today** | **≈ $1.10** | **≈ $2.50** |
+
+Processing grows with the window; the report projects it every day.
 
 Caps: the app refuses AI calls past $12 a month (A48), OpenAI's own reload limit is $10 a month, and the AWS kill
 switch fires at $15.
@@ -377,7 +415,7 @@ switch fires at $15.
 ---
 
 ## Experiments on real data
-E4, E6, E7 and E7b were pre-registered (criteria fixed and hashed before the run). Every experiment is recorded whatever the
+E4, E6, E7, E7b, E8 and E9 were pre-registered (criteria fixed and hashed before the run). Every experiment is recorded whatever the
 outcome. They are **exploratory, not claims**. What they changed:
 
 | ID | Question | What it changed | Record |
@@ -390,6 +428,8 @@ outcome. They are **exploratory, not claims**. What they changed:
 | E6 | Fresh stories with v4, the hierarchical model and the article-aware planner | to be repeated out of sample on next week's stories | [e6_results](docs/experiments/e6_results.md) |
 | E7 | OpenAI embeddings for story matching: 512 vs 1536 dimensions | 512 is enough; its MiniLM comparison was invalid (test set chosen by MiniLM) and withdrawn | [e7_results](docs/experiments/e7_results.md) |
 | E7b | The unbiased re-test: random anchors, both models' top candidates pooled, labelled blind | OpenAI @512 adopted for embeddings, story threshold 0.56 | [e7b_results](docs/experiments/e7b_results.md) |
+| E8 | Local embeddings for the history: three open models vs live's OpenAI @512, pooled and blind like E7b | in progress | [e8_prereg](docs/experiments/e8_prereg.json) |
+| E9 | A local judge for the history: does an open-weights model answer like gpt-5.4-mini, as often as gpt-5.4-mini agrees with itself? | in progress | [e9_prereg](docs/experiments/e9_prereg.json) |
 
 A50 states what is measured: framing of the **same event**, not which stories an outlet chooses to cover. External
 ratings include both, so agreement with them has a ceiling below 1. Disagreement is something to explain, not a
@@ -432,55 +472,56 @@ Seven things the project hopes to show. None is established.
 </details>
 
 ## What's left
-The measuring method is complete for one snapshot. **Historical change graphs are a must** and come first below; the
-rest is around the method. Items are tracked in [BACKLOG.md](BACKLOG.md); only items marked `executable: yes` get built.
+**Done** means: live judging runs daily from a starting point measured on the history, the site shows every outlet's
+and country's trajectory since 2015 with its uncertainty, and this README states results. Items are tracked in
+[BACKLOG.md](BACKLOG.md) (only `executable: yes` gets built); the maintainer's decisions and sign-offs in
+[VERIFY.md](VERIFY.md).
 
-**Must: positions over time, with historical change graphs (A22)**
+**Must: positions over time (A22), from the history**
+1. **Validate the local models** (pre-registered): E8 — does a local embedding model find the same stories as live's?
+   E9 — does a local judge answer like gpt-5.4-mini, as often as gpt-5.4-mini agrees with itself?
+2. **Embed and group the whole history** (≈ 6 M articles, free, on the GPU), then count the story pairs per day and
+   outlet.
+3. **Pilot:** one year first, the planner picking every call on a fixed daily budget or until a target precision
+   (A68; 5 % of new pairs ≈ 160 calls a day, from a one-month dry run: docs/HISTORY.md), fit positions week by week as
+   a random walk (A67, built: uncertainty regrows between measurements), and read each outlet's uncertainty per
+   quarter. It says what fraction the full run needs (uncertainty shrinks with the square root of the verdicts).
+4. **Check in isolation:** done in simulation (`tests/test_dynamic.py`): a planted move is found, outlets that stayed
+   do not move, intervals hold. On real history: the maintainer's sanity check of the first lines (V2).
+5. **Serve:** trajectories per outlet and country on the site, with uncertainty bands.
 
-Every outlet and country gets a position per period, with uncertainty, drawn as a line over the last 10 years. Today
-all verdicts are pooled into one fit. What it takes:
-1. **Data:** finish the 10-year archive sample. Then check that it yields enough same-story pairs per period: it takes
-   about 4 articles per outlet per date, so overlap between outlets may be thin.
-2. **Rate:** fit per time window first (rolling or monthly, the same model per window). Then a dynamic model, where
-   positions follow a random walk so uncertainty regrows between measurements. Both use the timestamps already stored
-   on every judgment (A22).
-3. **Plan:** split the budget between converging today's positions and tracking past periods.
-4. **Check in isolation:** a simulator with planted shifts. Does the model detect a real move, without seeing one when
-   only the set of outlets changed? And what does tracking cost per period at a given sd?
-5. **Serve:** trend aggregates per country, using the outlets active at each time. Change graphs on the site, one per
-   outlet and per country, with the uncertainty band.
-6. **Spend:** judging the archive is paid, so it needs a budget and a go.
+**Then live judging**, from the history's positions as its prior (≤ $0.15 a day, needs a go), and **maintenance**,
+once retention can never delete text that has not been judged.
 
 <details>
 <summary><b>Details: the rest (operate · serve · validate · method follow-ups)</b></summary>
 
-**5 · Operate (🟧)**
-- The first deploy ([docs/DEPLOY.md](docs/DEPLOY.md) step 3), then the schedules on: refresh first, the judge after a
-  go (it spends money).
-- OpenTelemetry traces and metrics to Grafana's free tier (2.8). A domain later; it launches on the CloudFront address.
-- Finish the history backfill (data, not code): `uv run python -m pipeline.backfill.run --years 10 --per-snapshot 4`.
+**5 · Operate**
+- Read the front pages of the 33 outlets without a working feed. A domain (basednews.info) on the CloudFront address.
+- OpenTelemetry traces and metrics to Grafana's free tier (2.8).
 
 **4 · Serve (🟧)**
-- Trends in the export (4.2) once the trend model exists; decide when the latest fit goes public (A54).
-- Site copy ("relative to the average of N outlets"), reference vs extra tier on the plane, country positions from the
-  reference tier only. The maintainer chooses the public oval size (A25).
+- Port the story-led prototype (`frontend/prototypes`, "Story A") to the Angular site with real data and anonymised
+  judgment examples; decide when positions go public (A54) and the public oval size (A25).
+- Site copy ("relative to the average of N outlets"), reference vs extra tier, country positions from the reference
+  tier only.
 
 **Validate (needs a go and/or more days of data)**
-- Confirm the full call log on the next paid run: `uv run python -m pipeline.judge.calllog` shows every call logged (A51).
-  Also test whether the judge model returns token log-probabilities; they would give each verdict a confidence.
 - Repeat the pre-registered US/UK check on fresh stories collected after the method was frozen (H7).
-- Judge eval: add a quoted-speech attribution check (an error found in E4c).
+- Confirm the full call log on the next paid run: `uv run python -m pipeline.judge.calllog` (A51).
+- Judge eval: a quoted-speech attribution check (an error found in E4c).
 
 **Method follow-ups (extensions, not blockers)**
+- Distil gpt-5.4-mini into the local judge (fine-tuning on its verdicts), measured with E9.
 - Economic axis: most stories have no economic angle, so filter by topic before planning.
-- Ties as information (Davidson model, A44). Sparse fitting when articles reach thousands. A check of the article
-  spread σ_a against a prior or MCMC (E5 limitation).
+- Ties as information (Davidson model, A44). A check of the article spread σ_a against a prior or MCMC (E5
+  limitation).
 - Prompt optimisation (H6).
 
 </details>
 
 ## Decisions: industry standard vs what was explored
-Twelve design choices where the project tried something other than the usual default, each with a record.
+Fifteen design choices where the project tried something other than the usual default, each with a record.
 
 <details>
 <summary><b>Details: decision table</b></summary>
@@ -499,6 +540,9 @@ Twelve design choices where the project tried something other than the usual def
 | 1.1–1.2 | Scraping | take everything | robots.txt + TDM opt-outs + bot blocks respected | [ADR-007](docs/decisions/ADR-007-text-policy.md) |
 | 1.3 | History | commercial archives | sparse synchronised Wayback sample | [ADR-008](docs/decisions/ADR-008-history.md) |
 | 5 | Hosting | always-on API server + managed database | scheduled jobs with a gate per step, static site, small hot database in S3 with a bounded window, CI that cannot change infrastructure | [ADR-010](docs/decisions/ADR-010-deployment.md) |
+| 5 | One writer, no operator | managed database, or DynamoDB locks | a lease in S3 with conditional writes, fencing, clean stops and retries; alarms on lack of success | [ADR-012](docs/decisions/ADR-012-self-healing.md) |
+| 2.3 | Clustering at scale | the full distance matrix (n²) | exact average linkage from close pairs and running sums: memory grows with the close pairs | [ADR-004](docs/decisions/ADR-004-event-clustering.md) |
+| 1.3, 3.2 | History judge | a paid API | an open-weights model on a local GPU, validated against the live judge before use | A65, E9 |
 
 All working assumptions are in [ASSUMPTIONS.md](ASSUMPTIONS.md), each with what depends on it and how to test it.
 Human sign-offs per stage are in [VERIFY.md](VERIFY.md).
@@ -519,11 +563,13 @@ uv run python -m pipeline.job measure --budget-usd 0.15             # 3: plan �
 uv run python -m pipeline.job export                                # 4.2 the current fit → frontend/src/data
 uv run python -m pipeline.job retention                             # A52 dry run: what would be archived and deleted
 uv run python -m pipeline.job history                               # what ran, what failed, why
+uv run python -m pipeline.job perf --days 1                         # time, CPU, peak memory vs limit, cost per step (A64)
 
 # single modules and their checks
 uv run python -m pipeline.measure.run --dry-run                     # first prompt + cost estimate, no calls
 uv run python -m pipeline.judge.eval --pairs 60                     # 3.2 judge reliability (after any prompt/model change)
 uv run python -m pipeline.signoff --stage collect                   # stage sign-off scorecard
+uv run python -m pipeline.history.llm_check                         # the local judge on the GPU: reachable, key, speed (A65)
 
 # the production image and the site, locally
 docker compose run --rm job list                                    # same image as on AWS; data/state stands in for S3

@@ -86,3 +86,91 @@ model `pipeline/rate/hierarchical.py`; planner `pipeline/plan/planner.py::plan_j
    ranking. Comparisons need pooled, blind evaluation with equal depth, or random sampling.
 2. A similarity threshold does not transfer between embedding models; re-choose the operating point on the fair set.
 3. Shortened OpenAI embeddings are free to test: buy the full vector once and truncate locally.
+
+---
+
+## F3 — Most judge calls cannot answer the economic question, and a story's vector says in advance which can
+
+**Question (2026-10-18).** The planner (M6) weighs each candidate pair by the chance that the judge answers each axis
+(A32). That chance was one average per axis. Is it predictable per pair, and does using it buy more information for
+the same calls?
+
+**Observation (real data).** On live's gpt-5.4-mini calls (prompts v3 and v4), the judge found an economic angle in
+**14 %** of pairs and a social one in **50 %** — a crime story or a football result has no economic framing to compare.
+Every other economic call costs the same and adds nothing on that axis.
+
+**Model.** One L2 logistic regression per axis on the mean of the pair's two article vectors (`pipeline/plan/angle.py`,
+A70), trained on the judge's own answered / "no angle" verdicts; its prediction replaces the average as the pair's
+relevance in the planner. Below 300 verdicts there is no model (the average is kept).
+
+**Evidence 1 — real verdicts, out of fold** (2,126 live calls, OpenAI@512 vectors, 5 folds by story so a story is
+never in train and test; `python -m pipeline.plan.angle eval --version v3,v4`):
+
+| axis | answered overall | AUC | answered among the top-scored 10 % | 20 % | 30 % | 50 % |
+|---|---:|---:|---:|---:|---:|---:|
+| economic | 14 % | **0.90** | 70 % | 52 % | 41 % | 27 % |
+| social | 50 % | 0.81 | 90 % | 87 % | 82 % | 73 % |
+
+Choosing among the top-scored fifth gives ≈ 3.5× the economic answers per call.
+
+**Evidence 2 — simulation at a fixed budget** (March 2019's real stories, 37 days, MiniLM vectors; the simulated judge
+at live's estimates, whose chance of an answer depends on the story along a hidden direction calibrated to live: 14 % /
+50 % answered, a perfect predictor's AUC 0.90 / 0.82; 160 calls a day plus the weekly floor, A69; outlet order
+compared with the simulated truth, 124 outlets):
+
+| | one average per axis | per-pair angle (A70) |
+|---|---:|---:|
+| calls | 5,985 | 5,985 |
+| calls answered, economic / social | 10 % / 52 % | **35 %** / 63 % |
+| economic outlet order vs truth (Spearman ρ) | 0.57 | **0.80** |
+| economic outlet sd (median) | 0.72 | **0.51** |
+| social ρ / sd | 0.71 / 0.35 | 0.68 / 0.32 |
+
+The model switched itself on after four days (1,185 verdicts) and was relearned weekly from the replay's own verdicts.
+
+**Limitations.** One simulation seed and one month; the simulated angle is linear in the vector by construction, so
+the real AUC on the history's local vectors must be measured (`eval` on the history's verdicts after the pilot).
+Choosing pairs by predicted angle changes which stories carry the economic verdicts; they come only from stories with
+an economic angle anyway, but whether positions shift is checked on real verdicts, not assumed. Not a claim about any
+outlet (pipeline phase).
+
+**Method lesson.** What a call can tell is part of its value: weighing pairs by their own chance of an answer, learned
+from the judge's past answers, is the cheapest precision available — no new calls, no new model on the GPU.
+
+---
+
+## F4 — Off-the-shelf local judges are cautious where the paid judge decides: they abstain on the social axis
+
+**Question (E9, pre-registered `docs/experiments/e9_prereg.json`).** The eleven-year history needs ≈ 12 M same-story
+pairs; at gpt-5.4-mini's $0.00155 a call, judging them all would cost ≈ $18,600, and a planner-picked 5 % ≈ $930. Can
+an open model on a 16 GB consumer GPU (RTX 5080) answer like gpt-5.4-mini instead, for free?
+
+**Test.** 943 gpt-5.4-mini calls with prompt v4 (693 live, 250 eval), re-asked with the same texts, order, question
+direction and JSON schema. The bar is gpt-5.4-mini's agreement with itself on 60 pairs asked twice (J2). Harness 2
+(no token cap; no whitespace loops in the grammar), served by vLLM 0.31.
+
+| candidate | econ agreement (J1) | social agreement (J1) | "same/na" econ · social | output tokens | outlet order ρ econ · social (J3) |
+|---|---|---|---|---:|---|
+| gpt-5.4-mini vs itself (J2, the bar) | 0.92 [0.85, 0.98] | 0.83 [0.73, 0.92] | 0.77 · 0.52 | | |
+| C1 Qwen3-14B-AWQ, direct | 0.81 [0.79, 0.84] | 0.58 [0.55, 0.61] | 0.81 · 0.81 | 14 | 0.17 · 0.05 |
+| C2 Qwen3-14B-AWQ, thinking | 0.83 [0.81, 0.86] | 0.59 [0.56, 0.62] | 0.87 · 0.86 | 718 | 0.46 · 0.14 |
+| C3 Qwen3-8B-AWQ, direct | 0.64 [0.61, 0.68] | 0.54 [0.51, 0.57] | 0.54 · 0.54 | 14 | 0.11 · 0.17 |
+
+None reaches the bar on the social axis; the pre-registered rule hands the choice to the maintainer (D1).
+
+**Where the gap is.** The 14B models say "no angle" on the social axis in 81–86 % of pairs where gpt-5.4-mini takes a
+side in about half (52 % abstain). Reasoning first (C2) costs 50× the output tokens and changes almost nothing; the
+8B model abstains less but agrees less. Outlet positions computed from the local verdicts barely follow gpt-5.4-mini's
+(ρ ≤ 0.46).
+
+**Speed (replay-shaped calls, the same server).** ≈ 580 tokens in, 14 out: 46,000 calls an hour at 16 in flight,
+51,000 at 64 — the whole 5 % history in ≈ 12 GPU hours. A first speed test that copied gpt-5.4-mini's call shape (174
+output tokens — its hidden reasoning — and no shared prompt prefix) had measured 10,000 an hour: measure the call
+the system will actually make.
+
+**Method lessons.**
+1. A gap like this is behavioural (a calibration of when to abstain), not a lack of capability: the model that
+   abstains less (C3) is not better. That points to teaching the decision boundary (E11, LoRA on gpt-5.4-mini's own
+   verdicts) rather than a bigger model or more thinking.
+2. The paid judge's self-agreement is the honest ceiling; it is reachable on the economic axis (0.92) only because
+   most pairs are "no angle" for both.

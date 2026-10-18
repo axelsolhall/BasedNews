@@ -865,3 +865,129 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   underestimate; prices are two constants in `perf.py`. Peak memory is the process peak (ru_maxrss), exact for one
   step per Fargate task.
 - **Status:** accepted (2026-10-16)
+
+### A65 — The history is judged by a local model on the gaming PC, served behind an OpenAI-compatible API (2026-10-17)
+- **Rule:** vLLM on the gaming PC (`infra/pc/`, `docs/LOCAL_LLM.md`) serves one model under the name `judge` on the
+  home network, key required. The model (`JUDGE_MODEL`) is a placeholder — Qwen3-14B-AWQ, chosen only because it is
+  multilingual and fits 16 GB with room for parallel requests — until a blind check against gpt-5.4-mini on judge
+  pairs picks the history judge (pre-registered; needs the maintainer's go for the paid reference judgments).
+- **Why:** judging 11 years locally instead of paying for it (A61); the maintainer chose local, on the 5080.
+- **Measured (2026-10-17):** judge-sized calls (≈ 1,000 tokens in, 174 out, no reasoning), 16 in parallel: 2.85
+  requests/s, 495 output tokens/s → ≈ 10,000 pairs an hour (`pipeline/history/llm_check.py`).
+- **Correction (2026-10-18):** that test had the wrong call shape. The 174 output tokens were gpt-5.4-mini's, mostly
+  its hidden reasoning; with thinking off, the v4 answer is ≈ 15 tokens (`{"econ": "A", "social": "na"}`). And every
+  prompt was unique from its first token, so nothing was cached, while the history's ≈ 400-token instructions are the
+  same in every call. `llm_check` now sends calls exactly as the replay does.
+- **Measured again (2026-10-18, replay-shaped: real history headline pairs, prompt v4, thinking off):** ≈ 580 tokens
+  in, 14 out; 16 in flight 12.8 calls/s (≈ 46,000 an hour), 64 in flight 14.2 calls/s (≈ 51,000 an hour, median
+  4.5 s). `LOCAL_PAIRS_PER_HOUR` = 51,000, `PARALLEL` = 64. 5 % of the history (≈ 0.6 M calls) ≈ 12 GPU hours.
+- **Server settings (2026-10-18):** `--structured-outputs-config.backend xgrammar` must be named for
+  `disable_any_whitespace` (vLLM 0.31 refuses it with backend "auto"); both are in `infra/pc/llm.env`, deployed.
+- **Depends:** the replay's judge (`pipeline/history/replay.py`), clients asking for the model `judge`.
+- **If wrong:** another model is one line in `infra/pc/llm.env`; a slower one (or reasoning on) lowers pairs an hour,
+  which the check measures.
+- **Status:** server accepted; the model is open (blind check)
+
+### A66 — Past 300 judged articles, the hierarchical fit runs on sparse algebra, with the dense fit's numbers (2026-10-17)
+- **Rule:** `HierarchicalBT.fit` switches to `pipeline/rate/sparse.py` beyond `SPARSE_FROM` = 300 articles, where it
+  becomes the faster one (measured: 1,548 articles with the spreads' grid, dense 20 s, sparse 0.5 s): a sparse
+  design matrix, Newton steps through a sparse LU of the Hessian with the articles eliminated first, log|H| from U's
+  diagonal for the evidence, and a `SparseCov` that answers only the covariance blocks callers read (outlets × outlets;
+  the articles in the planner's pool) by solving for those columns. Averaging over the spreads' grid is kept
+  (`MixtureCov`).
+- **Why:** the dense fit holds (n + 1 + m)² matrices and inverts one per grid point. Live crosses 2,000 judged articles
+  within weeks of judging (and already has ≈ 1 k judged articles: dense grid fits there take seconds each); the
+  history pilot reaches ≈ 400 k. Dense, that is out of reach; it was the last blocker of the pilot.
+- **Depends:** `pipeline/rate/hierarchical.py`, `pipeline/rate/sparse.py`; every caller of the hierarchical posterior
+  (planner, measure, export, retention, E9) reads `cov` by blocks, which `SparseCov` serves.
+- **Test:** `tests/test_sparse_fit.py`: equal to the dense fit (mode, evidence, covariance blocks by every index form,
+  the grid average) on random and story-shaped verdicts; the planner picks the same pairs from either; ≈ 60 k
+  articles in stories over 200 outlets fit in ≈ 1.4 s (the dense fit would need ≈ 29 GB per Newton step).
+- **If wrong:** the threshold is one constant; `fit(..., sparse=False)` forces the dense fit. If real verdicts link
+  articles across stories more than assumed (fill-in grows), the elimination order is one function.
+- **Status:** accepted (2026-10-17)
+
+### A67 — Positions over time: each outlet on a weekly random walk, its drift chosen by the evidence (2026-10-18)
+- **Rule:** `pipeline/rate/dynamic.py` (M8 v2) extends the hierarchical model: θ_outlet(week) follows a random walk
+  (θ(0) ~ N(0, τ²), steps ~ N(0, q²)); articles sit around their outlet's position in their week (σ_a); the judge's
+  order bias β is constant. σ_a, τ and β come from the static fit over the same verdicts; q is chosen by the Laplace
+  evidence over `Q_GRID`. Weekly bins (`BIN_DAYS` = 7, ≥ the story window), so a comparison touches one week or two
+  neighbouring ones. `pipeline/history/trajectories.py` (H5) turns history verdicts into outlet and country lines
+  relative to the week's average reference outlet, each point with its sd, for the site.
+- **Why:** the product's must (A22): positions per period with uncertainty that regrows between measurements. Per-
+  window fits (M8 v1) would cut the data into independent pieces and need a window length chosen by hand.
+- **How it is computed:** exactly, without the (weeks · n + m)² matrix: articles are eliminated per group of compared
+  articles; what remains is block-tridiagonal in time and is solved by a block Cholesky whose backward pass (the
+  Kalman smoother's recursion) gives every week's joint covariance — O(weeks · n³).
+- **Test:** `tests/test_dynamic.py`: equal to the dense joint Laplace fit (positions, every week's covariance, the
+  evidence); on simulated verdicts with a planted +1.5 move, it finds the move (> 0.9, clear of zero), invents none in
+  five outlets that stayed, keeps ≈ 90 % intervals, and widens the uncertainty in a gap by about a random walk's
+  bridge variance; a comparison across three weeks is refused. `tests/test_trajectories.py`: the same through the
+  database and the site JSON. Scale: 205 outlets, 32 k comparisons, 28 k articles, 60 weeks → one fit in 4 s, 0.25 GB.
+- **If wrong:** if β or σ_a drift over eleven years, give them their own walk (one more block per week). If weekly is
+  too coarse or too fine, `BIN_DAYS` is one constant (≥ 7). Outlet-set changes are handled by reading positions
+  against a fixed reference set; a drift-vs-composition split for countries is M9 (BACKLOG).
+- **Status:** accepted for the pilot (2026-10-18); its first real use is the history pilot (D2)
+
+### A68 — The history's budget: planner-picked, a fixed number a day or until outlets are certain enough (2026-10-18)
+- **Rule:** the replay buys what live's joint planner picks from the day's 7-day pool, in one of three budgets:
+  `--judge-fraction f` (f of the day's new pairs), `--calls-per-day N` alone (N a day), or `--target-sd s` (until
+  every outlet and country a pair can reach today has sd ≤ s on both axes over the last `--window-days` = 91, with N
+  as a ceiling). The A09 stop is back in the joint planner, counting only targets some candidate touches.
+- **Why:** a fraction of pairs scales with how much news there is, not with what the trajectories need; the target
+  makes the planner stop where outlets are pinned.
+- **Measured (2026-10-18, free):** March 2019's real stories (MiniLM @ 0.60), the simulated judge at live's estimates
+  (`LIKE_LIVE`: econ answered ≈ 1 call in 7, τ 0.84 / 0.61), outlet order recovered against the simulated truth
+  (Spearman ρ, 124 outlets):
+
+  | budget | calls | per outlet (median) | ρ econ | ρ social |
+  |---|---|---|---|---|
+  | 40 a day, 37 days | 1,480 | 23 | 0.37 | 0.35 |
+  | 5 % of new pairs, 21 days | 3,462 | 58 | 0.49 | 0.41 |
+  | target sd 0.3 (ceiling 3,000), 7 days | 20,704 | 422 | 0.77 | 0.82 |
+
+  Per call there is little information (headlines only; econ mostly "no angle"), so a quarter-level target of 0.3
+  costs far more than 5 %: ≈ 60 k calls a quarter. Fewer calls are not the saving; more information per call is
+  (BACKLOG: per-story relevance, AUC 0.90 for econ on live's verdicts).
+- **Caveat:** the simulated judge draws article noise per call, not per article, so its σ_a and τ estimates are low;
+  the ρ column is the honest comparison between budgets, not a forecast of real precision.
+- **Depends:** `pipeline/history/replay.py` (`judge_day`), `pipeline/plan/planner.py` (`plan_joint_hier`),
+  `pipeline/measure/run.py` (`fit(since=)`).
+- **Test:** `tests/test_replay.py` (target buys nothing when looser than the prior, up to the ceiling when strict;
+  the window filters), `tests/test_hierarchical.py` (an unreachable outlet never keeps the planner buying),
+  `tests/test_planner_incremental.py` (the incremental planner picks exactly what the plain one does).
+- **If wrong:** flags; the fraction mode is unchanged.
+- **Status:** built; the budget for the pilot and the full run is D2
+
+### A69 — Every outlet is compared at least a minimum number of times a week, however well it is known (2026-10-18)
+- **Rule:** before the most informative picks, the planner gives every outlet with a pair that day at least
+  `MIN_PER_WEEK` comparisons over the last 7 days (`replay --min-per-week`, default 5, a placeholder), choosing the
+  best of that outlet's own pairs — past the precision target and past the day's budget if the floor needs it. The
+  planner otherwise keeps everything it knows; the trajectory model keeps its inertia (A67), so a freak run of
+  articles does not undo years of verdicts.
+- **Why:** the maintainer (2026-10-18): outlets must keep being compared and never be cemented — an outlet the planner
+  considers well known would otherwise get almost no verdicts, and a real move could not show.
+- **Depends:** `pipeline/plan/planner.py` (`plan_joint_hier(quota=)`), `pipeline/history/replay.py` (`week_counts`,
+  `judge_day(min_per_week=)`).
+- **Test:** `tests/test_replay.py` (four outlets pinned by 1,200 old verdicts still get their three a week, past the
+  budget; without the floor one of them gets none), `tests/test_hierarchical.py` (the floor is served when the target
+  says stop; an outlet with no pair that day is skipped).
+- **Cost:** ≤ outlets × K / 2 calls a week (each call counts for two outlets): ≈ 75 a day at K = 5 for 205 outlets.
+- **If wrong:** one number; 0 turns it off.
+- **Status:** built; K is D2's
+
+
+### A70 — The planner weighs each pair by its own predicted chance of an answer per axis (2026-10-18)
+- **Rule:** `pipeline/plan/angle.py`: per axis, an L2 logistic regression on the pair's mean article vector, trained
+  on the purpose's own verdicts (answered vs "na"), ≥ 300 of them, the latest 20,000; prediction clipped to
+  [0.02, 0.98] and used as the candidate's relevance (A32). The history replay relearns it weekly (`--no-angle` off).
+- **Why:** the judge answers the economic axis in ≈ 1 call in 7; the planner spent most economic effort on pairs that
+  cannot answer. Approved by the maintainer 2026-10-18.
+- **Evidence:** FINDINGS F3 — AUC 0.90 (econ) / 0.81 (social) out of fold on live's verdicts; in simulation at the
+  same budget, econ answered 10 % → 35 %, econ outlet order ρ 0.57 → 0.80.
+- **Depends:** `pipeline/history/replay.py` (`judge_day(angle=)`), `pipeline/measure/run.py` (`with_angle`: live's
+  judge step, from live's own verdicts and OpenAI vectors — 693 v4 verdicts today; `--no-angle` off; it changes nothing
+  on AWS while judging is off), `pipeline/plan/planner.py` (per-candidate relevance).
+- **Test:** `tests/test_angle.py` (finds a planted direction out of fold; cold start; labels; apply).
+- **If wrong:** if choosing by predicted angle shifts positions (checked on the pilot's verdicts), `--no-angle`.
+- **Status:** built

@@ -1,0 +1,204 @@
+{
+ "prereg": "2026-10-17T07:29:51Z, before any local judgment",
+ "harness": 2,
+ "reference_calls": 943,
+ "J2_ceiling": {
+  "pairs": 60,
+  "econ": [
+   0.917,
+   0.85,
+   0.983
+  ],
+  "social": [
+   0.833,
+   0.733,
+   0.917
+  ]
+ },
+ "candidates": {
+  "C1": {
+   "spec": {
+    "model": "Qwen/Qwen3-14B-AWQ",
+    "thinking": false,
+    "sampling": {
+     "temperature": 0.0
+    }
+   },
+   "asked": 943,
+   "failed": 0,
+   "mean_output_tokens": 14.0,
+   "J1_econ": [
+    0.815,
+    0.791,
+    0.84
+   ],
+   "kappa_econ": 0.48,
+   "always_na_econ": 0.769,
+   "errors_econ": {
+    "flip": 0.068,
+    "flip_when_both_decide": 0.451,
+    "miss": 0.081,
+    "invent": 0.036
+   },
+   "same_or_na_econ": 0.813,
+   "J1_social": [
+    0.578,
+    0.547,
+    0.61
+   ],
+   "kappa_social": 0.205,
+   "always_na_social": 0.523,
+   "errors_social": {
+    "flip": 0.043,
+    "flip_when_both_decide": 0.304,
+    "miss": 0.334,
+    "invent": 0.045
+   },
+   "same_or_na_social": 0.812,
+   "gpt_same_or_na": {
+    "econ": 0.769,
+    "social": 0.523
+   },
+   "J3_positions_spearman": {
+    "calls": 693,
+    "outlets": 71,
+    "econ": [
+     0.165,
+     -0.171,
+     0.331
+    ],
+    "social": [
+     0.054,
+     -0.14,
+     0.286
+    ]
+   }
+  },
+  "C2": {
+   "spec": {
+    "model": "Qwen/Qwen3-14B-AWQ",
+    "thinking": true,
+    "sampling": {
+     "temperature": 0.6,
+     "top_p": 0.95
+    }
+   },
+   "asked": 943,
+   "failed": 0,
+   "mean_output_tokens": 717.5,
+   "J1_econ": [
+    0.832,
+    0.807,
+    0.857
+   ],
+   "kappa_econ": 0.47,
+   "always_na_econ": 0.769,
+   "errors_econ": {
+    "flip": 0.036,
+    "flip_when_both_decide": 0.315,
+    "miss": 0.117,
+    "invent": 0.015
+   },
+   "same_or_na_econ": 0.871,
+   "J1_social": [
+    0.589,
+    0.557,
+    0.621
+   ],
+   "kappa_social": 0.204,
+   "always_na_social": 0.523,
+   "errors_social": {
+    "flip": 0.038,
+    "flip_when_both_decide": 0.313,
+    "miss": 0.355,
+    "invent": 0.018
+   },
+   "same_or_na_social": 0.86,
+   "gpt_same_or_na": {
+    "econ": 0.769,
+    "social": 0.523
+   },
+   "J3_positions_spearman": {
+    "calls": 693,
+    "outlets": 71,
+    "econ": [
+     0.461,
+     0.063,
+     0.526
+    ],
+    "social": [
+     0.136,
+     -0.087,
+     0.325
+    ]
+   }
+  },
+  "C3": {
+   "spec": {
+    "model": "Qwen/Qwen3-8B-AWQ",
+    "thinking": false,
+    "sampling": {
+     "temperature": 0.0
+    }
+   },
+   "asked": 943,
+   "failed": 0,
+   "mean_output_tokens": 14.0,
+   "J1_econ": [
+    0.644,
+    0.613,
+    0.676
+   ],
+   "kappa_econ": 0.331,
+   "always_na_econ": 0.769,
+   "errors_econ": {
+    "flip": 0.067,
+    "flip_when_both_decide": 0.333,
+    "miss": 0.031,
+    "invent": 0.259
+   },
+   "same_or_na_econ": 0.541,
+   "J1_social": [
+    0.539,
+    0.506,
+    0.569
+   ],
+   "kappa_social": 0.238,
+   "always_na_social": 0.523,
+   "errors_social": {
+    "flip": 0.133,
+    "flip_when_both_decide": 0.433,
+    "miss": 0.171,
+    "invent": 0.158
+   },
+   "same_or_na_social": 0.536,
+   "gpt_same_or_na": {
+    "econ": 0.769,
+    "social": 0.523
+   },
+   "J3_positions_spearman": {
+    "calls": 693,
+    "outlets": 71,
+    "econ": [
+     0.114,
+     -0.111,
+     0.33
+    ],
+    "social": [
+     0.165,
+     -0.119,
+     0.329
+    ]
+   }
+  }
+ },
+ "decision": {
+  "history_judge": "C2",
+  "mean_J1": 0.71,
+  "overlaps_ceiling": {
+   "econ": true,
+   "social": false
+  },
+  "valid": false
+ }
+}
