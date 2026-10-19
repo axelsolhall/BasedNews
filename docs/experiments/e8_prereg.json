@@ -4,7 +4,11 @@
  "why": "The maintainer chose to vectorize the 6.3 M history articles locally (A61). History stories must be as good as live's, or the history prior and trajectories rest on different pairs than live. E7b's labelled pool was chosen by MiniLM and OpenAI, so it cannot rank new models: a new pooled set is needed.",
  "candidates": {
   "reference": "openai:text-embedding-3-small@512 (live; vectors already stored, no new calls)",
-  "local": ["Qwen/Qwen3-Embedding-0.6B", "BAAI/bge-m3", "intfloat/multilingual-e5-large-instruct"],
+  "local": [
+   "Qwen/Qwen3-Embedding-0.6B",
+   "BAAI/bge-m3",
+   "intfloat/multilingual-e5-large-instruct"
+  ],
   "input": "exactly what live embeds: pipeline.embed.run.version_texts (headline + body, one vector per headline version, mean, L2-normalised); full native dimension. Instruction models get one fixed instruction on both sides: 'Instruct: Retrieve news articles that report the same event\nQuery: '. bge-m3: dense vector, no prefix."
  },
  "data": "The live 7-day story window of the production snapshot (2026-10-16, 41 countries, ≈ 61 k canonical articles with OpenAI vectors).",
@@ -18,5 +22,6 @@
  },
  "decision": "Each local model's threshold = the highest-F1 threshold among those with precision ≥ 0.90 (E7b's rule, which gave live 0.56). The history embedding model = the local candidate with the highest M1 AUC. It is valid for the history if M4's interval includes 0 or lies above it (not detectably worse than live). If no local candidate is valid, the maintainer decides (OpenAI Batch ≈ $5.50 is the fallback).",
  "limitations_known_in_advance": "Recall is relative to the pool. 40 anchors give wide intervals. Thresholds are chosen and scored on the same pool (as for OpenAI in E7b): optimistic for every model alike. Labels by Claude. Live window, not history text: history pages give headline + og:description, live gives headline + feed summary — similar, not identical.",
- "rules": "No change to candidates, instruction, anchors, depth, grid or label definition after seeing results. No claims; method findings may go to FINDINGS.md."
+ "rules": "No change to candidates, instruction, anchors, depth, grid or label definition after seeing results. No claims; method findings may go to FINDINGS.md.",
+ "amended": "2026-10-18 ~19:45 CEST, after labelling and before any result was computed: the M2 clustering sweep (0.30–0.90) did not finish its first threshold in 40 minutes (at 0.30 almost every pair in the window is close). Each model is now clustered only at grid thresholds within 0.08 of its best pair-level threshold (highest F1 with precision ≥ 0.90 when a pooled pair counts as 'same' at similarity ≥ t); OpenAI also at live's 0.56. M1 (AUC, which picks the model), the threshold rule and M3/M4 are unchanged."
 }

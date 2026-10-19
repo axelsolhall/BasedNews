@@ -216,6 +216,19 @@ def pair_agreement(labels, ref) -> tuple[float, float]:
     return (both / mine if mine else 0.0), (both / theirs if theirs else 0.0)
 
 
+SPAN = 0.08   # amended 2026-10-18 before any result (docs/experiments/e8_prereg.json "amended"): cluster only near the pairs' best
+
+
+def near(sim: np.ndarray, truth: np.ndarray) -> list[float]:
+    """The grid thresholds within SPAN of the best pair-level threshold (highest F1 with precision ≥ 0.90 when a pair
+    counts as "same" at similarity ≥ t; else the highest F1). Clustering the whole window at a threshold far below
+    where a model works (0.30 for a 1,024-dimension model) makes nearly every pair close and does not finish."""
+    rows = [(t, *prf(sim >= t, truth)) for t in GRID]
+    ok = [r for r in rows if r[1] >= 0.90] or rows
+    best = max(ok, key=lambda r: (r[3], -r[0]))[0]
+    return [t for t in GRID if abs(t - best) <= SPAN + 1e-9]
+
+
 def analyse() -> None:
     conn = store.connect(DB)
     rows = window(conn)
@@ -237,13 +250,14 @@ def analyse() -> None:
     for name, V in vecs.items():
         sims[name] = np.array([1.0 - _distances(V, H, cfg, np.array([a]), np.array([b]))[0, 0] for a, b in zip(A, B)])
         clus[name] = {}
-        for t in GRID + [LIVE_THRESHOLD]:
+        for t in near(sims[name], truth) + ([LIVE_THRESHOLD] if name == REFERENCE else []):
             L = average_sparse(V, H, ClusterConfig(threshold=t))
             clus[name][t] = L[A] == L[B]
             labels_at[(name, t)] = L
             print(f"  {name} t={t}: {len(np.unique(L))} stories", flush=True)
         out["models"][name] = {"auc": round(auc(sims[name], truth), 3),
-                               "sweep": [[t, *[round(x, 3) for x in prf(clus[name][t], truth)]] for t in GRID]}
+                               "sweep": [[t, *[round(x, 3) for x in prf(clus[name][t], truth)]] for t in GRID
+                                         if t in clus[name]]}
     ops = {REFERENCE: LIVE_THRESHOLD}
     for name in LOCAL:                                  # E7b's rule: highest F1 among thresholds with precision ≥ 0.90
         ok = [(t, p, r, f) for t, p, r, f in out["models"][name]["sweep"] if p >= 0.90]

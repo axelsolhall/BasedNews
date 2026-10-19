@@ -56,7 +56,7 @@ def history_db(path):
 @pytest.fixture
 def exported(tmp_path):
     conn = history_db(tmp_path / "h.sqlite")
-    out = tmp_path / "vec"
+    out = tmp_path / "vec" / "all"
     assert hv.export(conn, out) == 30
     embed_texts.embed_file(StoryModel(), out / "texts.jsonl", out / "vectors.npy", chunk=7, dtype="float16")
     return conn, out
@@ -78,7 +78,7 @@ def test_vectors_come_back_in_the_order_asked(exported):
     V = np.load(out / "vectors.npy")
     assert V.dtype == np.float16
     ids = (out / "ids.txt").read_text().split()
-    vf = hv.VectorFile(out, "story-model")
+    vf = hv.VectorFile(out.parent, "story-model")
     ask = [ids[7], "missing", ids[2], ids[29]]
     found, M = vf.rows_for(conn, ask)
     assert found == [ids[7], ids[2], ids[29]] and M.dtype == np.float32
@@ -93,7 +93,7 @@ def test_grouping_from_the_file_equals_grouping_from_the_database(exported, tmp_
     other = history_db(tmp_path / "db.sqlite")
     store.save_embeddings(other, "story-model", ids, V)
     other.commit()
-    a = replay.regroup(conn, DAY, "story-model", 0.8, vectors=hv.VectorFile(out, "story-model"))
+    a = replay.regroup(conn, DAY, "story-model", 0.8, vectors=hv.VectorFile(out.parent, "story-model"))
     b = replay.regroup(other, DAY, "story-model", 0.8)
     members = lambda c, run: {frozenset(r[0] for r in c.execute("SELECT article_id FROM event_members WHERE run_id = ? "   # noqa: E731
                                                               "AND event_id = ?", (run, e)))
@@ -112,3 +112,26 @@ def test_import_refuses_an_unfinished_or_mismatched_file(exported):
     (out / "ids.txt").write_text("\n".join((out / "ids.bak").read_text().split()[:-1]))
     with pytest.raises(SystemExit, match="29 ids but 30 vectors"):
         hv.import_index(conn, "m", out)
+
+
+def test_parts_by_day_read_together_as_one(tmp_path):
+    """Two spans of days embedded on their own (export --start/--end) group exactly as one file of all of them."""
+    conn = history_db(tmp_path / "h.sqlite")
+    root = tmp_path / "vec"
+    assert hv.export(conn, root / "early", end=DAY - dt.timedelta(days=1)) == 18     # stories 1, 2, 4, 5, 7, 8
+    assert hv.export(conn, root / "late", start=DAY) == 12                           # stories 0, 3, 6, 9
+    for part in ("early", "late"):
+        embed_texts.embed_file(StoryModel(), root / part / "texts.jsonl", root / part / "vectors.npy", chunk=7,
+                               dtype="float16")
+        hv.import_index(conn, "story-model", root / part)
+    assert conn.execute("SELECT count(*) FROM vector_rows").fetchone()[0] == 30
+    whole = tmp_path / "whole" / "all"
+    hv.export(conn, whole)
+    embed_texts.embed_file(StoryModel(), whole / "texts.jsonl", whole / "vectors.npy", chunk=7, dtype="float16")
+    other = history_db(tmp_path / "o.sqlite")
+    hv.import_index(other, "story-model", whole)
+    a = replay.regroup(conn, DAY, "story-model", 0.8, vectors=hv.VectorFile(root, "story-model"))
+    b = replay.regroup(other, DAY, "story-model", 0.8, vectors=hv.VectorFile(whole.parent, "story-model"))
+    assert a == b and a[2] == 10
+    found, M = hv.VectorFile(root, "story-model").rows_for(conn, ["missing"])
+    assert found == [] and M.shape == (0, 32)

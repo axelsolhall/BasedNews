@@ -140,6 +140,146 @@ class LocalJudge(OpenAIJudge):
         return v
 
 
+OPTIONS = ("A", "B", "na")
+
+
+def choose(p: dict[str, float], cut: float) -> str:
+    """A71: "na" iff P(na) ≥ cut, else the likelier of A and B."""
+    return "na" if p["na"] >= cut else ("A" if p["A"] >= p["B"] else "B")
+
+
+def decide(probs: dict, cut: dict[str, float]) -> dict[str, str]:
+    """Econ first; social read after the econ answer chosen (ThresholdJudge.probabilities)."""
+    econ = choose(probs["econ"], cut["econ"])
+    return {"econ": econ, "social": choose(probs["social"][econ], cut["social"])}
+
+
+class ThresholdJudge(LocalJudge):
+    """The local judge read from its probabilities instead of its greedy answer (A71). At each verdict of the trained
+    answer {"econ":…,"social":…} it takes the model's next-token probabilities of "A", "B" and "na" (renormalised over
+    the three) and says "na" only when P(na) ≥ na_cut[axis], else the likelier of A and B. Econ is decided first; social
+    is read after the econ answer chosen. One-token completions over the server's prefix cache: the prompt is
+    prefilled once. Social is also read after the other two econ answers, so a different econ cut can be evaluated
+    from the log without asking again."""
+
+    def __init__(self, na_cut: dict[str, float], client=None, settings: Settings | None = None, served: str = "judge",
+                 http=None):
+        super().__init__(client=client, thinking=False, settings=settings, served=served)
+        self.na_cut = dict(na_cut)
+        self.http = http
+        self._prefix: dict | None = None
+
+    def _post(self, path: str, body: dict) -> dict:
+        import httpx
+        env = {**_dotenv(), **os.environ}
+        root = env["LOCAL_LLM_BASE_URL"].rstrip("/").removesuffix("/v1")
+        r = (self.http or httpx).post(f"{root}{path}", json=body, timeout=600,
+                                      headers={"Authorization": f"Bearer {env['LOCAL_LLM_API_KEY']}"})
+        r.raise_for_status()
+        return r.json()
+
+    def _tokens(self, text: str) -> list[int]:
+        return self._post("/tokenize", {"model": self.model, "prompt": text, "add_special_tokens": False})["tokens"]
+
+    def prefixes(self) -> dict:
+        """Token ids up to each verdict: econ's, and social's after each econ answer (the shared part of the three
+        answers' tokens, as infra/pc/train_lora.py slots them)."""
+        if self._prefix is None:
+            def upto(texts):
+                seqs = [self._tokens(t) for t in texts]
+                p = 0
+                while len({s[p] for s in seqs}) == 1:
+                    p += 1
+                return seqs[0][:p]
+            js = lambda e, s: json.dumps({"econ": e, "social": s}, separators=(",", ":"))   # noqa: E731
+            self._prefix = {"econ": upto([js(o, "na") for o in OPTIONS]),
+                            "social": {e: upto([js(e, o) for o in OPTIONS]) for e in OPTIONS}}
+        return self._prefix
+
+    def _next(self, ids: list[int]) -> dict[str, float]:
+        r = self.client.completions.create(model=self.model, prompt=ids, max_tokens=1, logprobs=20, temperature=0.0)
+        top = r.choices[0].logprobs.top_logprobs[0]
+        p = {o: float(np.exp(top[o])) if o in top else 0.0 for o in OPTIONS}
+        s = sum(p.values())
+        return {o: v / s for o, v in p.items()} if s > 0 else {o: 1 / 3 for o in OPTIONS}
+
+    def probabilities(self, msgs: list[dict]) -> tuple[dict, int]:
+        """{"econ": {A, B, na}, "social": {econ answer: {A, B, na}}} and the prompt's token count."""
+        prompt = self._post("/tokenize", {"model": self.model, "messages": msgs, "add_generation_prompt": True,
+                                          "chat_template_kwargs": {"enable_thinking": False}})["tokens"]
+        pre = self.prefixes()
+        return ({"econ": self._next(prompt + pre["econ"]),
+                 "social": {e: self._next(prompt + pre["social"][e]) for e in OPTIONS}}, len(prompt))
+
+    def compare(self, text_a: str, text_b: str, direction: str = "positive", version: str = P.PROMPT_VERSION) -> Verdict:
+        msgs = P.messages(text_a, text_b, direction, version)
+        log = {"started_at": utc_now_iso(), "errors": [], "code": _code_version(), "attempts": 1,
+               "request": {"model": self.model, "messages": msgs, "na_cut": self.na_cut, "mode": "threshold"}}
+        t0 = time.monotonic()
+        try:
+            probs, n_in = self.probabilities(msgs)
+        except Exception as e:
+            log["errors"].append({"attempt": 1, "at": utc_now_iso(), "type": type(e).__name__, "message": calllog.scrub(e)})
+            raise JudgeCallFailed(calllog.scrub(e), log) from e
+        raw = json.dumps(decide(probs, self.na_cut), separators=(",", ":"))
+        log["finished_at"], log["latency_ms"] = utc_now_iso(), int((time.monotonic() - t0) * 1000)
+        log["response"] = {"model": self.model, "probabilities": probs, "choices": [{"finish_reason": "threshold"}],
+                           "usage": {"prompt_tokens": n_in, "completion_tokens": 2}}
+        return Verdict(P.parse(raw), n_in, 2, 0.0, self.model, raw, log)
+
+
+SWAP = {"A": "B", "B": "A", "na": "na"}
+
+
+def swapped(probs: dict) -> dict:
+    """Probabilities read with the articles in the other order, in the first order's letters: A↔B on both axes, and
+    social's condition (the econ answer before it) swapped too."""
+    flip = lambda p: {SWAP[o]: v for o, v in p.items()}                       # noqa: E731
+    return {"econ": flip(probs["econ"]), "social": {SWAP[e]: flip(p) for e, p in probs["social"].items()}}
+
+
+def averaged(first: dict, second: dict) -> dict:
+    """E13 (A72): the mean of the two orders' probabilities, the second already in the first order's letters."""
+    mean = lambda a, b: {o: (a[o] + b[o]) / 2 for o in OPTIONS}               # noqa: E731
+    return {"econ": mean(first["econ"], second["econ"]),
+            "social": {e: mean(first["social"][e], second["social"][e]) for e in OPTIONS}}
+
+
+def likeliest(probs: dict) -> dict[str, str]:
+    """The greedy answer from probabilities: the likeliest option per axis, econ first."""
+    top = lambda p: max(OPTIONS, key=lambda o: p[o])                         # noqa: E731
+    econ = top(probs["econ"])
+    return {"econ": econ, "social": top(probs["social"][econ])}
+
+
+class SwapJudge(ThresholdJudge):
+    """E13 (A72): every pair read in both orders (A/B as given and swapped), the probabilities averaged, the likeliest
+    option per axis — order artefacts cancel, a real lean survives the swap (MT-Bench's swap check, as an average).
+    Twice the prefill of one call; both orders' probabilities go to the call log."""
+
+    def __init__(self, client=None, settings: Settings | None = None, served: str = "judge", http=None):
+        super().__init__({"econ": 1.0, "social": 1.0}, client=client, settings=settings, served=served, http=http)
+
+    def compare(self, text_a: str, text_b: str, direction: str = "positive", version: str = P.PROMPT_VERSION) -> Verdict:
+        msgs, back = P.messages(text_a, text_b, direction, version), P.messages(text_b, text_a, direction, version)
+        log = {"started_at": utc_now_iso(), "errors": [], "code": _code_version(), "attempts": 1,
+               "request": {"model": self.model, "messages": msgs, "mode": "swap-average"}}
+        t0 = time.monotonic()
+        try:
+            first, n_in = self.probabilities(msgs)
+            second, _ = self.probabilities(back)
+        except Exception as e:
+            log["errors"].append({"attempt": 1, "at": utc_now_iso(), "type": type(e).__name__, "message": calllog.scrub(e)})
+            raise JudgeCallFailed(calllog.scrub(e), log) from e
+        second = swapped(second)
+        raw = json.dumps(likeliest(averaged(first, second)), separators=(",", ":"))
+        log["finished_at"], log["latency_ms"] = utc_now_iso(), int((time.monotonic() - t0) * 1000)
+        log["response"] = {"model": self.model, "probabilities": first, "probabilities_swapped": second,
+                           "choices": [{"finish_reason": "swap-average"}],
+                           "usage": {"prompt_tokens": 2 * n_in, "completion_tokens": 4}}
+        return Verdict(P.parse(raw), 2 * n_in, 4, 0.0, self.model, raw, log)
+
+
 @dataclass
 class SimulatedJudge:
     """Bradley–Terry verdicts from simulated truth: P(A further +) = σ(a·(θ_A − θ_B + ε) + β), outlets θ ~ N(0, τ²),

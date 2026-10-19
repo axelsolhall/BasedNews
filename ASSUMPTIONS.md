@@ -992,3 +992,75 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
 - **Test:** `tests/test_angle.py` (finds a planted direction out of fold; cold start; labels; apply).
 - **If wrong:** if choosing by predicted angle shifts positions (checked on the pilot's verdicts), `--no-angle`.
 - **Status:** built
+
+
+### A71 — The local judge can be read from its probabilities, with a cut for "na" (2026-10-18)
+- **Rule:** `pipeline/judge/client.py` (`ThresholdJudge`, `choose`, `decide`): at each verdict of the trained answer
+  `{"econ":…,"social":…}`, P(A), P(B), P(na) from the served model's next-token probabilities (top 20, renormalised
+  over the three); "na" iff P(na) ≥ the axis's cut, else the likelier of A and B; econ first, social after the econ
+  answer chosen. One-token completions over vLLM's prefix cache; the probabilities go to the call log.
+- **Why:** E11's validation loss kept falling while agreement did not move; C4's gap to gpt-5.4-mini is mostly
+  abstention (24 % misses on social). A cut tests whether the misses are near-decisions.
+- **Evidence:** E12 (`docs/experiments/e11_results.md`): on the validation days agreement is flat across cuts;
+  answering more turns misses into inventions and flips almost one for one. On E9's test calls the frozen cuts did
+  worse than greedy (social κ 0.31 vs 0.40); the best cut depends on the mix of pairs (≈ 0.25 on random history days,
+  ≈ 0.7 on planner-picked live pairs), so a cut tuned on one mix does not carry to another.
+- **Depends:** `pipeline/experiments/e12.py`, `pipeline/experiments/e9.py` (candidate C4-T, cuts from
+  `docs/experiments/e12_cuts.json`). Nothing in the history replay uses it yet.
+- **Test:** `tests/test_threshold_judge.py` (the rule; the verdict positions from the answer's own tokens; social read
+  after the econ answer chosen; renormalisation). E12's report checks that the likeliest option from the probabilities
+  equals C4's greedy answer on the test calls.
+- **If wrong:** the greedy LocalJudge is unchanged; the history uses whichever the pilot's positions favour.
+- **Status:** built; not the history's judge (greedy C4 is, pending D1)
+
+### A72 — Asking the local judge both orders and averaging removes its position bias (2026-10-18)
+- **Rule:** `pipeline/judge/client.py` (`SwapJudge`, `swapped`, `averaged`, `likeliest`): each pair is read in both
+  orders from the model's probabilities (A71's reading); the second order's A/B are swapped back, the two averaged,
+  and the likeliest option taken per axis, econ first (MT-Bench's swap check, arXiv 2406.07791).
+- **Why:** a pairwise judge can prefer the first or second article whatever they say; averaging both orders cancels
+  that at twice the calls.
+- **Evidence:** E13 (`docs/experiments/e13_results.md`): C4-S vs C4, social κ 0.34 vs 0.40, econ 0.59 vs 0.57; C4's
+  single-order answers agree across orders on 90.7 % (econ) / 86.2 % (social) of calls. Agreement with gpt-5.4-mini
+  cannot reward it if gpt itself has a position bias (each test pair was asked of gpt in one order only).
+- **Depends:** `pipeline/experiments/e9.py` (candidates with `"swap": True`). Nothing in the history replay uses it.
+- **Test:** `tests/test_threshold_judge.py::test_swap_average_cancels_order`.
+- **If wrong:** the single-order judge is unchanged; doubling the calls is not worth it unless the pilot's positions
+  show order noise.
+- **Status:** built; not better by E13's rule; not the history's judge
+
+### A73 — Gemma 4 12B can be trained and served with the same recipe as Qwen3-14B (2026-10-19)
+- **Rule:** E13's Gemma arm (`docs/experiments/e13_prereg.json` amended_3): served from Google's
+  quantisation-aware-trained 4-bit checkpoint `google/gemma-4-12B-it-qat-w4a16-ct` (`infra/pc/llm-gemma.env`);
+  QLoRA trained on `google/gemma-4-12B-it-qat-q4_0-unquantized`, quantised to NF4 on load as the Qwen base was
+  (`infra/pc/train_lora.py --base`); same LoRA settings, days, steps and checkpoint rule; the end-of-turn token taken
+  from the model's chat template. One forced difference: Gemma's 8 full-attention layers (5, 11, …, 47) use their
+  k_proj for both keys and values, and vLLM packs LoRA into separate q/k/v slices, so a k_proj LoRA there would move
+  keys only when served but keys and values in training; those 8 k_proj are left out of the LoRA (`shared_kv`).
+- **Why:** Qwen3-14B is from April 2025; Gemma 4 12B (2026) is the strongest model that fits the 16 GB card with
+  LoRA support in vLLM 0.31 (Gemma4UnifiedForConditionalGeneration, SupportsLoRA).
+- **Depends:** `infra/pc/train_lora.py`, `infra/pc/llm-gemma.env`, `pipeline/experiments/e9.py` (G1, G4-1/3, G5, G7).
+- **Test:** a 4-step smoke run trains and saves 640 adapter tensors (48 layers × 7 projections minus the 8 k_proj);
+  vLLM loads the base and the adapter and answers in the strict JSON schema.
+- **If wrong:** Gemma's numbers say nothing about Gemma as such, only about this recipe on it; the Qwen arm is unaffected.
+- **Status:** set up 2026-10-19; results in `docs/experiments/e13_results.md`
+
+### A74 — The history's positions are carried day by day: yesterday's posterior is today's prior (2026-10-19)
+- **Rule:** `pipeline/history/positions.py`: per axis one Gaussian over every outlet, the first-position bias and the
+  articles still in the 7-day window. Each day the planner picks from it (`AxisState.posterior`), the day's verdicts
+  update it (Laplace on the parameters they touch, carried to the rest through the prior's correlations), articles
+  that leave the window are marginalised out, and every outlet's position is written for the day
+  (`history_positions`). The state is saved after each day (`data/history/positions.npz`); a reopened run catches up
+  from the verdicts recorded after the save. Nothing is added back between days, so more verdicts only sharpen a
+  position (the maintainer, 2026-10-19). σ_a, the prior of a new article, is re-estimated monthly over that month's
+  verdicts only.
+- **Why:** the replay refitted every verdict since the start each day (live's `fit`), so day 365 cost ≈ 70,000
+  verdicts to add one day's ≈ 190, and an old verdict counted as much as yesterday's. The update costs ≈ 0.16 s per
+  day and axis at 205 outlets and 400 verdicts a day, the same on day 40 as on day 10 (measured 2026-10-19).
+- **Depends:** `pipeline/history/replay.py` (`open_positions`, `advance`, `spreads`; `judge_day(posts=…)`).
+  `pipeline/history/trajectories.py` still fits its own weekly positions from all verdicts.
+- **Test:** `tests/test_history_positions.py` (day by day = one fit over all verdicts within 0.05; sds only shrink;
+  the state does not grow; save/load), `tests/test_replay.py::test_the_day_is_planned_from_the_carried_positions_and_moves_them`.
+- **If wrong:** with no drift, positions settle and late verdicts move them less and less; if outlets change over the
+  years the trajectories need drift, a variance added per day in `positions.update` before the day's verdicts. The
+  positions only move forward: a span earlier than the state's day cannot be added later (the replay refuses).
+- **Status:** built 2026-10-19; the 2019 pilot is the first run

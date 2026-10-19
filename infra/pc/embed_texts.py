@@ -1,7 +1,7 @@
 """Embed a file of texts on the gaming PC's GPU (A65): one JSON line per text in, one float32 row per text out.
 
     systemctl --user stop llm-judge          # the judge holds most of the GPU's memory; start it again afterwards
-    ~/llm/.venv/bin/python embed_texts.py --model BAAI/bge-m3 --input texts.jsonl --output vectors.npy
+    ~/llm/train/.venv/bin/python embed_texts.py --model BAAI/bge-m3 --input texts.jsonl --output vectors.npy
 
 Each input line is {"t": "<text>"}, exactly what is to be embedded: any prefix (an instruction) is already applied
 by whoever wrote the file (pipeline.experiments.e8 export, the history replay). The output is an .npy file written as
@@ -27,7 +27,7 @@ def count_lines(path: Path) -> int:
         return sum(1 for _ in f)
 
 
-def embed_file(model, src: Path, dst: Path, batch: int = 256, chunk: int = CHUNK, dtype: str = "float32") -> int:
+def embed_file(model, src: Path, dst: Path, batch: int = 64, chunk: int = CHUNK, dtype: str = "float32") -> int:
     """Embed every line of `src` into rows of `dst`, resuming after the rows `dst.done` says are final. dtype
     float16 halves the file (≈ 13 GB instead of 26 for 6 M × 1,024); vectors are normalised before rounding."""
     src, dst = Path(src), Path(dst)
@@ -66,7 +66,7 @@ def main():
     ap.add_argument("--model", required=True)
     ap.add_argument("--input", required=True, type=Path)
     ap.add_argument("--output", required=True, type=Path)
-    ap.add_argument("--batch", type=int, default=256)
+    ap.add_argument("--batch", type=int, default=64)   # 256 ran out of 16 GB on 512-token history texts
     ap.add_argument("--dtype", choices=["float32", "float16"], default="float32")
     args = ap.parse_args()
     from sentence_transformers import SentenceTransformer

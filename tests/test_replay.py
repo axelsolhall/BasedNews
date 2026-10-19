@@ -45,6 +45,8 @@ def test_budget_is_a_rounded_up_fraction_never_above_the_cap():
     assert replay.budget(101, 60, 0.05) == 6
     assert replay.budget(10_000, 60, 0.05) == 60
     assert replay.budget(37, 60, None) == 60
+    assert replay.budget(10_000, None, 0.05) == 500          # no cap given: the share alone, however busy the day
+    assert replay.budget(37, None, None) == replay.CALLS_PER_DAY
 
 
 def test_the_day_offers_cross_outlet_pairs_within_stories(conn):
@@ -200,3 +202,31 @@ def test_an_outlet_known_well_is_still_compared_every_week(tmp_path, monkeypatch
     calls, per = plan(floor=3)
     assert all(per[o] >= 3 for o in OUTLETS)                          # with it, every outlet gets three this week
     assert calls > 4                                                   # the floor outranks the day's budget
+
+
+def test_the_day_is_planned_from_the_carried_positions_and_moves_them(conn, tmp_path):
+    """A74: the planner reads the carried state; the day's verdicts update it; every outlet gets the day's position;
+    a run that stopped between its commit and its save catches up from the verdicts on reopening."""
+    path = tmp_path / "positions.npz"
+    last_day, rowid, states = replay.open_positions(conn, path)
+    assert last_day is None and rowid == 0
+    calls, _ = replay.judge_day(conn, DAY, SimulatedJudge(sorted(OUTLETS), seed=0), max_calls=8,
+                                rng=np.random.default_rng(0), min_per_week=0,
+                                posts={ax: s.posterior() for ax, s in states.items()})
+    assert calls == 8
+    rowid = replay.advance(conn, states, rowid, DAY)
+    n_obs = {ax: s.n_obs for ax, s in states.items()}
+    assert sum(n_obs.values()) > 0
+    k = states["econ"].outlets.index("nrk")
+    assert states["econ"].cov[k, k] < 1.0                   # judged: sharper than its prior (τ = 1)
+    got = conn.execute("SELECT count(*), count(DISTINCT outlet) FROM history_positions WHERE day = ?",
+                       (DAY.isoformat(),)).fetchone()
+    assert got[0] == 2 * len(states["econ"].outlets) and got[1] == len(states["econ"].outlets)
+    conn.execute("INSERT INTO history_progress (day) VALUES (?)", (DAY.isoformat(),))
+    conn.commit()
+    from pipeline.history import positions as HP
+    HP.save(path, DAY.isoformat(), rowid, states)
+    replay.judge_day(conn, DAY, SimulatedJudge(sorted(OUTLETS), seed=1), max_calls=4, rng=np.random.default_rng(1),
+                     min_per_week=0, posts={ax: s.posterior() for ax, s in states.items()})   # recorded, not saved
+    _, _, again = replay.open_positions(conn, path)
+    assert sum(s.n_obs for s in again.values()) > sum(n_obs.values())

@@ -174,3 +174,28 @@ the system will actually make.
    verdicts) rather than a bigger model or more thinking.
 2. The paid judge's self-agreement is the honest ceiling; it is reachable on the economic axis (0.92) only because
    most pairs are "no angle" for both.
+
+## F5 — $3.58 of the paid judge's verdicts doubles a local model's social κ; more of the same data, or a cut on its probabilities, adds little
+
+**Question (E11, E12; `docs/experiments/e11_results.md`).** Can the off-the-shelf 14B model (F4) be taught to judge
+like gpt-5.4-mini with LoRA on a small batch of its verdicts, and is the remaining gap data or decision rule?
+
+**Test.** QLoRA on 3,085 gpt-5.4-mini v4 verdicts (history days, $3.58) plus nested runs on the first third and two
+thirds of the days; E9's 943 unseen test calls; then the trained model read from its probabilities with a cut for
+"no angle", tuned on held-out validation days before the test.
+
+| judge | social agreement | social κ | econ κ | outlet order ρ social |
+|---|---|---|---|---|
+| untrained | 0.58 [0.55, 0.61] | 0.20 | 0.48 | 0.05 |
+| LoRA, 1,312 examples | 0.65 [0.62, 0.68] | 0.38 | 0.53 | 0.29 |
+| LoRA, 3,085 examples | 0.67 [0.64, 0.70] | 0.40 | 0.57 | 0.39 |
+| gpt-5.4-mini vs itself | 0.83 [0.73, 0.92] | | | |
+
+**Method lessons.**
+1. Distillation pays almost at once and then flattens: the first third of the data gives most of the gain. Validation
+   loss keeps falling after agreement stops moving — the probabilities sharpen without changing the answers.
+2. The trained model's misses are not hidden decisions: answering past a lower "no angle" cut turns misses into
+   inventions and flips almost one for one. Its greedy answer already sits near the best line.
+3. Agreement with the teacher is the wrong yardstick for that line. With cheap local calls, a miss costs a call while
+   a flip or an invention costs accuracy, so the judge to keep is the one whose verdicts separate outlets best — a
+   question for the pilot's positions.

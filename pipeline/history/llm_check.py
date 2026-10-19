@@ -79,26 +79,22 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--n", type=int, default=256)
     ap.add_argument("--parallel", type=int, default=16)
-    ap.add_argument("--candidate", help="an E9 candidate's settings (C1, C2, C3) instead of HISTORY_JUDGE; the server "
+    ap.add_argument("--candidate", help="an E9 candidate (C1, C4, C4-S, …) instead of HISTORY_JUDGE; the server "
                                         "must be running its model")
     ap.add_argument("--db", help="history database to draw real headline + description pairs from")
     args = ap.parse_args()
     from openai import OpenAI
 
     from pipeline.history.replay import HISTORY_JUDGE
-    from pipeline.judge.client import LocalJudge
     url, key = settings()
     client = OpenAI(base_url=url, api_key=key, timeout=600)
     print(f"server            {url}")
     print(f"key enforced      {'yes' if refuses_without_key(url) else 'NO — anyone on the network can use it'}")
     models = [m.id for m in client.models.list().data]
     print(f"models            {models}")
-    if args.candidate:
-        from pipeline.experiments.e9 import CANDIDATES
-        spec = {k: v for k, v in CANDIDATES[args.candidate].items() if k != "model"}
-    else:
-        spec = HISTORY_JUDGE
-    judge = LocalJudge(client, **spec)
+    from pipeline.experiments.e9 import CANDIDATES
+    from pipeline.experiments.e9 import LocalJudge as candidate_judge
+    judge = candidate_judge(client, CANDIDATES[args.candidate or HISTORY_JUDGE])
     pairs = texts(args.n + 1, args.db)
     lat, pin, pout = one(judge, pairs[0], "positive")              # also puts the instructions in the server's cache
     print(f"one call          {lat:.1f} s, {pin} tokens in, {pout} out")

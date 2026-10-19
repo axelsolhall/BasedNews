@@ -17,7 +17,8 @@ Per day d (resumable; each finished day is recorded in history_progress):
   5. judge: live's candidate pairs and planner (pipeline.measure.run, pipeline.plan.planner) on that run; pairs already
      judged are never bought again (A58); verdicts are stored with purpose "history" and the articles' dates.
 The window keeps the last 7 days because stories older than that are never regrouped (live does the same).
-Positions over time come from the daily fit over all history verdicts (H5), not from this loop.
+  6. positions (A74): yesterday's positions are the prior, today's verdicts update them; every outlet's position is
+     written for the day (history_positions) and is what the next day is planned from (pipeline.history.positions).
 """
 from __future__ import annotations
 
@@ -32,6 +33,7 @@ import numpy as np
 from pipeline import store
 from pipeline.contracts import Article
 from pipeline.events.cluster import ClusterConfig, cluster
+from pipeline.history import positions as HP
 from pipeline.history import stories as H2
 from pipeline.history.fetch import fetch_many
 from pipeline.ingest.feeds import utc_now_iso
@@ -42,12 +44,16 @@ PURPOSE = "history"
 CAP = 20                        # articles fetched per outlet per day, at most (≈ 2.3 days of fetching for 2015→2026)
 PREFILTER = 0.2                 # H2 grouping threshold for the pre-filter (recall-oriented: ≈ 0.5 of live's pairs)
 MAX_GAP_DAYS = 3                # a page dated further from GDELT's date than this is a redirect, not the article
-# The local judge's settings: E9's candidate C1 until the maintainer accepts E9's winner (D1, A65); one place to change
-HISTORY_JUDGE = {"thinking": False, "sampling": {"temperature": 0.0}}
+# The local judge: one of E9's candidates by name (pipeline.experiments.e9.CANDIDATES — base model, LoRA module, and
+# whether both orders are read); --judge-candidate picks it, D1/A65. G4-1/3 = Gemma 4 12B with its LoRA (E13, A73).
+HISTORY_JUDGE = "G4-1/3"
 LOCAL_PAIRS_PER_HOUR = 51_000   # replay-shaped calls on the 5080, 64 in flight, Qwen3-14B-AWQ thinking off (A65,
                                 # measured 2026-10-18: 46,000 at 16 in flight); for the projection only
+CALLS_PER_DAY = 60              # the daily calls without --judge-fraction (--calls-per-day)
 PARALLEL = 64                   # judge calls in flight (A65: 64 beat 16 by 11 %; each answer is ≈ 14 tokens)
-HYPER_EVERY_DAYS = 30           # the spreads (τ, σ_a) are re-estimated over the grid once a month and held in between
+HYPER_EVERY_DAYS = 30           # σ_a is re-estimated once a month (A74) and held in between
+HYPER_WINDOW_DAYS = 30          # ... over that month's verdicts only, so the fit stays the same size every month
+SIGMA_A_START = 0.5             # σ_a before any verdict (the hierarchical fit's default with no data)
 WINDOW_DAYS = 91                # A68: with --target-sd, "certain enough" is judged over the last quarter's verdicts
 ANGLE_EVERY_DAYS = 7            # A70: the per-pair angle model is relearned weekly from the history's own verdicts
 MIN_PER_WEEK = 5                # A69: every outlet with a pair today gets at least this many comparisons in any 7 days,
@@ -208,9 +214,13 @@ def count_day(conn, day: dt.date, run: str | None = None) -> int:
     return len(new)
 
 
-def budget(n_candidates: int, max_calls: int, fraction: float | None) -> int:
-    """Calls for the day: a fraction of its new pairs (rounded up), never more than max_calls."""
-    return min(max_calls, int(np.ceil(fraction * n_candidates))) if fraction is not None else max_calls
+def budget(n_candidates: int, max_calls: int | None, fraction: float | None) -> int:
+    """Calls for the day: a fraction of its new pairs (rounded up), never more than max_calls when one is set;
+    without a fraction, max_calls (CALLS_PER_DAY when not set)."""
+    if fraction is None:
+        return CALLS_PER_DAY if max_calls is None else max_calls
+    n = int(np.ceil(fraction * n_candidates))
+    return n if max_calls is None else min(max_calls, n)
 
 
 def week_counts(conn, day: dt.date) -> Counter:
@@ -224,9 +234,10 @@ def week_counts(conn, day: dt.date) -> Counter:
     return Counter(o for r in rows for o in (r[0], r[1]))
 
 
-def judge_day(conn, day: dt.date, judge, max_calls: int, rng, fraction: float | None = None, hyper: dict | None = None,
+def judge_day(conn, day: dt.date, judge, max_calls: int | None, rng, fraction: float | None = None, hyper: dict | None = None,
               parallel: int = PARALLEL, target_sd: float | None = None, window_days: int = WINDOW_DAYS,
-              run: str | None = None, min_per_week: int = MIN_PER_WEEK, angle=None) -> tuple[int, dict | None]:
+              run: str | None = None, min_per_week: int = MIN_PER_WEEK, angle=None,
+              posts: dict | None = None) -> tuple[int, dict | None]:
     """Plan the day's calls once with live's planner, judge them in parallel, record them. Returns (calls, the spreads
     used). One plan per day: within it the planner already applies each pick's expected effect before the next
     (fantasised rank-1 updates), so refitting mid-day bought little and cost one fit per batch at scale. `hyper` holds
@@ -235,7 +246,9 @@ def judge_day(conn, day: dt.date, judge, max_calls: int, rng, fraction: float | 
     last 7 days gets its most informative pairs until it is not (more than max_calls if the floor needs it).
     target_sd (A68): then stop once every outlet and country it can reach today is that certain over the last
     `window_days` — max_calls is then only a ceiling. Without it, `fraction` of the day's new pairs (or max_calls).
-    angle (A70): candidates → candidates with their own predicted chance of an answer per axis (pipeline.plan.angle)."""
+    angle (A70): candidates → candidates with their own predicted chance of an answer per axis (pipeline.plan.angle).
+    posts (A74): today's positions ({axis: HierPosterior}, pipeline.history.positions) — the replay's own; without
+    them the day is planned from a fit over the verdicts so far (the tests' small worlds)."""
     from concurrent.futures import ThreadPoolExecutor
 
     from pipeline.contracts import ComparisonRequest
@@ -255,11 +268,14 @@ def judge_day(conn, day: dt.date, judge, max_calls: int, rng, fraction: float | 
     if not cands or (max_calls <= 0 and not quota):
         return 0, hyper
     groups = reference_groups(load_outlets())
-    outlet_ids = sorted({c.outlet_a for c in cands} | {c.outlet_b for c in cands} | {o for g in groups.values() for o in g})
-    groups = {c: {o: w for o, w in g.items() if o in outlet_ids} for c, g in groups.items()}
-    since = (day - dt.timedelta(days=window_days - 1)).isoformat() if target_sd else None
-    posts, _ = fit(conn, outlet_ids, PURPOSE, hyper, since=since)
-    hyper = hyper or best_hyper(posts)
+    if posts is None:
+        outlet_ids = sorted({c.outlet_a for c in cands} | {c.outlet_b for c in cands} | {o for g in groups.values() for o in g})
+        since = (day - dt.timedelta(days=window_days - 1)).isoformat() if target_sd else None
+        posts, _ = fit(conn, outlet_ids, PURPOSE, hyper, since=since)
+        hyper = hyper or best_hyper(posts)
+    else:
+        outlet_ids = posts[next(iter(posts))].outlets
+    groups = {c: {o: w for o, w in g.items() if o in set(outlet_ids)} for c, g in groups.items()}
     by_key = {(c.event_id, frozenset((c.outlet_a, c.outlet_b))): c for c in cands}
     cfg = PlannerConfig(mode="variance_per_cost", target_sd=target_sd or 0.0, batch_size=max_calls)
     reqs = plan_joint_hier(posts, cands, cfg, groups=groups, rng=rng, quota=quota)
@@ -319,6 +335,50 @@ def summary(conn, fraction: float) -> str:
     return "\n".join(lines)
 
 
+def open_positions(conn, path: Path) -> tuple[str | None, int, dict]:
+    """The positions carried so far (A74), caught up with any verdict recorded after the last save (a run that stopped
+    between its commit and its save); a fresh start when nothing has been judged yet."""
+    from pipeline.sources.registry import load_outlets
+    from pipeline.rate.model import BTConfig
+    from pipeline.judge import prompt as P
+    last = conn.execute("SELECT max(day) FROM history_progress").fetchone()[0]
+    got = HP.load(path)
+    if got is None:
+        if last is not None:
+            raise SystemExit(f"history_progress reaches {last} but {path} is missing: the positions cannot be rebuilt "
+                             "from part of the run (A74)")
+        outlets = sorted(o.id for o in load_outlets())
+        return None, 0, {ax: HP.start(outlets, ax, BTConfig().prior_sd, SIGMA_A_START) for ax in P.AXES}
+    day, rowid, states = got
+    rowid = advance(conn, states, rowid, dt.date.fromisoformat(last or day))
+    return last or day, rowid, states
+
+
+def advance(conn, states: dict, last_rowid: int, day: dt.date) -> int:
+    """The verdicts recorded since last_rowid move the positions; articles out of the next window are dropped; the
+    day's positions are written (committed with the day's progress)."""
+    from pipeline.measure.run import A_FULL, A_SUMMARY
+    rows, last_rowid = HP.new_verdicts(conn, PURPOSE, last_rowid, A_FULL, A_SUMMARY)
+    for ax, st in states.items():
+        HP.update(st, rows[ax])
+        HP.drop_before(st, HP.window_start(day))
+    from pipeline.sources.registry import load_outlets, reference_groups
+    HP.record_day(conn, day.isoformat(), states, reference_groups(load_outlets()))
+    return last_rowid
+
+
+def spreads(conn, states: dict, day: dt.date) -> None:
+    """σ_a (how much an outlet's articles differ) re-estimated over the last HYPER_WINDOW_DAYS of verdicts only — a
+    bounded fit; it sets the prior of articles not seen yet. Kept as it was when that span has no verdicts."""
+    from pipeline.measure.run import best_hyper, fit
+    outlets = next(iter(states.values())).outlets
+    since = (day - dt.timedelta(days=HYPER_WINDOW_DAYS)).isoformat()
+    posts, n = fit(conn, outlets, PURPOSE, None, since=since)
+    if n:
+        for ax, (_, sigma_a) in best_hyper(posts).items():
+            states[ax].sigma_a = sigma_a
+
+
 def main():
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "summary":
@@ -336,12 +396,14 @@ def main():
     ap.add_argument("--embed-model", required=True)
     ap.add_argument("--threshold", type=float, required=True, help="story threshold calibrated for --embed-model")
     ap.add_argument("--judge", choices=["simulated", "local"], default="simulated",
-                    help="local: the server in .env (LOCAL_LLM_BASE_URL/KEY, A65) with HISTORY_JUDGE's settings")
-    ap.add_argument("--calls-per-day", type=int, default=60, help="the most calls a day")
+                    help="local: the server in .env (LOCAL_LLM_BASE_URL/KEY, A65), as --judge-candidate")
+    ap.add_argument("--judge-candidate", default=HISTORY_JUDGE,
+                    help="with --judge local: an E9 candidate (C1 base, C4 LoRA, C4-S both orders, …)")
+    ap.add_argument("--calls-per-day", type=int, help=f"the most calls a day (default: {CALLS_PER_DAY}, or no cap with "
+                    "--judge-fraction — a cap there would cut the share on busy days)")
     ap.add_argument("--judge-fraction", type=float, help="judge this share of each day's pairs (≤ --calls-per-day)")
-    ap.add_argument("--target-sd", type=float, help="A68: judge until every outlet's sd over the last --window-days is "
-                                                    "below this (≤ --calls-per-day); instead of --judge-fraction")
-    ap.add_argument("--window-days", type=int, default=WINDOW_DAYS, help="with --target-sd: the span it is judged over")
+    ap.add_argument("--target-sd", type=float, help="A68: judge until every outlet's sd is below this "
+                                                    "(≤ --calls-per-day); instead of --judge-fraction")
     ap.add_argument("--no-angle", action="store_true", help="A70 off: one average chance of an answer per axis")
     ap.add_argument("--min-per-week", type=int, default=MIN_PER_WEEK,
                     help="A69: comparisons every outlet gets in any 7 days, before the most informative picks")
@@ -362,8 +424,13 @@ def main():
     else:
         encoder = get_encoder(args.embed_model)
     if args.judge == "local":
-        from pipeline.judge.client import LocalJudge
-        judge = LocalJudge(**HISTORY_JUDGE)
+        from pipeline.experiments.e9 import CANDIDATES
+        from pipeline.experiments.e9 import LocalJudge as candidate_judge
+        from pipeline.judge.client import local_client
+        if args.judge_candidate not in CANDIDATES:
+            raise SystemExit(f"--judge-candidate: one of {', '.join(CANDIDATES)}")
+        judge = candidate_judge(local_client(), CANDIDATES[args.judge_candidate])
+        print(f"judge: {args.judge_candidate} ({CANDIDATES[args.judge_candidate].get('served', 'judge')})", flush=True)
     else:
         from pipeline.judge.client import LIKE_LIVE, SimulatedJudge          # needs what the real judge would
         judge = SimulatedJudge(sorted(o.id for o in load_outlets()), seed=0, **LIKE_LIVE)
@@ -376,7 +443,10 @@ def main():
     if args.count_only:
         done = {r["day"] for r in conn.execute("SELECT day FROM history_pair_counts")}
     day, end, year_cache = dt.date.fromisoformat(args.start), dt.date.fromisoformat(args.end), {}
-    hyper, hyper_day = None, None
+    if not args.count_only:
+        state_path = Path(args.db).with_name("positions.npz")
+        last_day, last_rowid, states = open_positions(conn, state_path)
+        hyper_day = None
     while day <= end:
         if day.isoformat() in done:
             day += dt.timedelta(days=1)
@@ -396,19 +466,23 @@ def main():
                   f"{count_day(conn, day, run_id):,}", flush=True)
             day += dt.timedelta(days=1)
             continue
+        if last_day is not None and day.isoformat() <= last_day:
+            raise SystemExit(f"{day}: the positions are already at {last_day} and only move forward (A74)")
         if hyper_day is None or (day - hyper_day).days >= HYPER_EVERY_DAYS:
-            hyper = None                                                    # re-estimate the spreads this day
+            spreads(conn, states, day)                                      # σ_a from the last month's verdicts
+            hyper_day = day
         if not args.no_angle and (angle_day is None or (day - angle_day).days >= ANGLE_EVERY_DAYS):
             angle_model, angle_day = AN.learn(conn, PURPOSE, vec_of), day     # None until MIN_LABELS verdicts
-        calls, used = judge_day(conn, day, judge, args.calls_per_day, rng, args.judge_fraction, hyper,
-                                target_sd=args.target_sd, window_days=args.window_days, run=run_id,
-                                min_per_week=args.min_per_week,
-                                angle=None if angle_model is None else (lambda cs: AN.apply(cs, angle_model, vec_of)))
-        if hyper is None and used is not None:
-            hyper, hyper_day = used, day
+        calls, _ = judge_day(conn, day, judge, args.calls_per_day, rng, args.judge_fraction,
+                             target_sd=args.target_sd, run=run_id, min_per_week=args.min_per_week,
+                             angle=None if angle_model is None else (lambda cs: AN.apply(cs, angle_model, vec_of)),
+                             posts={ax: st.posterior() for ax, st in states.items()})
+        last_rowid = advance(conn, states, last_rowid, day)                 # today's verdicts move the positions
         conn.execute("INSERT OR REPLACE INTO history_progress VALUES (?,?,?,?,?,?,?,?)",
                      (day.isoformat(), len(rows), len(cand), fetched, n_stories, multi, calls, utc_now_iso()))
         conn.commit()
+        HP.save(state_path, day.isoformat(), last_rowid, states)
+        last_day = day.isoformat()
         print(f"{day}: GDELT {len(rows):,} → candidates {len(cand):,} → fetched {fetched:,} · window stories {n_stories:,}"
               f" ({multi:,} multi) · judged {calls}", flush=True)
         day += dt.timedelta(days=1)

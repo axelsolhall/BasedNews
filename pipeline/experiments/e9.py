@@ -28,6 +28,7 @@ from pipeline.contracts import ComparisonRequest
 from pipeline.judge import prompt as P
 from pipeline.judge.client import JudgeCallFailed
 from pipeline.judge.client import LocalJudge as _LocalJudge
+from pipeline.judge.client import SwapJudge, ThresholdJudge
 from pipeline.judge.client import local_client
 from pipeline.measure.run import A_FULL, A_SUMMARY, record, record_failure, rendered
 from pipeline.rate.hierarchical import HierarchicalBT
@@ -42,6 +43,27 @@ CANDIDATES = {                                     # as pre-registered; `model` 
     "C4": {"model": "Qwen/Qwen3-14B-AWQ", "served": "c4", "thinking": False, "sampling": {"temperature": 0.0}},
     "C4-2/3": {"model": "Qwen/Qwen3-14B-AWQ", "served": "c4-two-thirds", "thinking": False, "sampling": {"temperature": 0.0}},
     "C4-1/3": {"model": "Qwen/Qwen3-14B-AWQ", "served": "c4-one-third", "thinking": False, "sampling": {"temperature": 0.0}},
+    # E12 (pipeline/experiments/e12.py, A71): C4 read from its probabilities, "na" only past the cut tuned on E11's
+    # validation days (docs/experiments/e12_cuts.json, written before this candidate is asked)
+    "C4-T": {"model": "Qwen/Qwen3-14B-AWQ", "served": "c4", "thinking": False, "sampling": {"temperature": 0.0},
+             "na_cut": "docs/experiments/e12_cuts.json"},
+    # E13 (docs/experiments/e13_prereg.json, A72): both orders averaged — C4 as trained, and E13's retrained adapters
+    "C4-S": {"model": "Qwen/Qwen3-14B-AWQ", "served": "c4", "thinking": False, "sampling": {"temperature": 0.0}, "swap": True},
+    "C5": {"model": "Qwen/Qwen3-14B-AWQ", "served": "c5", "thinking": False, "sampling": {"temperature": 0.0}},
+    "C5-S": {"model": "Qwen/Qwen3-14B-AWQ", "served": "c5", "thinking": False, "sampling": {"temperature": 0.0}, "swap": True},
+    "C6": {"model": "Qwen/Qwen3-14B-AWQ", "served": "c6", "thinking": False, "sampling": {"temperature": 0.0}},
+    "C6-S": {"model": "Qwen/Qwen3-14B-AWQ", "served": "c6", "thinking": False, "sampling": {"temperature": 0.0}, "swap": True},
+    # E13 amended: C7 = C4-1/3 plus balanced verdict weights, no swap (C6 stacked both and was stopped untested)
+    "C7": {"model": "Qwen/Qwen3-14B-AWQ", "served": "c7", "thinking": False, "sampling": {"temperature": 0.0}},
+    # E13 amended (A73): the same four on Gemma 4 12B (server: infra/pc/llm-gemma.env) — untrained, LoRA as C4-1/3,
+    # LoRA-swap as C5, LoRA-weights as C7; same days, steps and settings
+    "G1": {"model": "google/gemma-4-12B-it-qat-w4a16-ct", "thinking": False, "sampling": {"temperature": 0.0}},
+    "G4-1/3": {"model": "google/gemma-4-12B-it-qat-w4a16-ct", "served": "g4-one-third", "thinking": False, "sampling": {"temperature": 0.0}},
+    "G5": {"model": "google/gemma-4-12B-it-qat-w4a16-ct", "served": "g5", "thinking": False, "sampling": {"temperature": 0.0}},
+    "G7": {"model": "google/gemma-4-12B-it-qat-w4a16-ct", "served": "g7", "thinking": False, "sampling": {"temperature": 0.0}},
+    # E13: Gemma's learning curve, as E11's for Qwen — G4-1/3's recipe on two thirds and all of the days
+    "G4-2/3": {"model": "google/gemma-4-12B-it-qat-w4a16-ct", "served": "g4-two-thirds", "thinking": False, "sampling": {"temperature": 0.0}},
+    "G4": {"model": "google/gemma-4-12B-it-qat-w4a16-ct", "served": "g4", "thinking": False, "sampling": {"temperature": 0.0}},
 }
 HARNESS = 2
 PARALLEL = 16
@@ -54,7 +76,12 @@ def purpose_of(candidate: str) -> str:
 
 
 def LocalJudge(client, spec: dict):
-    """The candidate as the shared local judge (pipeline.judge.client.LocalJudge): its sampling and thinking switch."""
+    """The candidate as the shared local judge (pipeline.judge.client.LocalJudge): its sampling and thinking switch;
+    a candidate with a cut file is read from its probabilities instead (ThresholdJudge, E12)."""
+    if spec.get("swap"):
+        return SwapJudge(client, served=spec["served"])
+    if "na_cut" in spec:
+        return ThresholdJudge(json.loads(Path(spec["na_cut"]).read_text())["na_cut"], client, served=spec["served"])
     return _LocalJudge(client, thinking=spec["thinking"], sampling=spec["sampling"], served=spec.get("served", "judge"))
 
 

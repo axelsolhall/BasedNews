@@ -1,145 +1,41 @@
-# BasedNews — where does your country's news lean, and how sure are we?
+# BasedNews — where does your news lean, and how sure can we be?
 
 [![ci](https://github.com/axelsolhall/BasedNews/actions/workflows/ci.yml/badge.svg)](https://github.com/axelsolhall/BasedNews/actions/workflows/ci.yml)
 
-BasedNews places **news outlets and whole countries on a two-axis political map** (economic left–right ×
-social liberal–conservative), **relative to each other**, with an **uncertainty oval** around every position.
-An LLM compares **pairs of articles about the same story**, across 228 outlets in 41 countries (Europe and North
-America) and 30 languages. A hierarchical Bayesian model turns those verdicts into positions, and also chooses which
-comparison is worth paying for next.
+Two papers report the same budget. One calls it **"tax relief for families"**, the other **"tax cuts for the
+rich"**. Neither is lying — but they are leaning. **BasedNews measures which way, for the major news outlets of 41
+countries, and how sure we can be.**
 
-> **Status (2026-10-18):** live on AWS since 2026-10-13, collecting ≈ 13,000 articles a day from 41 countries and
-> grouping them into stories; it heals its own failures. The measuring method is complete and validated for one snapshot
-> in time. In progress: eleven years of history (2015 → 2026, 6.7 M articles), judged by a local model trained to
-> answer like the paid judge, which gives positions over time and the starting point for daily live judging. **No
-> positions are claimed yet.** Experiments that test something are pre-registered ([docs/experiments](docs/experiments)).
+![Two articles about the same story, outlet names hidden, compared by an LLM judge on two axes](docs/img/concept.png)
 
-## The story: from idea to product
-How the project got from a question to a running system, what each step had to solve, and how each decision was
-tested. Every number below links to its record; the stage-by-stage reference follows after.
+An LLM compares **two articles about the same story**, with the outlets' names hidden, and says which one frames it
+further economically left or right, and further liberal or conservative. Thousands of those verdicts, across 228
+outlets and 30 languages, go into a Bayesian model that places every outlet and country on a two-axis map — relative to
+each other, never on an absolute scale — each with a **credible region**: the area where the model puts the outlet
+with a given probability (50 % below). The same model decides which comparison is worth paying for next.
 
-### 1 · The question, and why it is hard
-*Where does a country's news lean, and how sure can we be?* Asking an LLM "is this outlet left or right?" measures the
-LLM's reputation knowledge, not the journalism. BasedNews measures **framing**: two articles about **the same story**,
-outlet names hidden, and a judge asked which one frames it further left/right (economic) and liberal/conservative
-(social). Three things make that hard:
-- **The judge is biased and noisy.** It prefers longer texts and the first one shown, and agrees with itself only so
-  often.
-- **Comparisons cost money,** and there are millions of possible pairs.
-- **Uncertainty must be honest.** A position without an interval invites over-reading.
+![Preliminary: US and UK outlets on the two-axis plane with 50 % credible regions](docs/img/plane_preliminary.png)
 
-### 2 · Collecting the news (1.1–1.2)
-228 outlets in 41 countries and 30 languages. In each country the five largest online brands in the Reuters Institute
-*Digital News Report* define its position (ADR-006). Publishers' robots.txt and text-and-data-mining opt-outs are
-respected: those outlets are judged on headline + summary only (ADR-007). Hourly ingest costs the same on day 300 as on
-day 3, because it only looks up the URLs in the current feeds (A63).
+*Preliminary, one week of stories, US and UK only: the full picture needs the 2015 → 2026 history and daily live
+judging (below).*
 
-### 3 · Finding the same story in 30 languages (2.1–2.3)
-Articles are embedded in one multilingual space and clustered over a rolling 7-day window. Choosing the embedding model
-taught the project's first method lesson (**F2**): a labelled test set sampled with one model made that model look twice
-as good as its rival (E7); on a pooled, blind test neither model chose, the result reversed (E7b → OpenAI
-`text-embedding-3-small` at 512 of 1,536 dimensions, equal quality at a third of the storage). At full volume the exact
-average-linkage clustering ran out of memory; it was rewritten to work from close pairs and running sums — the same
-partitions, memory that grows with the close pairs instead of n² (ADR-004).
-
-### 4 · A judge you can trust (3.2)
-The judge prompt went through four versions, each changed because of a measured failure, never toward an expected
-answer:
-
-| version | what was found | change |
-|---|---|---|
-| v1 "which is further right?" | picked the article with more material 71 % / 86 % of the time; the mirrored question agreed only 20 % on social | scores on a symmetric scale, "length is not evidence" |
-| v2 scores −2…+2 | length lean gone, but decisive on only 22 % / 30 % of pairs | one forced choice per axis, no reasons, the question's direction random per call (decisive 38 % / 63 %) |
-| v3 forced choice | on real stories (E4), "trusts police and authorities" in the conservative definition made straight news quoting officials read conservative | axis definitions rewritten; quoting officials, length, tone, language and order named as *not* a leaning |
-| **v4** | | **locked** (E10) |
-
-Validated against an outside benchmark, the AllSides ratings of 12–14 US/UK outlets (Spearman, pre-registered target ≥
-0.60): 0.38 with v3 (E4), 0.69 with v4 on the same pairs (E4b), 0.60 out of sample (E6), and **0.85 on stories collected
-after the prompt was frozen** (E10). The judge's preference for the first-shown article is estimated as a parameter
-instead of paying to ask both orders (ADR-003).
-
-### 5 · From verdicts to positions (3.3)
-A Bayesian Bradley–Terry model turns verdicts into positions with uncertainty. The second method lesson (**F1**): one
-article compared many times is not independent evidence — 81–87 % of the variation in judged framing is
-article-to-article within an outlet, so a flat model let single articles decide an outlet. The model became
-hierarchical (articles around their outlet, spreads estimated from the data; ADR-009), and from 300 articles it runs on
-sparse algebra with identical numbers: 60,000 articles fit in about a second, where the dense version would need 29 GB
-per step (A66). For positions over time, each outlet follows a weekly random walk whose drift is chosen by the
-evidence (A67): a run of odd articles cannot undo years of verdicts, and uncertainty regrows when an outlet goes
-unmeasured.
-
-### 6 · Spending money where it buys certainty (3.1)
-The planner buys the comparison that removes the most uncertainty **per token** (active learning, ADR-002), preferring
-articles not judged yet. Two refinements came from data:
-- **Most calls cannot answer the economic question** (a crime story, a football result): gpt-5.4-mini finds an economic
-  angle in 14 % of pairs. A logistic model on the pair's vector predicts which can, before paying (**F3**, AUC 0.90 out of
-  fold on live verdicts). In simulation at the same budget, the share of calls with an economic answer rose 10 % → 35 %
-  and the recovered outlet order improved from ρ 0.57 to 0.80 (A70).
-- **No outlet is ever "done".** However well an outlet is known, it gets at least five comparisons a week, so a real
-  change can show (A69).
-
-### 7 · Running it for real (5)
-Live on AWS since 2026-10-13: scheduled Fargate jobs, the SQLite database in S3 behind a lease that heals itself when a
-task dies (ADR-012), a record, a quality gate and a performance file for every step, alarms only when it did *not* heal,
-and a cost kill switch. Every step was sized for steady-state volume before it was fixed, never by raising memory
-(A63). Data is deleted as soon as no step can read it again — text and vectors after 14 days — while verdicts and
-positions are archived for good (A52). Compute costs ≈ $0.78 a month, measured by the jobs themselves (A64).
-Architecture and the incidents it survived: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-### 8 · Eleven years of history on a gaming GPU (1.3)
-The product's must is change over time: every outlet since 2015-11. GDELT lists the URLs; each publisher's own page
-gives headline and description — 6.7 M articles. Judging them is the cost problem:
-
-| approach | calls | cost |
-|---|---:|---:|
-| every same-story pair, gpt-5.4-mini | ≈ 12 M | ≈ $18,600 |
-| planner-picked 5 % of pairs | ≈ 0.6 M | ≈ $930 |
-| the same 5 % with a local judge (RTX 5080, ≈ 51,000 calls an hour) | ≈ 0.6 M | **≈ $4.58 once** + ≈ 12 GPU hours |
-
-Getting a local judge to answer like the paid one took three experiments:
-1. **Off-the-shelf models fail (E9, F4).** Qwen3-14B and -8B, with and without reasoning, agree with gpt-5.4-mini on
-   the economic axis but not the social one (agreement 0.54–0.59 against gpt-5.4-mini's own retest 0.83; Cohen's κ
-   0.20). They abstain where it decides, and when both decide they pick the other side 30–45 % of the time. Reasoning
-   first costs 50× the tokens and changes almost nothing.
-2. **Lock the prompt before teaching it (E10).** Training locks the prompt, so v4 was re-checked on fresh stories first
-   ($1.00; ρ 0.85, above).
-3. **Teach the decision boundary (E11, in progress).** A LoRA adapter on Qwen3-14B, trained on 3,000 gpt-5.4-mini
-   verdicts on history pairs ($3.58), sampled in batches of whole days that never overlap, with validation days held
-   out and the learning curve (⅓, ⅔, all of the data) deciding whether to buy more. Tested with E9's harness on the
-   same 943 calls.
-
-A side lesson: the first speed test copied the paid model's call shape (174 output tokens — its hidden reasoning) and
-measured 10,000 calls an hour; the real call answers in 14 tokens with a cached prompt prefix: 51,000. Measure the
-call the system will actually make.
-
-### 9 · What the project taught about method
-1. **Pre-register, then look.** Criteria are written and hashed before a run; results are recorded whatever they show.
-2. **A test set chosen by a candidate decides the comparison** (F2). Pool and blind, or sample at random.
-3. **Measure outlets over their articles** (F1); repeated looks are not independent evidence.
-4. **What a call can tell is part of its value** (F3): the cheapest precision is not buying calls that cannot answer.
-5. **The paid judge's agreement with itself is the honest ceiling** for any replacement (F4).
-6. **Size every fix for steady state**, and measure the real workload, not a stand-in.
-
-## Where it stands
-
-| Stage | State |
+| Stage | State (2026-10-18) |
 |---|---|
-| **1 · Collect** | 🟩 Live: 228 outlets in 41 countries (191 publishing in the last 72 h), hourly. History 2015-11 → today: GDELT lists the URLs, each publisher's own page gives headline and description (6.7 M articles from 179 outlets, fetched). |
-| **2 · Clean & understand** | 🟩 Live, daily: normalize, OpenAI embeddings (512 dimensions, chosen by the unbiased test E7b), stories over a 7-day window, all bounded in memory at full volume (A63). For the history: local embeddings, tested against live's in E8 (pre-registered). |
-| **3 · Measure** | 🟩 Method complete for one snapshot: article-aware planner, judge prompt v4, hierarchical rating. Live judging is built and off until the history gives it a starting point. For the history: off-the-shelf local judges failed the pre-registered test (E9); a LoRA-trained local judge is being tested the same way (E11). ⬜ **Positions over time: the 2019 pilot comes next.** |
-| **4 · Serve** | 🟧 Prototype. The site replays a simulated demo and the first real run (E4). The new design (story-led map, 41 countries, trajectories) is a prototype in `frontend/prototypes`. Publishing positions is the maintainer's decision (A54). |
-| **5 · Operate** | 🟩 Live on AWS since 2026-10-13: Fargate jobs on schedules, SQLite-in-S3 behind a self-healing lease, a record, a gate and a performance file per step, alarms that mean "it did not heal", a cost kill switch, CI that smoke-tests the image and cannot change infrastructure. How it fits together, and the problems it solved: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md). |
+| 1 · Collect | 🟩 live on AWS since 2026-10-13: ≈ 13,000 articles a day, 41 countries |
+| 2 · Same story | 🟩 live: daily, 30 languages, bounded in memory at full volume |
+| 3 · Measure | 🟩 method complete and validated on one snapshot; live judging built, off until the history prior |
+| 4 · Serve | 🟧 prototype site; the plane above is preliminary |
+| 5 · Operate | 🟩 self-healing jobs, ≈ $0.78 a month of compute, data deleted once no step can use it |
+| 6 · History | 🟨 6.7 M articles fetched; the local judge is being trained and tested |
 
-What remains is listed under [What's left](#whats-left).
-
-## The pipeline at a glance
+## How it works
 
 ```mermaid
 flowchart TB
   subgraph S1["<b>1 · Collect</b>"]
     direction LR
     s11["<b>1.1 Sources</b><br/>outlets · feed health · robots/TDM"] --> s12["<b>1.2 Ingest</b><br/>RSS · text · headline edits"]
-    s11 --> s13["<b>1.3 History</b><br/>GDELT + publisher pages,<br/>2015 → today (local)"]
+    s11 --> s13["<b>6 · History</b><br/>GDELT + publisher pages,<br/>2015 → today (local GPU)"]
   end
   subgraph S2["<b>2 · Clean & understand</b>"]
     direction LR
@@ -152,7 +48,7 @@ flowchart TB
   end
   subgraph S4["<b>4 · Serve</b>"]
     direction LR
-    s41["<b>4.1 Aggregate</b><br/>countries · ovals"] --> s42["<b>4.2 Export</b><br/>static JSON on the CDN"] --> s43["<b>4.3 Site</b><br/>Angular"]
+    s41["<b>4.1 Aggregate</b><br/>countries · credible regions"] --> s42["<b>4.2 Export</b><br/>static JSON on the CDN"] --> s43["<b>4.3 Site</b><br/>Angular"]
   end
   subgraph S5["<b>5 · Operate</b>"]
     direction LR
@@ -180,17 +76,19 @@ problem can be traced to the step that causes it. Each stage below has a short s
 steps. Step numbers match the diagram. `M1`…`M9` are the module IDs used in the code, ASSUMPTIONS.md and BACKLOG.md
 (module index: [pipeline/README.md](pipeline/README.md)).
 
----
+## 1 · Collect — 228 outlets, 41 countries, 30 languages
+In each country the five largest online news brands in the Reuters Institute *Digital News Report* define where that
+country stands; other outlets are extras (ADR-006). Every outlet is read hourly from its feeds. Publishers that opt out
+of text and data mining, or block bots, are respected: they are judged on headline and summary only (ADR-007).
 
-## 1 · Collect
-Pick the outlets and check we may read them (1.1). Pull every new article every hour (1.2). Build the history from
-2015-11, a year before the 2016 US election, from GDELT and the publishers' own pages (1.3).
-**Status:** 🟩 live since 2026-10-13 (41 countries since 2026-10-14). The history fetch finishes 2026-10-18; it runs
-on the maintainer's machine and resumes where it stopped.
-**Sign-off:** `uv run python -m pipeline.signoff --stage collect`
+| | |
+|---|---|
+| outlets / countries / languages | 228 / 41 / 30 (205 in the reference set) |
+| articles a day (measured 2026-10-18) | ≈ 13,000 |
+| cost of an hourly run on day 300 vs day 3 | the same: only the URLs in the current feeds are looked up (A63) |
 
 <details>
-<summary><b>Details: 1.1 Sources · 1.2 Ingest · 1.3 History</b></summary>
+<summary><b>Details: 1.1 Sources · 1.2 Ingest</b></summary>
 
 ### 1.1 Sources · `M1` · `pipeline/sources/`
 - **Does:** keeps the outlet registry and checks each outlet: feeds alive, freshness, robots.txt and the W3C TDM
@@ -240,40 +138,23 @@ articles from 41 countries, 190 of 228 outlets passing the M2 checks.
 | **All** | 50 / 73 | **8,475** | 6,658 | 7,179 | 4.5 | 75 % | 25 % | 100 % | 72/73 |
 <!-- m2:end -->
 
-### 1.3 History · `pipeline/history/` (A61)
-- **Does:** the history from 2015-11-01, for the five reference outlets of every country (205 outlets), at daily
-  resolution:
-  1. **Candidates** (`gdelt.py`): GDELT's GKG on BigQuery (the free sandbox) lists each outlet's URLs per day; a cheap
-     pre-filter keeps up to 20 per outlet and day that mention entities other outlets mention too.
-  2. **Pages** (`fetch.py`, `prefetch.py`): each publisher's own page gives headline, description and publish time —
-     headline + snippet only, never the full text (A10); one request at a time per site, ≥ 1 s apart, robots.txt
-     respected; a month at a time, resumable.
-  3. **Replay** (`replay.py`): a 7-day window moves day by day through the timeline with the live modules — embed,
-     stories, plan, judge — so every day is measured the way live measures today.
-- **Local, not paid:** judging eleven years with gpt-5.4-mini would cost ≈ $18,600 for every pair, ≈ $930 for a
-  planner-picked 5 %. The judge and the embeddings run on the maintainer's gaming PC (RTX 5080, ≈ 51,000 judge calls
-  an hour) behind an OpenAI-compatible server ([docs/LOCAL_LLM.md](docs/LOCAL_LLM.md), A65), tested against live's
-  models first: E8 (embeddings), E9 (off-the-shelf judges: not valid on the social axis), E11 (a LoRA-trained judge).
-- **Pilot first:** 2019, every article embedded and grouped (free); the judge spends 5 % of all pairs, each counted
-  once, picked by the live planner (A68) with each pair's own chance of an answer (A70), and every outlet compared at
-  least five times a week (A69). Its per-outlet uncertainty says how much more the full run needs.
-- **Trajectories** (`trajectories.py`, A67): each outlet's position on a weekly random walk, relative to the week's
-  average reference outlet, with its uncertainty. Step by step: [docs/HISTORY.md](docs/HISTORY.md).
-- **Superseded:** the archive.org sample (`pipeline/backfill/`, ADR-008) — rate limits made eleven years of it
-  impractical.
-
 </details>
 
 ---
 
-## 2 · Clean & understand
-Turn raw articles into stories:
-- merge renamed copies, split live-blog pages and remove boilerplate (2.1);
-- embed every article in one multilingual space (2.2);
-- group articles about the same story across outlets and languages (2.3).
+## 2 · Find the same story in 30 languages
+Articles are embedded in one multilingual space and grouped into stories over a rolling 7-day window; a story covered
+by two outlets gives a pair to compare. Choosing the embedding model taught the project's first method lesson — **a
+test set chosen by one model decides the comparison** (F2):
 
-**Status:** 🟩 done, signed off 2026-10-11. Embeddings moved to the OpenAI API on 2026-10-12 after an unbiased
-pooled test (E7b, [ADR-011](docs/decisions/ADR-011-embeddings.md)); stories rebuilt with it pass their gate.
+| test | the model that chose the test pairs | result |
+|---|---|---|
+| E7: pairs sampled with the local MiniLM | MiniLM | MiniLM looked twice as good (recall 0.83 vs 0.42) |
+| E7b: random anchors, both models' candidates pooled, labelled blind | neither | OpenAI ahead on every measure (AUC 0.965 vs 0.925) |
+| E7, E7b: 512 vs all 1,536 dimensions | — | equal (AUC 0.963 vs 0.964), a third of the storage |
+
+At full volume (≈ 170,000 articles in a window) the clustering ran out of memory; it was rewritten to work from close
+pairs and running sums — **the same partitions, memory that grows with the close pairs instead of n²** (ADR-004).
 
 <details>
 <summary><b>Details: 2.1 Normalize · 2.2 Embed · 2.3 Stories</b></summary>
@@ -327,14 +208,30 @@ pooled test (E7b, [ADR-011](docs/decisions/ADR-011-embeddings.md)); stories rebu
 
 ---
 
-## 3 · Measure
-The active-learning loop:
-- choose the comparisons that cut uncertainty most per token, preferring articles not judged yet (3.1);
-- ask an LLM which of two articles about the same story leans further on each axis (3.2);
-- update every outlet's position and uncertainty (3.3).
+## 3 · Measure — a judge, a model, and a planner
+**The judge (3.2).** Four prompt versions, each changed because of a measured failure, never toward an expected answer:
 
-**Status:** 🟩 method complete; runs on real story pairs with a budget cap. Validation is in progress, see
-[Experiments](#experiments-on-real-data).
+| version | what was found | change |
+|---|---|---|
+| v1 "which is further right?" | picked the article with more material 71 % / 86 % of the time; the mirrored question agreed only 20 % on social | scores on a symmetric scale, "length is not evidence" |
+| v2 scores −2…+2 | length lean gone, but decisive on only 22 % / 30 % of pairs | one forced choice per axis, no reasons, the question's direction random per call (decisive 38 % / 63 %) |
+| v3 forced choice | on real stories (E4), "trusts police and authorities" in the conservative definition made straight news quoting officials read conservative | axis definitions rewritten; quoting officials, length, tone, language and order named as *not* a leaning |
+| **v4** | | **locked** (E10) |
+
+![The judge against the AllSides ratings, by prompt version](docs/img/prompt_versions.png)
+
+**The model (3.3).** A Bayesian Bradley–Terry model with the judge's order bias as a parameter (ADR-001, ADR-003). One
+article compared many times is not independent evidence (**F1**): 81–87 % of the variation in judged framing is
+article-to-article within an outlet, so outlets are measured over their articles (hierarchical, spreads estimated from
+the data; ADR-009). From 300 judged articles it runs on sparse algebra with identical numbers — 60,000 articles in about
+a second, where the dense fit would need 29 GB per step (A66).
+
+**The planner (3.1).** Each call buys the comparison that removes the most uncertainty per token (active learning,
+ADR-002). Most calls cannot answer the economic question (a crime story, a football result), so a logistic model on the
+pair's vector predicts which can before paying (**F3**, AUC 0.90 on live verdicts, A70). And no outlet is ever "done":
+each gets at least five comparisons a week, however well it is known (A69).
+
+![The per-pair angle model at a fixed budget, in simulation](docs/img/angle.png)
 
 <details>
 <summary><b>Details: 3.1 Plan · 3.2 Judge · 3.3 Rate · the loop</b></summary>
@@ -404,25 +301,25 @@ The active-learning loop:
 
 ---
 
-## 4 · Serve
-Turn outlet positions into what a reader sees: country positions and ovals (4.1), published as static JSON files
-(4.2) and drawn by the site (4.3). There is no API server (ADR-010).
-**Status:** 🟧 prototype. The export writes the current fit; the site shows it locally as "Latest fit", labelled not
-validated. Whether it goes public is the maintainer's decision (A54).
+## 4 · Serve — the map
+Everything is relative: (0, 0) is the average reference outlet, and a country is the reach-weighted mean of its
+reference outlets (ADR-005, A08). Each position carries its credible region from the model's full covariance. The site
+is static files on a CDN — no API server (ADR-010). Today it shows a labelled demo and the preliminary fit; real
+positions go public by the maintainer's decision (A54).
 
 <details>
 <summary><b>Details: 4.1 Aggregate · 4.2 Export · 4.3 Site · what a reader will get</b></summary>
 
 ### 4.1 Aggregate · `M9` · `pipeline/aggregate/`
 - **Does:** everything is relative. (0, 0) is the average reference outlet (A26, ADR-005). A country is the
-  reach-weighted mean of its reference outlets (A08). Ovals are ±1 sd per axis (A25). Country sds use the full
-  posterior covariance.
-- **In → out:** a posterior → plane points (outlets, countries, ovals).
-- **Check:** `uv run python -m pipeline.aggregate.preview` (oval coverage close to 1 − e^(−k²/2)).
+  reach-weighted mean of its reference outlets (A08). Each position carries a credible region (±k sd per axis, A25; its size is chosen once the full
+  history and live judging exist). Country sds use the full posterior covariance.
+- **In → out:** a posterior → plane points (outlets, countries, credible regions).
+- **Check:** `uv run python -m pipeline.aggregate.preview` (credible-region coverage close to 1 − e^(−k²/2)).
 
 ### 4.2 Export · `pipeline/export/`
 - **Does:** refits the article-level model from every real verdict of the current prompt and writes
-  `plane-latest.json` (countries and outlets with ovals) for the site. Only aggregates: no text, titles or URLs (A10).
+  `plane-latest.json` (countries and outlets with credible regions) for the site. Only aggregates: no text, titles or URLs (A10).
 - **Out:** `frontend/src/data/` locally (git-ignored, served by `ng serve` at `/data/`); in production the job uploads
   it next to the site, only if the maintainer turns publishing on (A54).
 - **Check:** `uv run python -m pipeline.export.run --check`: valid JSON, finite numbers, every country present, gzip
@@ -442,8 +339,8 @@ validated. Whether it goes public is the maintainer's decision (A54).
 - **Never serves article text** (A10).
 
 ### What a reader will get
-- **World view:** each country's national media as a dot with an uncertainty oval. Click a country →
-- **Country view:** its major outlets, each with its oval.
+- **World view:** each country's national media as a dot with its credible region. Click a country →
+- **Country view:** its major outlets, each with its credible region.
 - **Story lens & blindspots:** how the same international story is framed across countries and outlets.
 - **Historical change graphs (must, not built yet):** each outlet's and country's position over the last 10 years,
   with its uncertainty band, backed by the archive sample.
@@ -453,12 +350,28 @@ validated. Whether it goes public is the maintainer's decision (A54).
 
 ---
 
-## 5 · Operate
-Run every step on a schedule, record what each run did, stop bad data at the step that made it, heal what breaks, and
-keep it cheap. Nothing runs between jobs and nothing serves requests: jobs write files, a CDN serves them (ADR-010).
-**Status:** 🟩 live since 2026-10-13. How the parts fit together, what heals itself, and the engineering problems the
-first week posed (a self-healing lease, memory that does not grow with the window, cost at full volume):
+## 5 · Operate — live on AWS for about a dollar a month
+```mermaid
+flowchart LR
+  eb["EventBridge<br/>schedules"] --> sf["Step Functions<br/>retry once"] --> ft["Fargate task<br/>one step"]
+  ft <--> s3[("S3: SQLite +<br/>self-healing lease")]
+  ft --> rec["record · gate ·<br/>performance file"]
+  ft --> cdn["CloudFront<br/>static site"]
+  rec -. "alarm only if it did not heal" .-> mail["email"]
+```
+
+Scheduled container jobs, the database in S3 behind a lease that heals itself when a task dies (ADR-012), a record, a
+quality gate and a performance file for every step, and a cost kill switch. Every fix was sized for steady-state
+volume before it was made, never by raising memory (A63). Data is deleted once no step can read it again; verdicts and
+positions are archived for good (A52). How it fits together and the incidents it survived:
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+| measured by the jobs themselves (2026-10-18) | |
+|---|---|
+| compute | ≈ $0.78 a month |
+| peak memory | ≤ 18 % of the 4 GB limit, on every step |
+| database at steady state | ≈ 1.5 GB (14 days of text and vectors) |
+| OpenAI (embeddings) | ≈ $2.50 a month |
 
 <details>
 <summary><b>Details: 5.1 Jobs · 5.2 Deploy · costs</b></summary>
@@ -522,8 +435,73 @@ switch fires at $15.
 
 ---
 
+## 6 · History — eleven years on a gaming GPU
+The product's must is change over time: every outlet since 2015-11. GDELT lists the URLs; each publisher's own page
+gives headline and description.
+
+![Articles per year in the history](docs/img/history.png)
+
+**The cost problem.** Every same-story pair over eleven years is ≈ 12 M judge calls. With gpt-5.4-mini that is
+≈ $18,600; the planner's 5 % is ≈ $930. The plan: the same calls on a local GPU, with an open model taught to judge like
+the paid one.
+
+![Preliminary: the cost plan for the history](docs/img/cost.png)
+
+**A local judge.** Four experiments so far:
+1. **Off-the-shelf models fail (E9, F4).** Qwen3-14B and -8B, with and without reasoning, abstain on the social axis
+   where gpt-5.4-mini takes a side; reasoning first costs 50× the tokens and changes almost nothing.
+2. **Lock the prompt before teaching it (E10).** Training freezes the prompt, so v4 was re-checked on stories collected
+   after it was frozen ($1.00).
+3. **Teach it (E11).** A LoRA adapter on Qwen3-14B, trained on 3,085 gpt-5.4-mini verdicts on history pairs
+   ($3.58), sampled in batches of whole days that never overlap, with held-out validation days. On E9's 943 unseen
+   test calls it doubles social κ (0.20 → 0.40), still short of the paid judge's agreement with itself.
+4. **Is the rest data or decision rule? (learning curve, E12).** Trained on ⅓, ⅔ and all of the days, most of the
+   gain comes with the first third. Read from its probabilities with a cut for "no angle", it does no better: its
+   misses are not hidden decisions. Results: [e11_results](docs/experiments/e11_results.md).
+
+![Preliminary: local judges against the paid judge](docs/img/local_judges.png)
+
+![Preliminary: LoRA training — agreement on the validation days and loss](reports/e11_training.png)
+
+![Preliminary: learning curve on E9's test calls](reports/e11_learning_curve.png)
+
+**What the local judge has to deliver** is not call-by-call parity with a paid model, but outlets that separate on the
+plane, in the right order. **Positions over time** come from a weekly random walk per outlet whose drift is chosen by
+the evidence (A67): a run of odd articles cannot undo years of verdicts, and uncertainty regrows when an outlet goes
+unmeasured. *A side lesson:* the first speed test copied the paid model's call shape and measured 10,000 calls an
+hour; the real call answers in 14 tokens with a cached prompt: 51,000. Measure the call the system will actually make.
+
+<details>
+<summary><b>Details: how the history is built and judged</b></summary>
+
+### 6.1 How the history is built · `pipeline/history/` (A61)
+- **Does:** the history from 2015-11-01, for the five reference outlets of every country (205 outlets), at daily
+  resolution:
+  1. **Candidates** (`gdelt.py`): GDELT's GKG on BigQuery (the free sandbox) lists each outlet's URLs per day; a cheap
+     pre-filter keeps up to 20 per outlet and day that mention entities other outlets mention too.
+  2. **Pages** (`fetch.py`, `prefetch.py`): each publisher's own page gives headline, description and publish time —
+     headline + snippet only, never the full text (A10); one request at a time per site, ≥ 1 s apart, robots.txt
+     respected; a month at a time, resumable.
+  3. **Replay** (`replay.py`): a 7-day window moves day by day through the timeline with the live modules — embed,
+     stories, plan, judge — so every day is measured the way live measures today.
+- **Local, not paid:** judging eleven years with gpt-5.4-mini would cost ≈ $18,600 for every pair, ≈ $930 for a
+  planner-picked 5 %. The judge and the embeddings run on the maintainer's gaming PC (RTX 5080, ≈ 51,000 judge calls
+  an hour) behind an OpenAI-compatible server ([docs/LOCAL_LLM.md](docs/LOCAL_LLM.md), A65), tested against live's
+  models first: E8 (embeddings), E9 (off-the-shelf judges: not valid on the social axis), E11 (a LoRA-trained judge).
+- **Pilot first:** 2019, every article embedded and grouped (free); the judge spends 5 % of all pairs, each counted
+  once, picked by the live planner (A68) with each pair's own chance of an answer (A70), and every outlet compared at
+  least five times a week (A69). Its per-outlet uncertainty says how much more the full run needs.
+- **Trajectories** (`trajectories.py`, A67): each outlet's position on a weekly random walk, relative to the week's
+  average reference outlet, with its uncertainty. Step by step: [docs/HISTORY.md](docs/HISTORY.md).
+- **Superseded:** the archive.org sample (`pipeline/backfill/`, ADR-008) — rate limits made eleven years of it
+  impractical.
+
+</details>
+
+---
+
 ## Experiments on real data
-E4, E6, E7, E7b and E8–E11 were pre-registered (criteria fixed and hashed before the run). Every experiment is recorded whatever the
+E4, E6, E7, E7b and E8–E12 were pre-registered (criteria fixed and hashed before the run). Every experiment is recorded whatever the
 outcome. They are **exploratory, not claims**. What they changed:
 
 | ID | Question | What it changed | Record |
@@ -539,13 +517,14 @@ outcome. They are **exploratory, not claims**. What they changed:
 | E8 | Local embeddings for the history: three open models vs live's OpenAI @512, pooled and blind like E7b | in progress | [e8_prereg](docs/experiments/e8_prereg.json) |
 | E9 | A local judge for the history: does an open-weights model answer like gpt-5.4-mini, as often as gpt-5.4-mini agrees with itself? | none valid on the social axis (they abstain where it decides) → F4, E11 | [e9 report](reports/e9.md) |
 | E10 | Prompt v4 out of sample on fresh US/UK stories, before training locks it ($1.00) | target met (AllSides ρ 0.85, 12 outlets) → v4 locked | [e10 report](reports/e10.md) |
-| E11 | A local judge trained on 3,000 gpt-5.4-mini verdicts (LoRA, $3.58), tested with E9's harness; learning curve on ⅓, ⅔, all of the data | in progress | [e11_prereg](docs/experiments/e11_prereg.json) |
+| E11 | A local judge trained on 3,085 gpt-5.4-mini verdicts (LoRA, $3.58), tested with E9's harness; learning curve on ⅓, ⅔, all of the data | social κ 0.20 → 0.40; not valid by E9's rule; flat after ⅓ → F5 | [e11_results](docs/experiments/e11_results.md) |
+| E12 | The LoRA judge read from its probabilities: does a cut for "no angle", tuned on validation days, recover its misses? | no: misses become inventions and flips → F5 | [e11_results](docs/experiments/e11_results.md) |
 
 A50 states what is measured: framing of the **same event**, not which stories an outlet chooses to cover. External
 ratings include both, so agreement with them has a ceiling below 1. Disagreement is something to explain, not a
 target to tune toward.
 
-## Key findings about the method
+## What the project taught about method
 **F1 — measure outlets over their articles.** One article compared many times is not independent evidence. On real
 verdicts, 81–87 % of the variation in judged framing is article-to-article within an outlet (ICC 0.13–0.19). A flat
 model overstates certainty and lets single articles decide an outlet's position. A hierarchical model with article
@@ -563,49 +542,17 @@ and at the same budget it raised the share of answered economic calls from 10 % 
 in 81–86 % of pairs where gpt-5.4-mini takes a side in about half; reasoning first costs 50× the tokens and changes
 almost nothing. The gap is a decision boundary to teach, not a lack of size.
 
+**F5 — $3.58 of the paid judge's verdicts doubles a local model's social κ, and then it flattens.** The first third of
+the data gives most of the gain; validation loss keeps falling after agreement stops moving. Its remaining misses are
+not near-decisions, and agreement with the teacher is the wrong yardstick for where to draw the line: with cheap
+local calls, the judge to keep is the one whose verdicts separate outlets best.
+
+**And six habits that came out of it.** Pre-register, then look. Pool and blind any test where a candidate could have
+chosen the data. Measure outlets over their articles. Count what a call can tell, not just what it costs. Use the paid
+judge's agreement with itself as the ceiling for any replacement. Size every fix for steady state, and measure the
+workload the system will really run.
+
 Evidence, limits and how to reproduce: [docs/FINDINGS.md](docs/FINDINGS.md).
-
-## Possible claims (hypotheses, not results)
-Seven things the project hopes to show. None is established.
-
-<details>
-<summary><b>Details: H1–H7 and how each will be tested</b></summary>
-
-- **H1 · Cost:** choosing comparisons by uncertainty reduced *per token* reaches a target certainty with fewer LLM
-  tokens than random pairing. *Test:* equal-budget runs with the real judge.
-- **H2 · Model:** Bayesian Bradley–Terry ranks outlets at least as well as Elo and adds calibrated uncertainty.
-  *Test:* rank agreement and interval coverage on held-out judgments.
-- **H3 · Judge bias:** estimating the judge's order bias is as good as asking both orders, at half the calls.
-  *Test:* order-swap eval (3.2).
-- **H4 · Matching:** multilingual embeddings find the same story across countries well enough to compare framing.
-  *Test:* precision and recall on labelled same-story pairs (2.3).
-- **H5 · Summaries:** headline + summary carries enough signal to judge outlets that block full text.
-  *Test:* judge agreement, summary vs full text (A30).
-- **H6 · Prompt:** an evolved judge prompt gives more decisions that survive an order swap, per token, than a
-  hand-written baseline, without deciding more often on pairs with no real difference. *Test:* held-out test set.
-- **H7 · Validity:** on US/UK outlets, social-axis positions rank like an independent rating (AllSides), within the
-  ceiling set by A50. *Test:* the pre-registered criterion (Spearman ≥ 0.6) on stories collected after the method
-  was frozen — met in E10 (0.85 on 12 outlets); one week of US/UK stories, so still a hypothesis.
-
-</details>
-
-## What's left
-**Done** means: live judging runs daily from a starting point measured on the history, the site shows every outlet's
-and country's trajectory since 2015 with its uncertainty, and this README states results. Tracked in
-[BACKLOG.md](BACKLOG.md); the maintainer's decisions and sign-offs in [VERIFY.md](VERIFY.md).
-
-| # | Step | State |
-|---|---|---|
-| 1 | Local judge trained on gpt-5.4-mini's verdicts (E11) → E9's test | training |
-| 2 | Learning curve → another batch of training verdicts if it still rises | next |
-| 3 | E8: the local embedding model for the history | next (the GPU) |
-| 4 | Embed the 6.7 M history articles | ≈ 1 GPU hour |
-| 5 | 2019 pilot: 5 % of pairs, weekly floor, per-pair angle | ≈ 1 GPU hour |
-| 6 | Pilot trajectories on the hosted site → the maintainer's sanity check | after 5 |
-| 7 | The full history, 2015 → 2026 | ≈ 12 GPU hours |
-| 8 | Live judging from the history prior | the maintainer's go, ≤ $0.15 a day |
-| 9 | Results in this README | after 7 and 8 |
-| 10 | Oval size, positions public, then basednews.info | last, with the data |
 
 ## Decisions: industry standard vs what was explored
 Eighteen design choices where the project tried something other than the usual default, each with a record.
@@ -636,6 +583,48 @@ Eighteen design choices where the project tried something other than the usual d
 
 All working assumptions are in [ASSUMPTIONS.md](ASSUMPTIONS.md), each with what depends on it and how to test it.
 Human sign-offs per stage are in [VERIFY.md](VERIFY.md).
+
+</details>
+
+## What's left
+**Done** means: live judging runs daily from a starting point measured on the history, the site shows every outlet's
+and country's trajectory since 2015 with its uncertainty, and this README states results. Tracked in
+[BACKLOG.md](BACKLOG.md); the maintainer's decisions and sign-offs in [VERIFY.md](VERIFY.md).
+
+| # | Step | State |
+|---|---|---|
+| 1 | Local judge trained on gpt-5.4-mini's verdicts (E11) → E9's test | done: not valid by E9's rule; D1 |
+| 2 | Learning curve → another batch of training verdicts if it still rises | done: flat after ⅓; the rule asks for b2 (noise) |
+| 3 | E8: the local embedding model for the history | next (the GPU) |
+| 4 | Embed the 6.7 M history articles | ≈ 1 GPU hour |
+| 5 | 2019 pilot: 5 % of pairs, weekly floor, per-pair angle | ≈ 1 GPU hour |
+| 6 | Pilot trajectories on the hosted site → the maintainer's sanity check | after 5 |
+| 7 | The full history, 2015 → 2026 | ≈ 12 GPU hours |
+| 8 | Live judging from the history prior | the maintainer's go, ≤ $0.15 a day |
+| 9 | Results in this README | after 7 and 8 |
+| 10 | Credible-region size, positions public, then basednews.info | last, with the data |
+
+## Possible claims (hypotheses, not results)
+Seven things the project hopes to show. None is established.
+
+<details>
+<summary><b>Details: H1–H7 and how each will be tested</b></summary>
+
+- **H1 · Cost:** choosing comparisons by uncertainty reduced *per token* reaches a target certainty with fewer LLM
+  tokens than random pairing. *Test:* equal-budget runs with the real judge.
+- **H2 · Model:** Bayesian Bradley–Terry ranks outlets at least as well as Elo and adds calibrated uncertainty.
+  *Test:* rank agreement and interval coverage on held-out judgments.
+- **H3 · Judge bias:** estimating the judge's order bias is as good as asking both orders, at half the calls.
+  *Test:* order-swap eval (3.2).
+- **H4 · Matching:** multilingual embeddings find the same story across countries well enough to compare framing.
+  *Test:* precision and recall on labelled same-story pairs (2.3).
+- **H5 · Summaries:** headline + summary carries enough signal to judge outlets that block full text.
+  *Test:* judge agreement, summary vs full text (A30).
+- **H6 · Prompt:** an evolved judge prompt gives more decisions that survive an order swap, per token, than a
+  hand-written baseline, without deciding more often on pairs with no real difference. *Test:* held-out test set.
+- **H7 · Validity:** on US/UK outlets, social-axis positions rank like an independent rating (AllSides), within the
+  ceiling set by A50. *Test:* the pre-registered criterion (Spearman ≥ 0.6) on stories collected after the method
+  was frozen — met in E10 (0.85 on 12 outlets); one week of US/UK stories, so still a hypothesis.
 
 </details>
 
