@@ -16,7 +16,7 @@ export class CountryTable {
       <div class="tb-head"><div class="kicker">The table <b data-title></b></div><small data-sub></small></div>
       <div class="chips" data-chips></div>
       <div class="tb-cols"><span data-name>Country</span><span>Economic<em>← left · right →</em></span>
-        <span>Social<em>← liberal · conservative →</em></span><span>Path<em>since 2016</em></span></div>
+        <span>Social<em>← liberal · conservative →</em></span><span>Path<em>since ${data.months[0].slice(0, 4)}</em></span></div>
       <div class="tb-rows" data-rows></div>`;
     this.rows = root.querySelector("[data-rows]");
     this.chips = root.querySelector("[data-chips]");

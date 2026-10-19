@@ -13,7 +13,7 @@ const PALETTE = ["#4e79a7", "#f28e2b", "#e15759", "#76b7b2", "#59a14f", "#edc948
 // country — more than eight categories cannot each get a distinguishable hue). extraColor: in a country view the
 // reference outlets take the palette in order and the extra outlets share this muted ink (they are drawn hollow).
 export async function loadData(url = "demo-trends.json", palette = PALETTE, { regionColors = null, extraColor = null } = {}) {
-  const raw = await (await fetch(url)).json();
+  const raw = await (await fetch(url, { cache: "no-store" })).json();       // no-store: the pilot's file grows while it runs
   const months = raw.months;
   const T = months.length;
   const regions = raw.regions || [];
@@ -30,6 +30,10 @@ export async function loadData(url = "demo-trends.json", palette = PALETTE, { re
   for (let t = 0; t < T; t++) {
     const ox = mean(refs.map((o) => o.s[t][0])), oy = mean(refs.map((o) => o.s[t][1]));
     for (const c of countries) {
+      if (c.s) {                    // the pilot's own country position and uncertainty (A74), only re-centred here
+        world[c.id].push([c.s[t][0] - ox, c.s[t][1] - oy, c.s[t][2], c.s[t][3]]);
+        continue;
+      }
       const r = refs.filter((o) => o.country === c.id);
       const sx = Math.sqrt(mean(r.map((o) => o.s[t][2] ** 2)) / r.length);
       const sy = Math.sqrt(mean(r.map((o) => o.s[t][3] ** 2)) / r.length);
@@ -42,18 +46,20 @@ export async function loadData(url = "demo-trends.json", palette = PALETTE, { re
     const all = outlets.filter((o) => o.country === c.id);
     const r = all.filter((o) => o.tier === "reference");
     let k = 0;
+    const centre = (t) => c.s ? [c.s[t][0], c.s[t][1]] : [mean(r.map((q) => q.s[t][0])), mean(r.map((q) => q.s[t][1]))];
     national[c.id] = all.map((o, i) => ({
       id: o.id, label: o.name, tier: o.tier,
       color: extraColor ? (o.tier === "reference" ? palette[k++ % palette.length] : extraColor) : palette[i % palette.length],
-      s: o.s.map((p, t) => [p[0] - mean(r.map((q) => q.s[t][0])), p[1] - mean(r.map((q) => q.s[t][1])), p[2], p[3]]),
+      s: o.s.map((p, t) => { const [cx, cy] = centre(t); return [p[0] - cx, p[1] - cy, p[2], p[3]]; }),
     }));
   }
-  return { months, regions, countries, byCountry, world, national, demo: raw.meta?.demo };
+  return { months, regions, countries, byCountry, world, national, demo: raw.meta?.demo, meta: raw.meta || {} };
 }
 
-export function monthLabel(m) {
-  const [y, mo] = m.split("-").map(Number);
-  return new Date(Date.UTC(y, mo - 1, 1)).toLocaleString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
+export function monthLabel(m) {                       // "2026-10" → "Oct 2026"; a day ("2019-01-06") → "6 Jan 2019"
+  const [y, mo, d] = m.split("-").map(Number);
+  const opts = { month: "short", year: "numeric", timeZone: "UTC", ...(d ? { day: "numeric" } : {}) };
+  return new Date(Date.UTC(y, mo - 1, d || 1)).toLocaleString("en-GB", opts);
 }
 
 // ---------------------------------------------------------------- the plane
@@ -446,22 +452,33 @@ export class WorldMap {
 
 // ---------------------------------------------------------------- time slider
 // Continuous time: dragging and playing move through fractional months, so dots glide instead of hopping.
-// `[data-ticks]` inside the root gets one label per year.
+// `[data-ticks]` inside the root gets one label per year — per month when the span is under two years (the pilot).
+// setMonths(months) takes a longer series (a run that is still going); a slider at the end stays at the end.
 export function timeSlider(root, months, onChange, { speed = 14 } = {}) {
   const input = root.querySelector("input[type=range]");
   const label = root.querySelector("[data-month]");
   const play = root.querySelector("[data-play]");
   const ticks = root.querySelector("[data-ticks]");
-  const n = months.length - 1;
+  let n = months.length - 1;
   input.min = 0; input.max = n; input.step = "any"; input.value = n;
-  if (ticks)
+  const drawTicks = () => {
+    if (!ticks) return;
+    ticks.replaceChildren();
+    const short = new Set(months.map((m) => m.slice(0, 7))).size < 24;
     months.forEach((m, k) => {
-      if (!m.endsWith("-01")) return;
+      const prev = months[k - 1];
+      let label = null;
+      if (!short) { if (prev?.slice(0, 4) !== m.slice(0, 4)) label = m.slice(0, 4); }       // the first point of a year
+      else if (prev?.slice(0, 7) !== m.slice(0, 7))                                          // ... of a month
+        label = !prev || m.slice(5, 7) === "01" ? m.slice(0, 4) : monthLabel(m.slice(0, 7)).split(" ")[0];
+      if (!label) return;
       const s = document.createElement("span");
-      s.textContent = m.slice(0, 4);
-      s.style.left = `${(100 * k) / n}%`;
+      s.textContent = label;
+      s.style.left = `${(100 * k) / Math.max(1, n)}%`;
       ticks.append(s);
     });
+  };
+  drawTicks();
   let raf = null, cur = n;                     // the time lives here, not in the input: some browsers round its value
   const set = (t) => {
     t = cur = Math.max(0, Math.min(n, +t));
@@ -488,7 +505,15 @@ export function timeSlider(root, months, onChange, { speed = 14 } = {}) {
       raf = requestAnimationFrame(frame);
     });
   set(n);
-  return { set, stop };
+  const setMonths = (next) => {
+    const atEnd = cur >= n;
+    months = next;
+    n = months.length - 1;
+    input.max = n;
+    drawTicks();
+    set(atEnd ? n : cur);
+  };
+  return { set, stop, setMonths, at: () => cur, last: () => n };
 }
 
 // ---------------------------------------------------------------- the pill navbar

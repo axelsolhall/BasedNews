@@ -13,8 +13,10 @@ export const BAR = 62;
 export async function start({ mapZoom = false, index = true, table = false, regions = false, mapLayout = "world",
                               onMode = () => {}, onTime = () => {}, stops = () => [] } = {}) {
   const morph = new HeaderMorph(document.getElementById("mast"), { bar: BAR });
-  const url = new URL("demo-trends.json", import.meta.url);        // next to this module, wherever the page is
-  const data = regions ? await loadData(url, REGION, { regionColors: REGION, extraColor: EXTRA }) : await loadData(url, INK);
+  // the pilot's positions (make_pilot_data.py) unless ?data= names another file (?data=demo-trends.json: the demo)
+  const url = new URL(new URLSearchParams(location.search).get("data") || "pilot-trends.json", import.meta.url);
+  const load = () => regions ? loadData(url, REGION, { regionColors: REGION, extraColor: EXTRA }) : loadData(url, INK);
+  const data = await load();
   const plane = new Plane(document.getElementById("plane"), data, { textColor:"#1b1a17", axisColor:"#9a9284", frameColor:"#e2dacb", bg:"#f6f2ea", trailWidth: 2.5 });
   const map = await new WorldMap(document.getElementById("map"), data, { land:"#e3dccf", border:"#f6f2ea", focus:true,
     zoom: mapZoom, layout: mapLayout }).init();
@@ -52,5 +54,27 @@ export async function start({ mapZoom = false, index = true, table = false, regi
   // the page never rests on a page border, nor with the masthead half folded
   const pill = new PillNav(document.getElementById("nav"), { color:"#1b1a17", hillColor:"#cfc6b6", onColor:"#f6f2ea", offColor:"#1b1a17",
     offset: BAR, stops: () => [[0, morph.span], ...stops()] });
+  dateline(data);
+  if (data.meta.pilot)                 // while the pilot runs: new days join without a reload
+    setInterval(async () => {
+      let fresh;
+      try { fresh = await load(); } catch { return; }
+      if (fresh.meta.updated === data.meta.updated) return;
+      Object.assign(data, fresh);      // every part holds this one object
+      plane.cache.clear(); plane.filtered = null;
+      ui.slider.setMonths(data.months);
+      dateline(data);
+    }, 30_000);
   return { data, plane, map, ui, morph, pill, slider: ui.slider, table: tbl };
+}
+
+// the masthead's date and data label, and the page's data note, for the pilot's file
+function dateline(data) {
+  if (!data.meta.pilot) return;
+  const d = new Date(`${data.meta.updated}T00:00:00Z`), f = (o) => d.toLocaleDateString("en-GB", { ...o, timeZone: "UTC" });
+  const day = `${f({ weekday: "long" })} ${f({ day: "numeric" })} ${f({ month: "long" })} ${f({ year: "numeric" })}`;
+  const line = document.querySelector('[data-part="dateline"]');
+  if (line) line.innerHTML = `${day}<b>PILOT DATA</b>`;
+  const note = document.querySelector(".demo");
+  if (note) note.textContent = "Pilot · 2019 · positions as the pilot computed them, a point a week, updated while it runs";
 }

@@ -126,7 +126,7 @@
 
   const ctx = await start({ regions: true, table: true, index: false, mapLayout: "europe" });
   const { ui, plane, map, data, slider, table } = ctx;
-  const n = data.months.length - 1;
+  const last = () => data.months.length - 1;       // grows while the pilot runs
   const extra = data.national.Sweden.find((o) => o.tier !== "reference");
   const when = document.getElementById("when");
   const country = (id) => { if (plane.mode !== "country" || plane.country !== id) ui.open(id); };
@@ -141,12 +141,12 @@
   const showJudgment = (e) => {
     if (!e) return;
     const [a, b] = e.articles;
-    slider.set(n);
+    slider.set(last());
     if (a.country === b.country && data.national[a.country]) {
       country(a.country);
       plane.highlight([a.outlet_id, b.outlet_id]); table.mark([a.outlet_id, b.outlet_id]);
     } else {
-      world(n);
+      world(last());
       plane.highlight([a.country, b.country]); map.highlight([a.country, b.country]); table.mark([a.country, b.country]);
     }
   };
@@ -157,15 +157,15 @@
     start: (u, enter) => { if (enter) world(0); },
     drift: (u, enter) => {
       if (enter) world();
-      const t = Math.min(n, Math.max(0, u * 1.15 * n));
+      const t = Math.min(last(), Math.max(0, u * 1.15 * last()));
       slider.set(t);
       when.textContent = monthLabel(data.months[Math.round(t)]);
     },
-    region: (u, enter) => { if (enter) world(n, 0); },
-    country: (u, enter) => { if (enter) { country("Sweden"); slider.set(n); plane.highlight(null); table.mark(null); } },
-    hollow: (u, enter) => { if (enter) { country("Sweden"); slider.set(n); plane.highlight(extra.id); table.mark(extra.id); } },
+    region: (u, enter) => { if (enter) world(last(), 0); },
+    country: (u, enter) => { if (enter) { country("Sweden"); slider.set(last()); plane.highlight(null); table.mark(null); } },
+    hollow: (u, enter) => { if (enter) { country("Sweden"); slider.set(last()); plane.highlight(extra.id); table.mark(extra.id); } },
     judgment: (u, enter) => { if (enter) showJudgment(browser.current?.()); },
-    free: (u, enter) => { if (enter) world(n); },
+    free: (u, enter) => { if (enter) world(last()); },
   }, { progress: { container: document.querySelector(".scrolly"), bar: document.getElementById("progress") } });
 </script>
 </body>
