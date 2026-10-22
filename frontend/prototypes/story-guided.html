@@ -19,6 +19,7 @@
     <a data-target="explore" data-anchor="front" href="#explore">The map</a>
     <a data-target="how" href="#how">How it works</a>
     <a data-target="method" href="#method">Method</a>
+    <a data-target="data" href="#data">The data</a>
     <a data-target="about" href="#about">About</a>
   </nav>
   <div data-part="dateline" class="dateline">Tuesday 13 October 2026<b>DEMO DATA</b></div>
@@ -108,8 +109,18 @@
   </div>
 </section>
 
-<section class="page" id="about">
+<section class="page" id="data">
   <div class="no">03</div>
+  <div>
+    <h2>The data</h2>
+    <p>Every dot rests on two counts: the articles we hold, and the pairs among them — two outlets reporting the same
+       event — that the judge can compare. Week by week, since November 2015.</p>
+    <div id="weekly"></div>
+  </div>
+</section>
+
+<section class="page" id="about">
+  <div class="no">04</div>
   <div>
     <h2>About</h2>
     <p>An open-source project by Axel Solhall. This page is a design prototype; the movements are simulated, not measured.</p>
@@ -123,6 +134,9 @@
   import { monthLabel } from "./common.js";
   import { runStory } from "./story.js";
   import { loadJudgments, judgmentBrowser } from "./judgment.js";
+  import { weeklyChart } from "./data.js";
+
+  weeklyChart(document.getElementById("weekly"));   // the data section: on its own, it only shares the colours
 
   const ctx = await start({ regions: true, table: true, index: false, mapLayout: "europe" });
   const { ui, plane, map, data, slider, table } = ctx;

@@ -6,6 +6,7 @@
     PYTHONPATH=. uv run python -m pipeline.history.replay summary [--fraction 0.05]   # pairs per outlet and quarter
     ... --prefetched --judge local --judge-fraction 0.05     # a fixed share: 5 % of each day's new pairs
     ... --prefetched --judge local --target-sd 0.3 --calls-per-day 2000  # A68: until every outlet is that certain
+    PYTHONPATH=. uv run python -m pipeline.history.replay recompute   # A74: the judged days' positions, from the verdicts
 
 Per day d (resumable; each finished day is recorded in history_progress):
   1. candidates: d's GDELT articles that share people/places/organisations or headline words with another outlet's
@@ -25,6 +26,8 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import sqlite3
+import time
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -62,7 +65,7 @@ MIN_PER_WEEK = 5                # A69: every outlet with a pair today gets at le
 
 PAIR_COUNTS = """CREATE TABLE IF NOT EXISTS history_pair_counts (
     day TEXT PRIMARY KEY, story_run TEXT, pairs INTEGER, outlets INTEGER, articles INTEGER, by_outlet TEXT, counted_at TEXT,
-    new_pairs INTEGER)"""
+    new_pairs INTEGER, by_country TEXT)"""
 
 PROGRESS = """CREATE TABLE IF NOT EXISTS history_progress (
     day TEXT PRIMARY KEY, gdelt INTEGER, candidates INTEGER, fetched INTEGER, stories INTEGER, multi INTEGER,
@@ -75,6 +78,8 @@ def prepare(conn):
     conn.execute(PAIR_COUNTS)
     if "new_pairs" not in {r[1] for r in conn.execute("PRAGMA table_info(history_pair_counts)")}:
         conn.execute("ALTER TABLE history_pair_counts ADD COLUMN new_pairs INTEGER")     # tables from before 2026-10-18
+    if "by_country" not in {r[1] for r in conn.execute("PRAGMA table_info(history_pair_counts)")}:
+        conn.execute("ALTER TABLE history_pair_counts ADD COLUMN by_country TEXT")       # tables from before 2026-10-21
     conn.execute("CREATE TABLE IF NOT EXISTS same_text_pairs (run_id TEXT, a TEXT, b TEXT, jaccard REAL, PRIMARY KEY (run_id, a, b))")
     return conn
 
@@ -98,12 +103,18 @@ def article_id(url: str, title: str) -> str:
     return hashlib.sha256(f"{url}|{title}".encode()).hexdigest()[:32]
 
 
-def store_pages(conn, rows: list[dict], pages: dict) -> list[tuple[str, str]]:
-    """Insert fetched pages as articles; returns [(article id, text to vectorize)] for the new ones."""
+def store_pages(conn, rows: list[dict], pages: dict, source: str = "gdelt",
+                junk: set | None = None) -> list[tuple[str, str]]:
+    """Insert fetched pages as articles; returns [(article id, text to vectorize)] for the new ones. source: where the
+    page came from, kept in feed_url ("gdelt": the publisher; the backfill's archive copies say so, A75). A page that
+    is not an article (a bot wall, a section page: quality.kept, A76; junk: the titles known to be such) is not
+    stored."""
+    from pipeline.history import quality
     new, now = [], utc_now_iso()
+    ok = quality.kept([(r["url"], r["outlet"], pages.get(r["url"])) for r in rows], junk)
     for r in rows:
         p = pages.get(r["url"])
-        if not p:
+        if not p or r["url"] not in ok:
             continue
         seen = r["seen"].replace(tzinfo=dt.timezone.utc) if r["seen"].tzinfo is None else r["seen"]
         if p.published:
@@ -112,7 +123,7 @@ def store_pages(conn, rows: list[dict], pages: dict) -> list[tuple[str, str]]:
                 continue
         published = p.published or seen.strftime("%Y-%m-%dT%H:%M:%SZ")
         a = Article(id=article_id(r["url"], p.title), outlet_id=r["outlet"], country=r["country"], url=r["url"],
-                    title=p.title, published=published, summary=p.summary, full_text=None, feed_url="gdelt",
+                    title=p.title, published=published, summary=p.summary, full_text=None, feed_url=source,
                     ingested_at=now, text_source="history-meta")
         if store.insert_article(conn, a):
             new.append((a.id, f"{p.title}\n{p.summary or ''}".strip()))
@@ -124,7 +135,7 @@ def embed_missing(conn, day: dt.date, encoder, model_name: str) -> int:
     """Vectorize the day's stored articles that have no vector for this model yet (prefetched days)."""
     rows = conn.execute("""SELECT a.id, a.title, a.summary FROM articles a LEFT JOIN embeddings e
                            ON e.article_id = a.id AND e.model = ? WHERE e.article_id IS NULL
-                           AND a.published >= ? AND a.published < ?""",
+                           AND a.published >= ? AND a.published < ? AND a.kind IS NULL""",
                         (model_name, f"{day.isoformat()}T00:00:00Z", f"{(day + dt.timedelta(days=1)).isoformat()}T00:00:00Z")).fetchall()
     if rows:
         store.save_embeddings(conn, model_name, [r["id"] for r in rows],
@@ -145,14 +156,17 @@ def add_day(conn, rows: list[dict], encoder, model_name: str) -> int:
     return len(new)
 
 
+_my_runs: set[str] = set()       # the story run this process saved last (regroup drops it when it saves the next)
+
+
 def regroup(conn, day: dt.date, model_name: str, threshold: float, window_days: int = 7,
             vectors=None) -> tuple[str, int, int]:
     """The day's story run over the window [day − 6, day]. Vectors from the database, or from a VectorFile
     (pipeline.history.vectors) when the history's vectors live outside it."""
     start = (day - dt.timedelta(days=window_days - 1)).strftime("%Y-%m-%dT00:00:00Z")
     end = (day + dt.timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
-    rows = conn.execute("SELECT id, published FROM articles WHERE published >= ? AND published < ? ORDER BY published",
-                        (start, end)).fetchall()
+    rows = conn.execute("SELECT id, published FROM articles WHERE published >= ? AND published < ? "
+                        "AND kind IS NULL ORDER BY published", (start, end)).fetchall()        # A76: not tagged junk
     ids, V = (vectors.rows_for(conn, [r["id"] for r in rows]) if vectors is not None
               else store.load_embeddings(conn, model_name, [r["id"] for r in rows]))
     pos = {i: k for k, i in enumerate(ids)}
@@ -162,10 +176,15 @@ def regroup(conn, day: dt.date, model_name: str, threshold: float, window_days: 
     labels = cluster(V, hours, ClusterConfig(method="average", threshold=threshold))
     run_id = f"{day.isoformat()}_history_{threshold}"
     # only the day's run is kept: nothing reads an old one (verdicts carry their story and articles), and keeping every
-    # day's ≈ 12,000 memberships would add ≈ 46 M rows over the eleven years
-    conn.execute("DELETE FROM event_members WHERE run_id GLOB '*_history_*' AND run_id != ?", (run_id,))
+    # day's ≈ 12,000 memberships would add ≈ 46 M rows over the eleven years. Only this process's own earlier run is
+    # dropped: dry runs over different years run side by side, and each would delete the run the other is counting.
+    for old in _my_runs - {run_id}:
+        conn.execute("DELETE FROM event_members WHERE run_id = ?", (old,))
+    conn.execute("DELETE FROM event_members WHERE run_id = ?", (run_id,))          # a day grouped again: no stale rows
     store.save_events(conn, run_id, {r["id"]: f"{day.isoformat()}:ev{l}" for r, l in zip(rows, labels)})
     conn.commit()
+    _my_runs.clear()
+    _my_runs.add(run_id)
     sizes = Counter(labels)
     return run_id, len(sizes), sum(n > 1 for n in sizes.values())
 
@@ -202,14 +221,20 @@ def new_pairs(conn, cands, day: dt.date) -> list:
 
 
 def count_day(conn, day: dt.date, run: str | None = None) -> int:
-    """The free dry run: the pairs new today, per outlet, and the whole pool (no judge, nothing marked done)."""
+    """The free dry run: the pairs new today, per outlet and per country (a pair counts once for each country it
+    touches: two outlets of one country are one pair for it — the site's weekly chart, A77), and the whole pool (no
+    judge, nothing marked done)."""
     import json
+    from pipeline.sources.registry import load_outlets
     cands, ctx = day_candidates(conn, day, run)
     new = new_pairs(conn, cands, day)
     by_outlet = Counter(o for c in new for o in (c.outlet_a, c.outlet_b))
-    conn.execute("INSERT OR REPLACE INTO history_pair_counts VALUES (?,?,?,?,?,?,?,?)",
+    country = {o.id: o.country for o in load_outlets()}
+    by_country = Counter(k for c in new for k in {country.get(c.outlet_a), country.get(c.outlet_b)} - {None})
+    conn.execute("INSERT OR REPLACE INTO history_pair_counts VALUES (?,?,?,?,?,?,?,?,?)",
                  (day.isoformat(), ctx.get("run"), len(cands), len(by_outlet),
-                  len({a for c in new for a in (c.article_a, c.article_b)}), json.dumps(by_outlet), utc_now_iso(), len(new)))
+                  len({a for c in new for a in (c.article_a, c.article_b)}), json.dumps(by_outlet), utc_now_iso(), len(new),
+                  json.dumps(by_country)))
     conn.commit()
     return len(new)
 
@@ -367,20 +392,60 @@ def advance(conn, states: dict, last_rowid: int, day: dt.date) -> int:
     return last_rowid
 
 
-def spreads(conn, states: dict, day: dt.date) -> None:
+def spreads(conn, states: dict, day: dt.date, before: str | None = None) -> None:
     """σ_a (how much an outlet's articles differ) re-estimated over the last HYPER_WINDOW_DAYS of verdicts only — a
-    bounded fit; it sets the prior of articles not seen yet. Kept as it was when that span has no verdicts."""
+    bounded fit; it sets the prior of articles not seen yet. Kept as it was when that span has no verdicts. before:
+    only verdicts recorded before that time (a recompute sees what the run saw that day)."""
     from pipeline.measure.run import best_hyper, fit
     outlets = next(iter(states.values())).outlets
     since = (day - dt.timedelta(days=HYPER_WINDOW_DAYS)).isoformat()
-    posts, n = fit(conn, outlets, PURPOSE, None, since=since)
+    posts, n = fit(conn, outlets, PURPOSE, None, since=since, before=before)
     if n:
         for ax, (_, sigma_a) in best_hyper(posts).items():
             states[ax].sigma_a = sigma_a
 
 
+def recompute(conn, path: Path) -> int:
+    """The positions of every day already judged, recomputed from the saved verdicts with today's update rule (A74):
+    day by day as the run made them — σ_a from the verdicts recorded before that day, then that day's verdicts — and
+    written as the run writes them. No judging, no grouping. Returns the days recomputed."""
+    from pipeline.measure.run import A_FULL, A_SUMMARY
+    from pipeline.rate.model import BTConfig
+    from pipeline.sources.registry import load_outlets, reference_groups
+    from pipeline.judge import prompt as P
+    days = conn.execute("SELECT day, done_at FROM history_progress ORDER BY day").fetchall()
+    outlets = sorted(o.id for o in load_outlets())
+    groups = reference_groups(load_outlets())
+    states = {ax: HP.start(outlets, ax, BTConfig().prior_sd, SIGMA_A_START) for ax in P.AXES}
+    rowid, hyper_day, before = 0, None, None
+    for r in days:
+        day = dt.date.fromisoformat(r["day"])
+        if hyper_day is None or (day - hyper_day).days >= HYPER_EVERY_DAYS:
+            if before is not None:
+                spreads(conn, states, day, before=before)
+            hyper_day = day
+        rows, rowid = HP.new_verdicts(conn, PURPOSE, rowid, A_FULL, A_SUMMARY, until_at=r["done_at"])
+        for ax, st in states.items():
+            HP.update(st, rows[ax])
+            HP.drop_before(st, HP.window_start(day))
+        HP.record_day(conn, r["day"], states, groups)
+        before = r["done_at"]
+    conn.commit()
+    if days:
+        HP.save(path, days[-1]["day"], rowid, states)
+    return len(days)
+
+
 def main():
     import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "recompute":
+        ap = argparse.ArgumentParser(prog="replay recompute")
+        ap.add_argument("recompute")
+        ap.add_argument("--db", default=str(DB))
+        a = ap.parse_args()
+        conn = prepare(store.connect(a.db))
+        print(f"{recompute(conn, Path(a.db).with_name('positions.npz')):,} days of positions recomputed")
+        return
     if len(sys.argv) > 1 and sys.argv[1] == "summary":
         ap = argparse.ArgumentParser(prog="replay summary")
         ap.add_argument("summary")
@@ -408,6 +473,8 @@ def main():
     ap.add_argument("--min-per-week", type=int, default=MIN_PER_WEEK,
                     help="A69: comparisons every outlet gets in any 7 days, before the most informative picks")
     ap.add_argument("--count-only", action="store_true", help="group and count pairs only: no judge, nothing marked done")
+    ap.add_argument("--recount", action="store_true", help="with --count-only: count days again that are counted already "
+                    "(a year's first days, counted before the year before had vectors: their window was short)")
     ap.add_argument("--prefetched", action="store_true", help="pages were fetched by pipeline.history.prefetch: only vectorize")
     ap.add_argument("--vectors", type=Path, help="vectors computed ahead, outside the database (pipeline.history.vectors)")
     args = ap.parse_args()
@@ -441,7 +508,7 @@ def main():
     angle_model, angle_day = None, None
     done = {r["day"] for r in conn.execute("SELECT day FROM history_progress")}
     if args.count_only:
-        done = {r["day"] for r in conn.execute("SELECT day FROM history_pair_counts")}
+        done = set() if args.recount else {r["day"] for r in conn.execute("SELECT day FROM history_pair_counts")}
     day, end, year_cache = dt.date.fromisoformat(args.start), dt.date.fromisoformat(args.end), {}
     if not args.count_only:
         state_path = Path(args.db).with_name("positions.npz")
@@ -451,21 +518,34 @@ def main():
         if day.isoformat() in done:
             day += dt.timedelta(days=1)
             continue
-        if day.year not in year_cache:
-            year_cache.clear()
-            year_cache[day.year] = H2.load_year(day.year)
-        rows = year_cache[day.year].get(day, [])
+        if args.prefetched and args.count_only:            # GDELT's rows only pick what to fetch: ≈ 6 GB a year
+            rows = []
+        else:
+            if day.year not in year_cache:
+                year_cache.clear()
+                year_cache[day.year] = H2.load_year(day.year)
+            rows = year_cache[day.year].get(day, [])
         if args.prefetched:
             cand, fetched = [], (0 if vectors is not None else embed_missing(conn, day, encoder, args.embed_model))
         else:
             cand = prefilter(rows) if rows else []
             fetched = add_day(conn, cand, encoder, args.embed_model) if cand else 0
-        run_id, n_stories, multi = regroup(conn, day, args.embed_model, args.threshold, vectors=vectors)
-        if args.count_only:
-            print(f"{day}: window stories {n_stories:,} ({multi:,} multi) · new judgeable pairs "
-                  f"{count_day(conn, day, run_id):,}", flush=True)
+        if args.count_only:                              # the backfill writes alongside: a day the database was
+            for attempt in range(10):                    # locked for (> 2 min) is grouped and counted again
+                try:
+                    run_id, n_stories, multi = regroup(conn, day, args.embed_model, args.threshold, vectors=vectors)
+                    n_new = count_day(conn, day, run_id)
+                    break
+                except sqlite3.OperationalError as e:
+                    if "locked" not in str(e) or attempt == 9:
+                        raise
+                    conn.rollback()
+                    print(f"{day}: database locked, again in 30 s", flush=True)
+                    time.sleep(30)
+            print(f"{day}: window stories {n_stories:,} ({multi:,} multi) · new judgeable pairs {n_new:,}", flush=True)
             day += dt.timedelta(days=1)
             continue
+        run_id, n_stories, multi = regroup(conn, day, args.embed_model, args.threshold, vectors=vectors)
         if last_day is not None and day.isoformat() <= last_day:
             raise SystemExit(f"{day}: the positions are already at {last_day} and only move forward (A74)")
         if hyper_day is None or (day - hyper_day).days >= HYPER_EVERY_DAYS:

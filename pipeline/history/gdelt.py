@@ -37,6 +37,11 @@ ALIASES = {
     "tgcom24": [("tgcom24.mediaset.it", "")],
     "tf1info": [("tf1info.fr", ""), ("lci.fr", "")],
     "mtv-fi": [("mtvuutiset.fi", ""), ("mtv.fi", "")],
+    # the same outlets' earlier addresses (A75: the backfill's query for outlets with no GDELT rows)
+    "tvm-mal": [("tvmnews.mt", ""), ("tvm.com.mt", "")],
+    "pobjeda-mon": [("pobjeda.me", ""), ("pobjeda.co.me", "")],
+    "cybc-cyp": [("cybc.com.cy", ""), ("riknews.com.cy", "")],
+    "berlingske": [("berlingske.dk", ""), ("b.dk", "")],
 }
 
 
@@ -45,9 +50,14 @@ def reg_domain(host: str) -> str:
     return ".".join(parts[-3:]) if ".".join(parts[-2:]) in SUFFIX2 else ".".join(parts[-2:])
 
 
-def outlet_rules() -> tuple[list[dict], list[tuple[str, str, str]]]:
-    """(outlets, rules): a rule (outlet id, host suffix, path prefix); the longest matching rule wins."""
-    outlets = json.loads(Path("data/history_outlets.json").read_text())["outlets"]
+def outlet_rules(ids: list[str] | None = None) -> tuple[list[dict], list[tuple[str, str, str]]]:
+    """(outlets, rules): a rule (outlet id, host suffix, path prefix); the longest matching rule wins. ids: only these
+    outlets, taken from the registry (the backfill's query for outlets the first one did not cover, A75)."""
+    if ids:
+        from pipeline.sources.registry import load_outlets
+        outlets = [{"id": o.id, "country": o.country, "homepage": o.homepage} for o in load_outlets() if o.id in ids]
+    else:
+        outlets = json.loads(Path("data/history_outlets.json").read_text())["outlets"]
     rules = []
     for o in outlets:
         if o["id"] in ALIASES:
@@ -81,7 +91,7 @@ WHERE _PARTITIONTIME >= TIMESTAMP(@start) AND _PARTITIONTIME < TIMESTAMP(@end)
 """
 
 
-def run(project: str, years: list[int], dry: bool):
+def run(project: str, years: list[int], dry: bool, ids: list[str] | None = None, out: Path = OUT):
     import pyarrow as pa
     import pyarrow.compute as pc
     import pyarrow.parquet as pq
@@ -89,14 +99,14 @@ def run(project: str, years: list[int], dry: bool):
 
     from pipeline import net  # noqa: F401  — BASEDNEWS_IPV4=1 takes effect on import (broken IPv6 at home)
 
-    outlets, rules = outlet_rules()
+    outlets, rules = outlet_rules(ids)
     country = {o["id"]: o["country"] for o in outlets}
     domains = sorted({reg_domain(h) for _, h, _ in rules})
     client = bigquery.Client(project=project)
-    OUT.mkdir(parents=True, exist_ok=True)
+    out.mkdir(parents=True, exist_ok=True)
     total = 0.0
     for y in years:
-        path = OUT / f"year={y}.parquet"
+        path = out / f"year={y}.parquet"
         if path.exists() and not dry:
             print(f"{y}: on disk, skipped")
             continue
@@ -148,10 +158,12 @@ def main():
     ap.add_argument("--years", type=int, nargs="*", default=list(range(START.year, dt.date.today().year + 1)))
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--report", action="store_true")
+    ap.add_argument("--outlets", nargs="*", help="only these registry outlets (A75), written to --out")
+    ap.add_argument("--out", type=Path, default=OUT)
     args = ap.parse_args()
     if args.report:
         return report()
-    run(args.project, args.years, args.dry_run)
+    run(args.project, args.years, args.dry_run, args.outlets, args.out)
 
 
 if __name__ == "__main__":

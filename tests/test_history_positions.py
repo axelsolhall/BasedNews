@@ -1,5 +1,6 @@
 """Day-by-day positions (pipeline.history.positions, A74): yesterday's posterior is today's prior, only today's verdicts
-move it, the state stays the same size, and the answer matches one fit over all the verdicts."""
+move it, the state stays the same size; without the floor the answer matches one fit over all the verdicts, and with
+it a position never freezes."""
 import datetime as dt
 
 import numpy as np
@@ -40,7 +41,7 @@ def test_day_by_day_matches_one_fit_over_everything():
     days = days_of_verdicts()
     s = HP.start(OUTLETS, "econ", tau=1.0, sigma_a=0.4)
     for _, rows in days:
-        HP.update(s, rows)
+        HP.update(s, rows, floor=0.0)                 # no floor: one fixed position per outlet, as the batch fit
     allrows = [r for _, rows in days for r in rows]
     batch = HierarchicalBT(OUTLETS, "econ").fit([r[:4] + (r[6],) for r in allrows], [r[7] for r in allrows],
                                                 sigma_a=0.4, tau=1.0)
@@ -51,12 +52,12 @@ def test_day_by_day_matches_one_fit_over_everything():
     assert np.corrcoef(s.mean[:n], [TRUE[o] for o in OUTLETS])[0, 1] > 0.95
 
 
-def test_more_verdicts_only_sharpen_and_the_state_stays_the_same_size():
+def test_without_the_floor_more_verdicts_only_sharpen_and_the_state_stays_the_same_size():
     s = HP.start(OUTLETS, "econ", tau=1.0, sigma_a=0.4)
     sd = np.sqrt(np.diag(s.cov)[:len(OUTLETS)])
     sizes = []
     for day, rows in days_of_verdicts(n_days=30):
-        HP.update(s, rows)
+        HP.update(s, rows, floor=0.0)
         HP.drop_before(s, HP.window_start(day))
         now = np.sqrt(np.diag(s.cov)[:len(OUTLETS)])
         assert np.all(now <= sd + 1e-12)
@@ -94,3 +95,24 @@ def test_the_planner_reads_the_state_as_a_fit():
     h = s.posterior()
     assert h.outlets == OUTLETS and h.articles == s.articles and h.sigma_a == 0.4
     assert h.article_index()[s.articles[0]] == len(OUTLETS) + 1
+
+
+def test_positions_never_freeze():
+    """After a month of verdicts, three upsets still move the top outlet's score; without the floor the same three
+    barely move it. (Less than three full Elo steps: the update shares each surprise with the other outlet, the two
+    articles and the order bias.)"""
+    moved = {}
+    for floor in (0.0, HP.FLOOR_VAR):
+        # τ 0.3: six outlets' common level is then known to ±0.12 (only differences are measured), so a month of
+        # verdicts takes an outlet's sd below the floor's 0.40 — the case the floor is for
+        s = HP.start(OUTLETS, "econ", tau=0.3, sigma_a=0.1)
+        for _, rows in days_of_verdicts(n_days=30, per_day=80, sigma_a=0.1):
+            HP.update(s, rows, floor=floor)
+        k = OUTLETS.index("f")                                   # the top outlet loses three times to the bottom one
+        if floor == 0.0:
+            assert s.cov[k, k] < HP.FLOOR_VAR / 4
+        before = s.mean[k]
+        upsets = [("f", "a", f"u{i}", f"v{i}", "2019-02-01", "2019-02-01", 0.6, False) for i in range(3)]
+        HP.update(s, upsets, floor=floor)
+        moved[floor] = before - s.mean[k]
+    assert moved[HP.FLOOR_VAR] > 3 * moved[0.0]                 # measured 2026-10-19: 0.062 against 0.010

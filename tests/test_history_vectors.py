@@ -135,3 +135,32 @@ def test_parts_by_day_read_together_as_one(tmp_path):
     assert a == b and a[2] == 10
     found, M = hv.VectorFile(root, "story-model").rows_for(conn, ["missing"])
     assert found == [] and M.shape == (0, 32)
+
+
+def test_a_new_part_holds_only_the_articles_added_since(tmp_path):
+    """export --new-for: what the backfill added after the first embedding, as a part of its own; together they
+    group exactly as one file of all of them."""
+    conn = history_db(tmp_path / "h.sqlite")
+    root = tmp_path / "vec"
+    conn.execute("UPDATE articles SET kind = 'later' WHERE id LIKE '%k2'")          # not there yet at the first export
+    conn.commit()
+    assert hv.export(conn, root / "first") == 20
+    embed_texts.embed_file(StoryModel(), root / "first" / "texts.jsonl", root / "first" / "vectors.npy", chunk=7,
+                           dtype="float16")
+    hv.import_index(conn, "story-model", root / "first")
+    conn.execute("UPDATE articles SET kind = NULL")                                  # the backfill adds them
+    conn.commit()
+    assert hv.export(conn, root / "add", new_for="story-model") == 10
+    assert all("take 2" in json.loads(ln)["t"] for ln in (root / "add" / "texts.jsonl").read_text().splitlines())
+    embed_texts.embed_file(StoryModel(), root / "add" / "texts.jsonl", root / "add" / "vectors.npy", chunk=7,
+                           dtype="float16")
+    hv.import_index(conn, "story-model", root / "add")
+    assert hv.export(conn, root / "none", new_for="story-model") == 0
+    whole = tmp_path / "whole" / "all"
+    hv.export(conn, whole)
+    embed_texts.embed_file(StoryModel(), whole / "texts.jsonl", whole / "vectors.npy", chunk=7, dtype="float16")
+    other = history_db(tmp_path / "o.sqlite")
+    hv.import_index(other, "story-model", whole)
+    a = replay.regroup(conn, DAY, "story-model", 0.8, vectors=hv.VectorFile(root, "story-model"))
+    b = replay.regroup(other, DAY, "story-model", 0.8, vectors=hv.VectorFile(whole.parent, "story-model"))
+    assert a == b and a[2] == 10

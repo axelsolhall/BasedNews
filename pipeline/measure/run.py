@@ -114,16 +114,20 @@ def with_angle(conn, cands: list, purpose: str, embed_model: str) -> tuple[list,
     return (AN.apply(cands, model, vec_of), model.n_labels) if model else (cands, 0)
 
 
-def fit(conn, outlet_ids, purpose="measure", hyper=None, since: str | None = None):
+def fit(conn, outlet_ids, purpose="measure", hyper=None, since: str | None = None, before: str | None = None):
     """Hierarchical fit per axis (A49): {axis: HierPosterior}. hyper={axis: (τ, σ_a)} fixes the spreads (fast, used
     inside the loop); None averages over the grid by evidence (used at the start and for the final positions).
-    since: only verdicts on articles both published from that date on (the history's planner window)."""
+    since: only verdicts on articles both published from that date on (the history's planner window).
+    before: only verdicts recorded before that time (the history's positions recomputed as they were then)."""
     window = "" if since is None else (" AND c.first_article IN (SELECT id FROM articles WHERE published >= :since)"
                                        " AND c.second_article IN (SELECT id FROM articles WHERE published >= :since)")
+    if before is not None:
+        window += " AND c.at < :before"
     rows = conn.execute("""SELECT c.first_outlet, c.second_outlet, c.first_article, c.second_article, c.text_kind,
                                   j.axis, j.first_wins FROM judgments j JOIN judge_calls c ON c.call_id = j.call_id
                            WHERE c.purpose = :purpose AND c.prompt_version = :version AND j.first_wins IS NOT NULL"""
-                        + window, {"purpose": purpose, "version": P.PROMPT_VERSION, "since": since}).fetchall()
+                        + window, {"purpose": purpose, "version": P.PROMPT_VERSION, "since": since,
+                                   "before": before}).fetchall()
     known = set(outlet_ids)
     posts = {}
     for ax in P.AXES:

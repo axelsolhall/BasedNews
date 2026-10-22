@@ -94,3 +94,6 @@ infra/main/.build/
 # --- Design prototypes: real judge outputs stay local until publishing examples is decided --------------------
 frontend/prototypes/judgments.json
 frontend/prototypes/pilot-trends.json
+frontend/prototypes/coverage.json
+frontend/prototypes/weekly.json
+frontend/prototypes/coverage-articles.json

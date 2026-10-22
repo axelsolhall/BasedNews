@@ -9,7 +9,9 @@ dropped), so the state stays the same size year after year. Every outlet has a p
 (history_positions), and so does every country (history_country_positions, with its sd from the day's joint
 uncertainty); the planner picks the next day's pairs from the latest one.
 
-More verdicts only ever sharpen a position: nothing is added back between days (A74).
+Positions never freeze (the maintainer, 2026-10-19): like Elo with a fixed K, a comparison always moves a score. An
+outlet's uncertainty is kept from falling below the level at which one comparison moves its score as far as an Elo
+step of ELO_K would (FLOOR_VAR): up to that level more verdicts sharpen it; past it they keep it moving.
 """
 from __future__ import annotations
 
@@ -22,12 +24,19 @@ from pathlib import Path
 import numpy as np
 
 from pipeline.judge import prompt as P
+from pipeline.measure.run import A_SUMMARY
 from pipeline.rate.hierarchical import HierPosterior
 from pipeline.rate.model import BTConfig, sigmoid
 
 POSITIONS = """CREATE TABLE IF NOT EXISTS history_positions (
     day TEXT NOT NULL, axis TEXT NOT NULL, outlet TEXT NOT NULL, mean REAL NOT NULL, sd REAL NOT NULL,
     PRIMARY KEY (day, axis, outlet))"""
+# ELO_K: the maintainer's step size (2026-10-19: "10"). Elo's win chance 1/(1 + 10^(−ΔR/400)) is σ(ΔR·ln10/400) and
+# ours σ(a·Δθ), so an Elo step K·(won − expected) is Δθ = K·ln10/(400·a)·(won − expected); one comparison moves a
+# score by ≈ var·a·(won − expected), so the two match at var = K·ln10/(400·a²) — for a headline comparison
+# (a = A_SUMMARY) ≈ 0.16, an sd of ≈ 0.40.
+ELO_K = 10
+FLOOR_VAR = ELO_K * np.log(10) / (400 * A_SUMMARY ** 2)
 COUNTRIES = """CREATE TABLE IF NOT EXISTS history_country_positions (
     day TEXT NOT NULL, axis TEXT NOT NULL, country TEXT NOT NULL, mean REAL NOT NULL, sd REAL NOT NULL,
     PRIMARY KEY (day, axis, country))"""
@@ -63,9 +72,10 @@ def start(outlets: list[str], axis: str, tau: float, sigma_a: float, cfg: BTConf
                      sigma_a, tau)
 
 
-def update(s: AxisState, rows: list[tuple], cfg: BTConfig | None = None) -> None:
+def update(s: AxisState, rows: list[tuple], cfg: BTConfig | None = None, floor: float = FLOOR_VAR) -> None:
     """Today's verdicts on this axis: rows of (first_outlet, second_outlet, first_article, second_article,
-    first_published_day, second_published_day, discrimination, first_wins)."""
+    first_published_day, second_published_day, discrimination, first_wins). First every outlet's variance is brought
+    back up to `floor` where it fell below (positions never freeze); floor 0 = a fixed position per outlet."""
     if not rows:
         return
     cfg = cfg or BTConfig()
@@ -74,6 +84,9 @@ def update(s: AxisState, rows: list[tuple], cfg: BTConfig | None = None) -> None
     rows = [r for r in rows if r[0] in oidx and r[1] in oidx]
     if not rows:
         return
+    if floor > 0:                                   # adding to the diagonal keeps the covariance valid
+        lift = np.maximum(0.0, floor - np.diag(s.cov)[:n])
+        s.cov[np.arange(n), np.arange(n)] += lift
     aidx = {a: n + 1 + k for k, a in enumerate(s.articles)}
     new = {}
     for r in rows:
@@ -129,16 +142,21 @@ def drop_before(s: AxisState, day: str) -> None:
     s.born = [s.born[k] for k in keep]
 
 
-def new_verdicts(conn, purpose: str, after_rowid: int, a_full: float, a_summary: float) -> tuple[dict, int]:
-    """The verdicts recorded since `after_rowid` ({axis: rows for update}), and the last rowid read."""
+def new_verdicts(conn, purpose: str, after_rowid: int, a_full: float, a_summary: float,
+                 until_at: str | None = None) -> tuple[dict, int]:
+    """The verdicts recorded since `after_rowid` ({axis: rows for update}), and the last rowid read; until_at: only
+    those recorded by then (recompute: one replayed day at a time)."""
+    upto = "" if until_at is None else " AND c.at <= :until"
     rows = conn.execute("""SELECT c.rowid AS rid, c.first_outlet, c.second_outlet, c.first_article, c.second_article,
                                   substr(a.published, 1, 10) AS pa, substr(b.published, 1, 10) AS pb, c.text_kind,
                                   j.axis, j.first_wins
                            FROM judge_calls c JOIN judgments j ON j.call_id = c.call_id
                            JOIN articles a ON a.id = c.first_article JOIN articles b ON b.id = c.second_article
-                           WHERE c.purpose = ? AND c.prompt_version = ? AND c.rowid > ? AND j.first_wins IS NOT NULL
-                           ORDER BY c.rowid""", (purpose, P.PROMPT_VERSION, after_rowid)).fetchall()
-    last = conn.execute("SELECT max(rowid) FROM judge_calls").fetchone()[0] or after_rowid
+                           WHERE c.purpose = :p AND c.prompt_version = :v AND c.rowid > :after AND j.first_wins IS NOT NULL"""
+                        + upto + " ORDER BY c.rowid",
+                        {"p": purpose, "v": P.PROMPT_VERSION, "after": after_rowid, "until": until_at}).fetchall()
+    last = conn.execute("SELECT max(rowid) FROM judge_calls" + ("" if until_at is None else " WHERE at <= ?"),
+                        () if until_at is None else (until_at,)).fetchone()[0] or after_rowid
     out: dict[str, list] = {ax: [] for ax in P.AXES}
     for r in rows:
         out[r["axis"]].append((r["first_outlet"], r["second_outlet"], r["first_article"], r["second_article"], r["pa"],

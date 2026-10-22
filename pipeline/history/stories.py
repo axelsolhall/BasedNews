@@ -32,6 +32,7 @@ from scipy.sparse.csgraph import connected_components
 from scipy.spatial.distance import squareform
 
 SRC = Path("data/history/gdelt")
+MORE = Path("data/history/gdelt_more")                    # gdelt_raw: outlets the first query left out
 OUT = Path("data/history/stories")
 THRESHOLD = 0.35          # cosine on idf-weighted entities; set from --eval (precision first)
 MAX_DF = 0.02             # an entity in more than 2 % of the day's articles links unrelated stories: dropped
@@ -143,9 +144,46 @@ def day_stories(day, rows: list[dict], threshold: float) -> list[dict]:
 
 
 def load_year(year: int):
+    """GDELT's articles of the year by day: the first query's file, and the raw-file months for the outlets it left
+    out (gdelt_raw, A75)."""
     import pyarrow.parquet as pq
-    t = pq.read_table(SRC / f"year={year}.parquet", columns=["seen", "url", "persons", "orgs", "places", "outlet", "country"])
-    rows = t.to_pylist()
+    cols = ["seen", "url", "persons", "orgs", "places", "outlet", "country"]
+    rows = pq.read_table(SRC / f"year={year}.parquet", columns=cols).to_pylist()
+    seen = {r["url"] for r in rows}
+    for f in sorted(MORE.glob(f"{year}-*.parquet")):
+        for r in pq.read_table(f, columns=cols).to_pylist():
+            if r["url"] not in seen:
+                seen.add(r["url"])
+                rows.append(r)
+    by_day = defaultdict(list)
+    for r in rows:
+        by_day[r["seen"].date()].append(r)
+    return by_day
+
+
+def load_month(year: int, month: int):
+    """load_year for one month only (the backfill: a year of rows held as dicts took ≈ 5.5 GB per process)."""
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    cols = ["seen", "url", "persons", "orgs", "places", "outlet", "country"]
+    lo = dt.datetime(year, month, 1, tzinfo=dt.timezone.utc)
+    hi = dt.datetime(year + (month == 12), month % 12 + 1, 1, tzinfo=dt.timezone.utc)
+    import pyarrow.compute as pc
+    f = pq.ParquetFile(SRC / f"year={year}.parquet")
+    rows = []
+    for g in range(f.metadata.num_row_groups):              # the year's rows are not in time order: every group spans
+        t = f.read_row_group(g, columns=cols)               # the year, so read one at a time and keep the month's
+        t = t.filter(pc.and_(pc.greater_equal(t["seen"], pa.scalar(lo, t["seen"].type)),
+                             pc.less(t["seen"], pa.scalar(hi, t["seen"].type))))
+        rows += t.to_pylist()
+        del t
+    seen = {r["url"] for r in rows}
+    more = MORE / f"{year}-{month:02d}.parquet"
+    if more.exists():
+        for r in pq.read_table(more, columns=cols).to_pylist():
+            if r["url"] not in seen:
+                seen.add(r["url"])
+                rows.append(r)
     by_day = defaultdict(list)
     for r in rows:
         by_day[r["seen"].date()].append(r)

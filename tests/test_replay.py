@@ -60,6 +60,8 @@ def test_count_only_records_counts_without_marking_the_day_done(conn):
     r = conn.execute("SELECT * FROM history_pair_counts").fetchone()
     assert r["pairs"] == 36 and r["outlets"] == 6 and r["articles"] == 24
     assert sum(json.loads(r["by_outlet"]).values()) == 72      # each pair counts for both outlets
+    assert json.loads(r["by_country"]) == {"Norway": 28, "Sweden": 28}   # once per country it touches: 8 within each,
+                                                                       # 20 across (8 + 20 = 28)
     assert conn.execute("SELECT count(*) FROM history_progress").fetchone()[0] == 0
     assert r["new_pairs"] == 36                                 # every article is from DAY: all pairs are new
     out = replay.summary(conn, 0.5)

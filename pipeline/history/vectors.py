@@ -8,6 +8,9 @@ judged as soon as it and its 7-day margin are embedded; the parts live side by s
         --start 2018-12-25 --end 2019-12-31
     #   (PC, GPU) python infra/pc/embed_texts.py --model BAAI/bge-m3 --input texts.jsonl --output vectors.npy --dtype float16
     PYTHONPATH=. uv run python -m pipeline.history.vectors import --model bge-m3 --dir data/history/vec/2019
+    #   later, only what was added since (a new part beside the others; the backfill keeps adding):
+    PYTHONPATH=. uv run python -m pipeline.history.vectors export --model BAAI/bge-m3 --new-for bge-m3 \\
+        --out data/history/vec/add-20261021 --start 2018-12-25 --end 2019-12-31
     ... pipeline.history.replay --prefetched --embed-model bge-m3 --vectors data/history/vec ...
 
 What is embedded is what the replay has always embedded for a history article: "headline\\ndescription", with the
@@ -33,21 +36,27 @@ def text_of(r) -> str:
     return f"{r['title']}\n{r['summary'] or ''}".strip()
 
 
-def export(conn, out: Path, prefix: str = "", start: dt.date | None = None, end: dt.date | None = None) -> int:
+def export(conn, out: Path, prefix: str = "", start: dt.date | None = None, end: dt.date | None = None,
+           new_for: str | None = None) -> int:
     """The stored history articles published from `start` to `end` (days, both included; open when None), in
-    publication order: texts.jsonl (one text a line) and ids.txt (same order)."""
+    publication order: texts.jsonl (one text a line) and ids.txt (same order). new_for: only the articles that have
+    no vector of that model yet (an article the backfill added after the last embedding) — a part of its own, read
+    beside the others (vector_rows says which part holds an article)."""
     out.mkdir(parents=True, exist_ok=True)
+    conn.execute(ROWS)
     lo = f"{start.isoformat()}T00:00:00Z" if start else ""
     hi = f"{(end + dt.timedelta(days=1)).isoformat()}T00:00:00Z" if end else "~"
     n = 0
     with open(out / "texts.jsonl", "w", encoding="utf-8") as ft, open(out / "ids.txt", "w") as fi:
+        new = " AND id NOT IN (SELECT article_id FROM vector_rows WHERE model = ?)" if new_for else ""
         for r in conn.execute("SELECT id, title, summary FROM articles WHERE published >= ? AND published < ? "
-                              "ORDER BY published, id", (lo, hi)):
+                              f"AND kind IS NULL{new} ORDER BY published, id",           # A76: not tagged junk
+                              (lo, hi, *([new_for] if new_for else []))):
             ft.write(json.dumps({"t": prefix + text_of(r)}, ensure_ascii=False) + "\n")
             fi.write(r["id"] + "\n")
             n += 1
     (out / "export.json").write_text(json.dumps({"articles": n, "prefix": prefix, "start": start and start.isoformat(),
-                                                 "end": end and end.isoformat()}))
+                                                 "end": end and end.isoformat(), "new_for": new_for}))
     return n
 
 
@@ -115,13 +124,15 @@ def main():
     ap.add_argument("--out", type=Path, help="export: the part's directory (a subdirectory of the replay's --vectors)")
     ap.add_argument("--start", type=dt.date.fromisoformat, help="export: the first publication day (default: the first)")
     ap.add_argument("--end", type=dt.date.fromisoformat, help="export: the last publication day, included (default: the last)")
+    ap.add_argument("--new-for", help="export: only articles without a vector of this (imported) model name — what "
+                                      "the backfill added since the last part")
     ap.add_argument("--dir", type=Path, help="import: the part's directory")
     args = ap.parse_args()
     conn = store.connect(args.db)
     if args.what == "export":
         from pipeline.experiments.e8 import INSTRUCT
         needs = args.model in ("Qwen/Qwen3-Embedding-0.6B", "intfloat/multilingual-e5-large-instruct")   # as in E8
-        n = export(conn, args.out, INSTRUCT if needs else "", args.start, args.end)
+        n = export(conn, args.out, INSTRUCT if needs else "", args.start, args.end, args.new_for)
         print(f"{n:,} articles → {args.out}/texts.jsonl")
     else:
         print(f"{import_index(conn, args.model, args.dir):,} vectors indexed for {args.model}")

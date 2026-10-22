@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BasedNews · Coverage</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* the story pages' paper and ink (paper.css), standalone: this page has none of their layout */
+  :root { --paper:#f6f2ea; --ink:#1b1a17; --muted:#6f6a60; --rule:#d9d1c3; --accent:#a3271f; --track:#ebe4d6; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--paper); color:var(--ink); font-family:"IBM Plex Sans", system-ui, sans-serif; }
+  header { display:flex; align-items:baseline; gap:24px; padding:18px 28px 10px; border-bottom:1px solid var(--ink); flex-wrap:wrap; }
+  .brand { font:900 28px/1 Fraunces, Georgia, serif; letter-spacing:-.6px; color:var(--ink); text-decoration:none; }
+  .kicker { font-size:11.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); }
+  .kicker b { display:block; color:var(--ink); font:700 21px Fraunces, serif; letter-spacing:0; text-transform:none; margin-top:2px; }
+  .bar { display:flex; align-items:center; gap:18px; padding:12px 28px; flex-wrap:wrap; }
+  .seg { display:flex; gap:2px; padding:3px; border:1.5px solid var(--ink); border-radius:999px; }
+  .seg button { border:0; background:none; font:600 13px "IBM Plex Sans", sans-serif; padding:6px 14px; border-radius:999px; cursor:pointer; color:var(--ink); }
+  .seg button.on { background:var(--ink); color:var(--paper); }
+  .legend { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); }
+  .legend i { display:inline-block; width:16px; height:11px; border-radius:2px; }
+  .note { font-size:12.5px; color:var(--muted); }
+  .wrap { padding:0 28px 40px; }
+  #grid { display:block; width:100%; }
+  #tip { position:fixed; pointer-events:none; background:var(--ink); color:var(--paper); font-size:12.5px; line-height:1.45;
+         padding:8px 10px; border-radius:6px; display:none; max-width:320px; z-index:5; }
+  #tip b { font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="story-guided.html">BasedNews</a>
+  <div class="kicker">The archive <b>What the history holds, outlet by outlet</b></div>
+</header>
+<div class="bar">
+  <div class="seg" id="metric">
+    <button data-m="articles" class="on">Articles fetched</button>
+    <button data-m="compared">Pilot comparisons</button>
+  </div>
+  <div class="legend" id="legend"></div>
+  <div class="note" id="note"></div>
+</div>
+<div class="wrap"><canvas id="grid"></canvas></div>
+<div id="tip"></div>
+<script type="module">
+  // One row per outlet, grouped by country (the country's row is the sum of its outlets), one column per month.
+  // Colour: a count on a log scale, one hue light → dark; none is the track colour. Only counts: no titles, no text.
+  const REGION = ["#2b62a8", "#b5741a", "#a3271f", "#2f7d4f", "#b6487f", "#6b3fa0"];    // paper.js REGION
+  const RAMP = ["#dbe4ef", "#b3c7de", "#7f9fc6", "#4f78ab", "#2b558c", "#163a66"];      // sequential, one hue
+  const NONE = "#ebe4d6";
+  const L = 230, TOP = 34, ROW = 13, HEAD = 18, GAP = 6;                               // label column, header, rows
+  const canvas = document.getElementById("grid"), tip = document.getElementById("tip");
+  let data = null, metric = "articles", rows = [], cw = 6;
+
+  const step = (n) => n <= 0 ? -1 : Math.min(RAMP.length - 1, Math.floor(Math.log10(n) * 1.6));   // 1, ~4, 18, 75, 316, 1.3 k
+  const bounds = () => { const o = []; for (let k = 0; k < RAMP.length; k++) o.push(Math.ceil(10 ** (k / 1.6))); return o; };
+  const label = (m) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7) - 1, 1))
+    .toLocaleString("en-GB", { month: "short", year: "numeric", timeZone: "UTC" });
+
+  function legend() {
+    const b = bounds();
+    document.getElementById("legend").innerHTML = `<i style="background:${NONE}"></i>none ` +
+      RAMP.map((c, k) => `<i style="background:${c}"></i>${b[k] >= 1000 ? (b[k] / 1000).toFixed(1) + " k" : b[k]}${k === RAMP.length - 1 ? "+" : ""}`).join(" ") +
+      ` <span>${metric === "articles" ? "articles" : "comparisons"} a month</span>`;
+  }
+
+  function layout() {
+    rows = [];
+    for (const c of data.countries) {
+      const sum = data.meta.months.map((_, k) => c.outlets.reduce((a, o) => a + o[metric][k], 0));
+      const refs = c.outlets.filter((o) => o.tier === "reference");
+      const brands = data.meta.months.map((_, k) => refs.filter((o) => o[metric][k] > 0).length);
+      rows.push({ kind: "country", name: c.id, color: REGION[c.region], v: sum, brands, refs: refs.length });
+      for (const o of c.outlets) rows.push({ kind: "outlet", name: o.name, tier: o.tier, country: c.id, v: o[metric] });
+    }
+    let y = TOP;
+    for (const r of rows) { if (r.kind === "country") y += GAP; r.y = y; y += r.kind === "country" ? HEAD : ROW; }
+    return y + 8;
+  }
+
+  function draw() {
+    const ms = data.meta.months, w = canvas.parentElement.clientWidth, h = layout(), dpr = devicePixelRatio || 1;
+    canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.height = `${h}px`;
+    const c = canvas.getContext("2d");
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, w, h);
+    cw = (w - L) / ms.length;
+    const X = (k) => L + k * cw;
+    // the pilot's span, and a year label at each January
+    const p0 = ms.indexOf("2019-01"), p1 = ms.indexOf((data.meta.pilot_through || "").slice(0, 7));
+    c.font = "600 11px 'IBM Plex Sans', sans-serif"; c.textBaseline = "alphabetic";
+    if (p0 >= 0 && p1 >= p0) {
+      c.fillStyle = "#a3271f"; c.fillRect(X(p0), TOP - 7, (p1 - p0 + 1) * cw, 2);
+      c.fillText("pilot", X(p0), TOP - 11);
+    }
+    c.fillStyle = "#6f6a60"; c.font = "500 11px 'IBM Plex Sans', sans-serif";
+    ms.forEach((m, k) => { if (m.endsWith("-01")) { c.fillText(m.slice(0, 4), X(k) + 2, 12); c.fillRect(X(k), 15, 1, 5); } });
+    for (const r of rows) {
+      const hh = r.kind === "country" ? HEAD - 3 : ROW - 2;
+      c.fillStyle = r.kind === "country" ? "#1b1a17" : r.tier === "reference" ? "#1b1a17" : "#6f6a60";
+      c.font = r.kind === "country" ? "700 13px Fraunces, serif" : "500 11.5px 'IBM Plex Sans', sans-serif";
+      if (r.kind === "country") { c.fillStyle = r.color; c.fillRect(0, r.y + 3, 9, 9); c.fillStyle = "#1b1a17"; c.fillText(r.name, 15, r.y + 12); }
+      else c.fillText((r.tier === "reference" ? "" : "◦ ") + r.name, 15, r.y + 9.5);
+      for (let k = 0; k < ms.length; k++) {
+        const s = step(r.v[k]);
+        c.fillStyle = s < 0 ? NONE : RAMP[s];
+        c.fillRect(X(k), r.y, Math.max(1, cw - 1), hh);
+      }
+    }
+    const months = ms.length, empty = rows.filter((r) => r.kind === "country" && r.brands.every((b, k) => k < p0 || k > p1 || b < r.refs)).length;
+    document.getElementById("note").textContent = metric === "articles"
+      ? `${months} months, ${label(ms[0])} → ${label(ms[ms.length - 1])} · a country's row is the sum of its outlets · ◦ = extra outlet`
+      : `pilot through ${data.meta.pilot_through} · ${empty} of ${data.countries.length} countries never had all their largest brands compared in a month`;
+    legend();
+  }
+
+  canvas.addEventListener("mousemove", (e) => {
+    const b = canvas.getBoundingClientRect(), x = e.clientX - b.left, y = e.clientY - b.top;
+    const k = Math.floor((x - L) / cw), r = rows.find((r) => y >= r.y && y < r.y + (r.kind === "country" ? HEAD : ROW));
+    if (!r || k < 0 || k >= data.meta.months.length) { tip.style.display = "none"; return; }
+    const what = metric === "articles" ? "articles" : "comparisons";
+    tip.innerHTML = r.kind === "country"
+      ? `<b>${r.name}</b> · ${label(data.meta.months[k])}<br>${r.v[k].toLocaleString("en-GB")} ${what}<br>${r.brands[k]} of ${r.refs} largest brands with any`
+      : `<b>${r.name}</b> (${r.country}${r.tier === "reference" ? "" : ", extra"}) · ${label(data.meta.months[k])}<br>${r.v[k].toLocaleString("en-GB")} ${what}`;
+    tip.style.display = "block";
+    tip.style.left = `${Math.min(innerWidth - 330, e.clientX + 14)}px`; tip.style.top = `${e.clientY + 14}px`;
+  });
+  canvas.addEventListener("mouseleave", () => { tip.style.display = "none"; });
+  document.getElementById("metric").onclick = (e) => {
+    const b = e.target.closest("button"); if (!b) return;
+    metric = b.dataset.m;
+    for (const x of e.currentTarget.children) x.classList.toggle("on", x === b);
+    draw();
+  };
+  const load = async () => { data = await (await fetch("coverage.json", { cache: "no-store" })).json(); draw(); };
+  await load();
+  new ResizeObserver(() => draw()).observe(canvas.parentElement);
+  setInterval(load, 60_000);                 // the pilot's comparisons grow while it runs
+</script>
+</body>
+</html>

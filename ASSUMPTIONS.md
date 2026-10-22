@@ -1050,9 +1050,11 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   update it (Laplace on the parameters they touch, carried to the rest through the prior's correlations), articles
   that leave the window are marginalised out, and every outlet's position is written for the day
   (`history_positions`). The state is saved after each day (`data/history/positions.npz`); a reopened run catches up
-  from the verdicts recorded after the save. Nothing is added back between days, so more verdicts only sharpen a
-  position (the maintainer, 2026-10-19). σ_a, the prior of a new article, is re-estimated monthly over that month's
-  verdicts only.
+  from the verdicts recorded after the save. Positions never freeze (the maintainer, 2026-10-19): an outlet's
+  variance is kept from falling below FLOOR_VAR, the level at which one headline comparison moves a score as far as
+  an Elo step of ELO_K = 10 would (the maintainer's value, 2026-10-19; ≈ ±0.40). Built at first with no floor — my
+  misreading of "more data makes the uncertainty shrink", wrongly recorded here as his decision; corrected the same
+  day. σ_a, the prior of a new article, is re-estimated monthly over that month's verdicts only.
 - **Why:** the replay refitted every verdict since the start each day (live's `fit`), so day 365 cost ≈ 70,000
   verdicts to add one day's ≈ 190, and an old verdict counted as much as yesterday's. The update costs ≈ 0.16 s per
   day and axis at 205 outlets and 400 verdicts a day, the same on day 40 as on day 10 (measured 2026-10-19).
@@ -1060,7 +1062,143 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   `pipeline/history/trajectories.py` still fits its own weekly positions from all verdicts.
 - **Test:** `tests/test_history_positions.py` (day by day = one fit over all verdicts within 0.05; sds only shrink;
   the state does not grow; save/load), `tests/test_replay.py::test_the_day_is_planned_from_the_carried_positions_and_moves_them`.
-- **If wrong:** with no drift, positions settle and late verdicts move them less and less; if outlets change over the
-  years the trajectories need drift, a variance added per day in `positions.update` before the day's verdicts. The
-  positions only move forward: a span earlier than the state's day cannot be added later (the replay refuses).
+- **If wrong:** K sets how fast a well-measured outlet follows a real change against how much it jitters; change
+  `ELO_K` in `pipeline/history/positions.py` and run `replay recompute`. In the 2019 pilot (to 2019-08-21) most outlets'
+  sds are still above the floor (social median 0.52, σ_a 1.5), so the floor changes little there yet. The positions
+  only move forward: a span earlier than the state's day cannot be added later (the replay refuses).
 - **Status:** built 2026-10-19; the 2019 pilot is the first run
+
+### A75 — The history's thin outlets and months are refilled from the same candidates, tried harder (2026-10-19)
+- **Rule:** `pipeline/history/backfill.py` (the maintainer's task, 2026-10-19: "make the historical data better, low
+  hanging fruit first, progressively try harder"). The candidates are the prefetch's own (replay.prefilter on GDELT's
+  day); a stored candidate is never fetched again, and a URL a method tried is never tried again by it.
+  1. `live`: the publisher again, without the prefetch's "skip a site after 3 failures" (it lost whole months of
+     sites with a few slow pages) and with a 15 s timeout; a site that gave nothing in 25 tries in a run is skipped
+     for the rest of it.
+  2. `wayback`: the Internet Archive's copy closest to GDELT's sighting, for what the publisher no longer serves (404,
+     410, dead hosts). Not for a site that refuses us (401/403/406/451: A33, a block is the publisher declining) or
+     whose robots.txt disallows us (A10/A28 — it governs archived copies too); a copy that redirected elsewhere is not
+     the article.
+  3. `sitemap`: where we have < 100 of an outlet's articles in a month (was: where GDELT lists < 100 — it missed
+     outlets whose GDELT links are dead), the outlet's own sitemap archive (`pipeline/history/sitemaps.py`: robots.txt
+     Sitemap lines, else /sitemap.xml, /sitemap_index.xml, /sitemap-index.xml, /wp-sitemap.xml; a urlset that lists
+     sitemaps is an index); the prefilter picks among its articles; only a page dated in that month by itself is kept.
+     Sitemaps named by a date before 2015 are passed over unread and do not count toward the 20,000 an outlet may
+     list (HS has one a day since 1990: the old 3,000 cap ran out in the 1990s; now 3,451 dated in 2021-06). Sitemap
+     check 2021-06 for the GDELT-thin outlets: NRK 6,656, HS 3,451, Dagbladet 1,597; DR, SVT, Politiken have none.
+  5. `wpapi` (2026-10-20): the WordPress posts API of the outlets that answer it (`pipeline/history/wpapi.py`:
+     address, publish time, title, excerpt, 100 posts a request — no page fetch), where we have < 300 of an outlet's
+     articles in a month; the prefilter picks as for sitemaps. Probe of all 228 outlets: 10 answer; with old posts:
+     Newsbook (2022-03: 1,072), News247 (2017-03: 2,962), Ziarul de Gardă (2021-06: 783), RTSH (from 2020; 2021-03:
+     764), OKDiario (few); Telma and Euronews Albania list only recent posts. Date-archive pages (/YYYY/MM/DD/ etc.)
+     probed for 58 thin outlets: only TVA (refuses us), Top Channel, CdM (refuses), Cyprus Mail, Nova Makedonija
+     have them, 10–30 links a page — not used yet.
+  4. `gdelt_raw` (2026-10-20): GDELT's free 15-minute GKG files (data.gdeltproject.org, English and translation
+     files) for the 28 outlets the first BigQuery query never asked about → data/history/gdelt_more/YYYY-MM.parquet,
+     read with the year files by `stories.load_year`. No BigQuery, no billing. 2019-03-15 gave 3,902 articles (SZ
+     816, Welt 588, Le Figaro 285, Lavanguardia 176 …); 2019-01 100,508 → 7,929 stored. Same rows as BigQuery for
+     covered outlets (NRK, SVT, BBC … checked on one day). Cost: ≈ 1.7 GB of files per day of history (≈ 6.7 TB for
+     2015-11 → 2026-10), ≈ 20–35 min a month here — bandwidth-bound; the whole span takes days, where the BigQuery
+     query (≈ 0.53 TB scanned, inside the free sandbox's 1 TB a month) takes minutes. Pilot years first.
+  - The archive pass is paced at one request at a time, one per 6 s (≈ 500 an hour): the archive refuses
+    connections from a client above ≈ 15 a minute (8 in flight, 1 per 1.5 s, 2 in flight at 1 per 4.5 s all got
+    refused; a refusal pauses the pass 30 min), pauses on
+    429/503 and refused connections, never records an unanswered request as tried, serves the outlets with the
+    fewest stored articles first, and only outlets with < 100 stored in the month.
+  - The page reader reads past 256 kB until an og:title appears (≤ 2 MB): MTV Uutiset's metadata sits at 290 kB, in
+    the body; it had 0 of 567 pages. Sites whose failures recover with it (MTV, DR, MBL, Heute, Postimees,
+    Philenews, Blick) are asked again (`live --retry-hosts`); failures before READER_SINCE do not make a site dead.
+  - A page that only says "go here" (an HTML meta refresh on the same site: Delo's old addresses) is followed once.
+  - A page the live pass skipped because its site had failed 25 times in a row was recorded as tried and failed, so
+    never asked again (DR: 0 of 239, yet 5 of 6 fetch fine): skipped pages are no longer recorded, and the sites whose
+    sampled failures now succeed (2026-10-20 probe of every site with ≥ 20 failures: TheJournal, MBL, Heute, Delo,
+    Postimees, Index, RÚV, DR, SME Kultúra, MTV, Philenews, Blick) are asked again in every month (failures recorded
+    before RETRY_BEFORE only). DN and Expressen also fetch when sampled, but answer 406 after ≈ 10 pages (A33).
+  - The passes hold GDELT one month at a time (`stories.load_month`, row group by row group: the year files are not
+    in time order; ≈ 0.8 GB), not a year (≈ 5.5 GB a process). The prefilter's exact clustering of one GDELT day
+    peaks at ≈ 10 GB, so only one process on the machine runs it at a time (backfill.prefilter, a file lock):
+    three side by side filled the 17 GB Mac's swap (2026-10-20).
+  - Pace per site (the maintainer, 2026-10-20: "parallelize the calls, 2-8x, dynamic if throttled"): live and
+    sitemap fetches start at 2 requests in flight per site, add one after every 20 good answers up to 8, and halve
+    (at least 1) with a 30 s pause when the site says slow down (406, 429, 503) or stops answering
+    (`fetch._Polite`; SITE_START, SITE_MOST in backfill.py). The prefetch keeps one at a time.
+  - Live and sitemap passes commit every 4,000 pages (sites interleaved), and a page waiting > 10 min for its site's
+    slot is skipped (not recorded) with the site's state logged: two live runs sat 2.7 h with every thread idle
+    (cause: threads queued behind slow, failing sites at one at a time while the rest sat idle — fixed: a worker
+    hands a busy site's page back to the end of the line and takes the next, `fetch.fetch_many`). A sitemap month with > 20,000 entries for one outlet is not
+    trusted (2019-10: 2.6 M entries from 32 outlets — an archive re-stamped with one date) and is skipped.
+  - The fetcher streams pages back as they come (commits every 4,000, no batch waits for its slowest site), a
+    worker's error no longer stops the call (a worker that died without signing off left the call waiting forever:
+    the 2019 live runs' stalls), and it logs every 5 min what it still waits on. The live pass, like the sitemap and
+    archive passes, now skips a site that refuses us (site_gate, A33) instead of asking it page by page.
+  - Giving up on a site (25 in a row) counts only the site's failures — timeouts, resets, 5xx, 429 and refusals —
+    not pages that answer without an article (404, no metadata): DR's retry hit 25 radio pages in a row and skipped
+    the 214 articles after them.
+  - Common Crawl (`ccrawl`, 2026-10-20): the same rules as the Internet Archive (after live, site_gate, a 200
+    capture of this very address), from the up to 3 crawls within 365 days after GDELT's sighting, read from
+    data.commoncrawl.org's raw files (the index server timed out). An address matches its `…/index.html` form.
+    A page without its own publish time is dated by GDELT's sighting (as for every source). Eval 2019-10: 27 of 60
+    dead links of Adevărul, Cyprus Mail and Novini found, all the article, in 22 s (the Archive: ≈ 500 an hour).
+    First pass (2019-01, 4 requests in flight): blocked by data.commoncrawl.org's CDN (403 "Request blocked")
+    after ≈ 1 h and 16 stored; a 403 now stops the run and records nothing (A33).
+  Every page is stored as the prefetch stores it (headline, description, publish time), feed_url = gdelt /
+  gdelt+wayback / gdelt+ccrawl / sitemap.
+- **Why:** coverage probe 2026-10-19 (228 outlets, ≈ 1,600 sampled GDELT links): 64 % fetched, 17 % gone (404),
+  12 % refused (403); 51 outlets had no GDELT rows in 2019, 28 none ever (the 23 extras were never queried).
+- **Measured:** 2019-01 live: 33,608 missing → 6,477 stored (84 min). Archive test (RTSH, 2019-03): 25 of 95 dead
+  links recovered as real articles.
+- **Refused (A33, left alone):** 403 from Daily Mail, Sky News, Telegraaf, Nieuwsblad, JN, bTV, Wort, Luxtimes,
+  Malta Independent, NYT, Politico, Irish Independent, Libertatea, Le Parisien, TV Noviny, Unimedia, CdM, MRT,
+  Sloboden Pečat, Panorama, Times of Malta; CBC and Washington Post reset our connections; DN and Expressen (Bonnier)
+  answer 406 after ≈ 10 pages.
+- **Open (the maintainer's call):** (a) gdelt_raw replaces the BigQuery run for the never-queried outlets (no
+  billing question left); (b) Heimildin (2023: Stundin + Kjarninn) and CNN Prima News (2020: Prima's news) — whether their predecessors'
+  sites count as the same outlet; (c) Bonnier News (Expressen, and others of theirs) states in robots.txt comments a
+  text-and-data-mining reservation that its machine rules do not encode — A10 follows the machine rules today.
+- **Depends:** `pipeline/history/fetch.py` (give_up, timeout, read_head), `replay.store_pages(source=)`,
+  `stories.load_year` (+ gdelt_more), `gdelt.py --outlets` (built, not run; superseded by gdelt_raw). The new articles are not embedded yet: the 2019 vectors part (data/history/vec/2019) must be
+  exported and embedded again before the next pilot.
+- **Test:** `tests/test_backfill.py`; `python -m pipeline.history.backfill report`; coverage.html.
+- **Status:** running overnight 2026-10-19/20 (live, wayback, sitemap, gdelt_raw + live for its outlets; 2019 first,
+  then 2018, 2020, …). Not used: Common Crawl (index timed out, 504; Vijesti's 2019 captures were 10k redirects, 29
+  pages); outlets with no GDELT row, sitemap or archive route: Heimildin, TVM, Pobjeda, CNN Prima News, Berlingske
+  (GDELT has neither berlingske.dk nor b.dk).
+
+### A76 — A history row whose title is a bot wall or one an outlet gave ≥ 30 times is not an article (2026-10-20)
+- **Rule:** `pipeline/history/quality.py`. A fetched page is not stored when its title names a bot check or block
+  (WALL: "Client Challenge", "captcha", "Just a moment", "Access denied", "Not available in your region" …), when the
+  outlet already gave that title ≥ REPEAT = 30 times, or when one fetch batch got it ≥ 5 times (`replay.store_pages`).
+  The backfill's "how many do we have" (stored_by_outlet) does not count such rows, so the sitemap and archive passes
+  reach outlets whose months were full of them.
+- **Why:** found 2026-10-20 while backfilling: 147 (outlet, title) pairs at ≥ 30 hold 222,491 rows, every one a
+  section/front page, site title, wall or recurring rundown — Le Monde 74,999 "Client Challenge" (all its rows),
+  BHRT 38,476 "bhrt", Kanal 5 16,016, Eesti Päevaleht 14,978 "Arvamus", Verslo žinios 9,074, TV 2 8,030 "TV 2 Play",
+  ERR 6,800 "uudised", in.gr 5,986, franceinfo 5,517 "En direct". Such a row is a GDELT link that landed elsewhere.
+  It explains outlets with articles but no pairs in the pilot (Le Monde, BHRT, Eesti Päevaleht, Oslobođenje).
+- **Old rows:** not changed. `data/history/junk_tag.sql` tags them kind = 'history-junk' (undo in the file) — the
+  maintainer's call; the history's readers (vectors export, replay's day articles and embedding) already skip a
+  tagged row (`kind IS NULL`).
+- **Wrong if:** a real headline recurs ≥ 30 times for an outlet (a daily column with a fixed title) — it is then a
+  rundown, which the live pipeline also drops (kind 'rundown'); or a wall's title is not in WALL (it then repeats and
+  REPEAT catches it).
+- **Test:** `tests/test_backfill.py::test_a_wall_or_a_section_page_is_not_stored_as_an_article`;
+  `python -m pipeline.history.quality` (junk titles per outlet).
+- **Le Monde:** its pages answer with a JS bot check ("Client Challenge") — a block (A33); no archive or other route.
+
+### A77 — The site's data section counts articles and comparable pairs per outlet and country and week (2026-10-21)
+- **Assumption:** the reader sees what every dot rests on as weekly lines on a log scale (story-guided.html "The data",
+  `frontend/prototypes/data.js`, data from `make_weekly_data.py` → weekly.json): first one line per country in its
+  region's colour, then, opened, one line per outlet of that country (the five largest brands in the plane's colours,
+  the others muted and dashed). **Pairs** = two articles of different outlets in one story (what the judge can
+  compare), counted in the week of the later article; an outlet's line counts every pair it is in; a **country's line
+  counts every pair one of its outlets is in, once** (two outlets of one country are one pair for it, not two —
+  `replay.count_day` stores `by_country`). **Articles** = rows with `kind IS NULL`, by publish week. A week is the
+  history's before the first week of live articles and live's from then on (nothing counted twice); the week in
+  progress is left out; weeks whose pairs are not counted yet are shaded, not drawn as zero.
+- **Why:** Axel 2026-10-21: "full history + live ingest … a log line graph … by country … then when opened we see that
+  country's outlets", on the one-page site under the plane.
+- **Depends:** `pipeline/history/replay.py::count_day`, `frontend/prototypes/make_weekly_data.py`, `data.js`.
+- **Test:** `tests/test_replay.py::test_count_only_records_counts_without_marking_the_day_done` (by_country);
+  open the page (`cd frontend/prototypes && python3 -m http.server 4300`, /story-guided.html, "The data").
+- **If wrong:** a country's pairs counted differently (e.g. only its five largest brands' pairs, or within-country
+  only) is one line in `count_day` and a re-count; the history/live seam is one rule in `make_weekly_data.main`.
