@@ -242,6 +242,7 @@ def test_judging_on_a_grouping_process_runs_gives_the_same_verdicts(tmp_path, mo
     import sys
     import pipeline.embed.backend as EB
     monkeypatch.setattr(EB, "get_encoder", lambda name: None)       # every article has its vector already
+    monkeypatch.setattr(replay.H2, "load_year", lambda year: {})    # --prefetched: GDELT's rows are only counted
     days = [DAY + dt.timedelta(days=k) for k in range(3)]
 
     def world(name: str):
