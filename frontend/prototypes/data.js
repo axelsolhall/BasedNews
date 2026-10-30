@@ -8,7 +8,8 @@ import { REGION, EXTRA } from "./paper.js";
 const SHORT = { "Nordics": "Nordics", "Western Europe": "Western", "Southern Europe": "Southern",
                 "Central Europe & Baltics": "Central & Baltic", "Eastern Europe & Balkans": "Eastern & Balkans",
                 "North America": "N. America" };
-const METRIC = { pairs: ["Pairs", "pairs that can be compared"], articles: ["Articles", "articles"] };
+const METRIC = { pairs: ["Pairs", "pairs that can be compared"], articles: ["Articles", "articles"],
+                 comparisons: ["Comparisons", "comparisons made"] };
 const MODE = { weekly: "Weekly", cum: "Cumulative" };              // cumulative: each week's line is the total so far
 const fmt = d3.format(",");
 const dayFmt = (d) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
@@ -46,7 +47,12 @@ export async function weeklyChart(root, url = new URL("weekly.json", import.meta
     $("[data-mode]").append(b);
   }
   $("[data-mode]").onclick = (e) => { const b = e.target.closest("button"); if (b) { state.mode = b.dataset.mode; draw(); } };
-  const shape = (v) => (state.mode === "cum" ? Array.from(d3.cumsum(v)) : v);
+  // comparisons exist only up to the last day judged: past its week a line stops (no flat cumulative tail)
+  const judged = raw.meta.comparisons_through ? Math.floor((new Date(`${raw.meta.comparisons_through}T00:00:00Z`) - first) / (7 * 864e5)) : -1;
+  const shape = (v) => {
+    const s = state.mode === "cum" ? Array.from(d3.cumsum(v)) : v;
+    return state.metric === "comparisons" ? s.map((x, i) => (i > judged ? 0 : x)) : s;
+  };
   const all = document.createElement("button");
   all.textContent = "All"; all.dataset.r = "";
   $("[data-regions]").append(all);
@@ -83,6 +89,9 @@ export async function weeklyChart(root, url = new URL("weekly.json", import.meta
     const y = d3.scaleLog([1, Math.max(10, max)], [H - m.b, m.t]).nice().clamp(true);
 
     // where pairs are not counted yet (the history's dry run so far, then live): a tinted band, not a zero
+    if (state.metric === "comparisons" && judged < dates.length - 1)
+      svg.append("rect").attr("class", "wk-uncounted").attr("x", x(dates[Math.max(0, judged + 1)]))
+        .attr("width", Math.max(0, x(dates[dates.length - 1]) - x(dates[Math.max(0, judged + 1)]))).attr("y", m.t).attr("height", H - m.b - m.t);
     if (state.metric === "pairs") {
       const [a, b] = raw.meta.history_pairs_counted || [];
       const live = raw.meta.live_from ? new Date(`${raw.meta.live_from}T00:00:00Z`) : dates[dates.length - 1];
@@ -162,6 +171,9 @@ export async function weeklyChart(root, url = new URL("weekly.json", import.meta
     $("[data-note]").textContent = (state.metric === "pairs"
       ? `A pair is two articles from different outlets about the same event — what the judge compares. A country's line counts
          every pair one of its outlets is in, once. ${counted ? "Shaded weeks are not counted yet." : "Pairs are being counted."}`
+      : state.metric === "comparisons"
+      ? `A comparison is one pair the judge has read: it counts for both of its outlets, and a country's line is the sum of
+         its outlets'. ${raw.meta.comparisons_through ? `Judged through ${dayFmt(new Date(`${raw.meta.comparisons_through}T00:00:00Z`))}; shaded weeks are not judged yet.` : "Nothing judged yet."}`
       : "Headline and description of every article we hold, by the week it was published; article text is never kept.")
       + (c ? " Coloured: the five largest brands, which set the centre; dashed: the other outlets." : " Pick a country to see its outlets.")
       + (raw.meta.live_from ? ` From ${dayFmt(new Date(`${raw.meta.live_from}T00:00:00Z`))}: the live pipeline.` : "");

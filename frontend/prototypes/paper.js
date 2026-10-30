@@ -74,7 +74,7 @@ function dateline(data) {
   const d = new Date(`${data.meta.updated}T00:00:00Z`), f = (o) => d.toLocaleDateString("en-GB", { ...o, timeZone: "UTC" });
   const day = `${f({ weekday: "long" })} ${f({ day: "numeric" })} ${f({ month: "long" })} ${f({ year: "numeric" })}`;
   const line = document.querySelector('[data-part="dateline"]');
-  if (line) line.innerHTML = `${day}<b>PILOT DATA</b>`;
+  if (line) line.innerHTML = `${day}<b>${data.meta.label || "PILOT DATA"}</b>`;
   const note = document.querySelector(".demo");
-  if (note) note.textContent = "Pilot · 2019 · positions as the pilot computed them, a point a week, updated while it runs";
+  if (note) note.textContent = data.meta.banner || "Pilot · 2019 · positions as the pilot computed them, a point a week, updated while it runs";
 }

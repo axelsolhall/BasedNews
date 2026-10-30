@@ -19,7 +19,7 @@ MAX_LARGEST_STORY_SHARE = 0.05      # stories: one cluster holding > 5 % of the 
 MIN_MULTI_OUTLET_STORIES = 100      # stories: stories with ≥ 2 outlets, the pairs the judge can compare (701)
 MAX_FAILED_CALL_SHARE = 0.20        # measure: judge calls that failed after all retries
 BUDGET_SLACK_USD = 0.02             # measure: spend may exceed the run budget by one in-flight batch at most
-MAX_HOT_DB_BYTES = 3_000_000_000    # retention: the SQLite-in-S3 upgrade trigger (ADR-010); steady state ≈ 1.5 GB
+MAX_HOT_DB_BYTES = 4_000_000_000    # retention: under S3's 5 GiB single upload (A79, 2026-10-30: 3.4 GB after trash)
                                     # (14 days × ≈ 110 MB of text and vectors, measured 2026-10-18)
 
 
@@ -139,7 +139,7 @@ def export(conn, ctx) -> Gate:
 def retention(conn, ctx) -> Gate:
     from pipeline.retention.run import verify
     res = verify(conn)
-    return _check(res, [(res["db_bytes"] <= MAX_HOT_DB_BYTES, f"hot database {res['db_bytes'] / 1e9:.2f} GB > 1 GB: time for Postgres (ADR-010)"),
+    return _check(res, [(res["db_bytes"] <= MAX_HOT_DB_BYTES, f"hot database {res['db_bytes'] / 1e9:.2f} GB > {MAX_HOT_DB_BYTES / 1e9:.0f} GB: time for Postgres (ADR-010)"),
                         (res["integrity"] == "ok", f"integrity check: {res['integrity']}"),
                         (res["refit_max_abs_diff"] is None or res["refit_max_abs_diff"] < 1e-6,
                          f"refit from kept verdicts differs from stored positions by {res['refit_max_abs_diff']}")])

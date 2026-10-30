@@ -3,6 +3,8 @@
     uv run python -m pipeline.retention.run                  # report what would be archived and deleted
     uv run python -m pipeline.retention.run --apply          # archive to the lake, verify, then delete and VACUUM
 
+0. Trash (A79): an article past the 7-day match window whose best pair is less than 25 % likely to be in the wrong
+   order (prior_positions) is deleted everywhere; each outlet keeps at most its 100 most uncertain per day.
 1. Lake (ADR-010): monthly Parquet files, `<lake>/<table>/month=YYYY-MM/part.parquet`, for the tables kept forever
    (verdicts, positions, runs, job runs, spend, article metadata, headlines) and the judge call log (A51). A month is
    rewritten when its row count differs from the `lake_files` index; the call log is written once per closed month.
@@ -44,6 +46,9 @@ from pipeline.job.steps import RECENT_DAYS  # noqa: E402
 
 WINDOW_DAYS = int(RECENT_DAYS)
 KEEP_STORY_RUNS = 2         # the latest run feeds the planner; one more as a fallback
+MATCH_DAYS = 7              # stories group only the last 7 days (steps.py): an older article can never be matched again
+SWAP_MIN = 0.25             # A79: below this chance of its best pair being in the wrong order, an article is trash
+KEEP_PER_OUTLET_DAY = 100   # A79: and each outlet keeps at most its 100 most uncertain articles per day
 LAKE = Path("data/lake")
 ARTICLE_META = "id, outlet_id, country, url, title, published, ingested_at, text_source, canonical_id, kind, genre, pruned_at"
 # table → (SELECT …, month expression); judgments take the month of their call
@@ -150,6 +155,94 @@ def deletions(conn, cut: str) -> dict[str, tuple[str, tuple]]:
     return ops
 
 
+def swap_values(conn, ids: list[str], outlet: dict[str, str]) -> dict[str, float]:
+    """article → its best pair's chance of being in the wrong order (A79): over the other outlets in its story (in the
+    newest stored story run that has it) and both axes, Φ(−|μ_A − μ_B| / √(σ_A² + σ_B²)) from prior_positions — the
+    planner's own measure. 0 when it shares no story with another outlet; an outlet without a prior counts as 0.5."""
+    from scipy.special import ndtr
+    prior: dict[tuple[str, str], tuple[float, float]] = {
+        (r["outlet_id"], r["axis"]): (r["mean"], r["sd"]) for r in conn.execute("SELECT * FROM prior_positions")}
+    axes = sorted({ax for _, ax in prior})
+    want = set(ids)
+    newest: dict[str, tuple[str, str]] = {}                   # article → (run, event) of the newest run that has it
+    members: dict[tuple[str, str], set[str]] = {}             # (run, event) → its outlets
+    for run, ev, o, a in conn.execute("SELECT e.run_id, e.event_id, a.outlet_id, e.article_id FROM event_members e "
+                                      "JOIN articles a ON a.id = e.article_id"):
+        members.setdefault((run, ev), set()).add(o)
+        if a in want and (a not in newest or run > newest[a][0]):
+            newest[a] = (run, ev)
+    pair: dict[tuple[str, str], float] = {}
+
+    def p_inv(a: str, b: str) -> float:
+        k = (min(a, b), max(a, b))
+        if k not in pair:
+            best = 0.0
+            for ax in axes:
+                if (a, ax) not in prior or (b, ax) not in prior:
+                    best = max(best, 0.5)
+                    continue
+                (ma, sa), (mb, sb) = prior[(a, ax)], prior[(b, ax)]
+                best = max(best, float(ndtr(-abs(ma - mb) / max((sa * sa + sb * sb) ** 0.5, 1e-9))))
+            pair[k] = best
+        return pair[k]
+
+    return {a: max((p_inv(outlet[a], o) for o in members.get(newest.get(a), set()) - {outlet[a]}), default=0.0)
+            for a in ids}
+
+
+def trash(conn, now: dt.datetime | None = None) -> tuple[list[str], list[tuple[str, float]]]:
+    """A79 (the maintainer, 2026-10-30): an article that has left the window in which it can still be matched (stories
+    group the last MATCH_DAYS) is trash if its swap value is below SWAP_MIN; of the rest, each outlet keeps its
+    KEEP_PER_OUTLET_DAY most uncertain per day (by publish day, counting those kept before). Judged and archive-sample
+    articles are never trash. No prior_positions: nothing is decided. Returns (trash ids, [(kept id, swap)]); each
+    article is decided once (kept ones are remembered in article_keep)."""
+    if not conn.execute("SELECT 1 FROM prior_positions LIMIT 1").fetchone():
+        return [], []
+    cut = cutoff(now, MATCH_DAYS)
+    rows = conn.execute(
+        "SELECT id, outlet_id, substr(coalesce(published, ingested_at), 1, 10) AS day FROM articles "
+        "WHERE ingested_at < ? AND published < ? AND (text_source IS NULL OR text_source NOT LIKE 'wayback-%') "
+        "AND id NOT IN (SELECT article_id FROM article_keep) "
+        "AND id NOT IN (SELECT first_article FROM judge_calls WHERE first_article IS NOT NULL "
+        "               UNION SELECT second_article FROM judge_calls WHERE second_article IS NOT NULL)",
+        (cut, cut)).fetchall()
+    outlet = {r["id"]: r["outlet_id"] for r in rows}
+    swap = swap_values(conn, list(outlet), outlet)
+    used = {(o, d): n for o, d, n in conn.execute(
+        "SELECT a.outlet_id, substr(coalesce(a.published, a.ingested_at), 1, 10), COUNT(*) "
+        "FROM article_keep k JOIN articles a ON a.id = k.article_id GROUP BY 1, 2")}
+    gone, kept = [], []
+    for r in sorted(rows, key=lambda r: -swap[r["id"]]):
+        k = (r["outlet_id"], r["day"])
+        if swap[r["id"]] >= SWAP_MIN and used.get(k, 0) < KEEP_PER_OUTLET_DAY:
+            used[k] = used.get(k, 0) + 1
+            kept.append((r["id"], swap[r["id"]]))
+        else:
+            gone.append(r["id"])
+    return gone, kept
+
+
+# where an article leaves rows, by table and column — a trashed article is removed from all of them (A79: nothing kept;
+# the lake's month files are rewritten without it, as their row counts change)
+ARTICLE_ROWS = (("embeddings", "article_id"), ("event_members", "article_id"), ("headlines", "article_id"),
+                ("articles_text_backup", "article_id"), ("articles_shared_text", "article_id"),
+                ("same_text_pairs", "a"), ("same_text_pairs", "b"), ("articles", "id"))
+
+
+def delete_trash(conn, ids: list[str], kept: list[tuple[str, float]], now: str) -> dict[str, int]:
+    """Delete the trashed articles everywhere and remember the kept ones; rows deleted per table."""
+    conn.execute("CREATE TEMP TABLE IF NOT EXISTS _trash (id TEXT PRIMARY KEY)")
+    conn.execute("DELETE FROM _trash")
+    conn.executemany("INSERT INTO _trash VALUES (?)", [(i,) for i in ids])
+    n: dict[str, int] = {}
+    for table, col in ARTICLE_ROWS:
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (table,)).fetchone():
+            n[table] = n.get(table, 0) + conn.execute(f"DELETE FROM {table} WHERE {col} IN (SELECT id FROM _trash)").rowcount
+    conn.executemany("INSERT OR IGNORE INTO article_keep VALUES (?,?,?)", [(i, s, now) for i, s in kept])
+    conn.commit()
+    return n
+
+
 def _count(conn, sql: str, params: tuple) -> tuple[int, int]:
     """Rows an UPDATE/DELETE would touch and the bytes it frees (approximate: text and blob lengths)."""
     params = tuple(p for p in params if p != "{now}")
@@ -217,6 +310,17 @@ def main():
     size0 = db_bytes(conn)
     print(f"retention (A52): window {args.days} days (before {cut}) · database {size0 / 1e6:.1f} MB"
           f"{'' if args.apply else ' · DRY RUN, nothing is changed'}")
+
+    # A79 first, so trash never reaches the lake (a month already written is rewritten without it: its count changes)
+    gone, kept = trash(conn)
+    if not conn.execute("SELECT 1 FROM prior_positions LIMIT 1").fetchone():
+        print("trash (A79): no prior_positions — nothing decided (python -m pipeline.history.prior --to <db>)")
+    else:
+        print(f"trash (A79): past the {MATCH_DAYS}-day match window, swap < {SWAP_MIN}, or over {KEEP_PER_OUTLET_DAY} "
+              f"per outlet and day: {len(gone):,} articles trashed, {len(kept):,} kept")
+        if args.apply and (gone or kept):
+            n = delete_trash(conn, gone, kept, now)
+            print("  deleted: " + " · ".join(f"{t} {k:,}" for t, k in n.items()))
 
     plan = lake_plan(conn)
     root = lake_dir()

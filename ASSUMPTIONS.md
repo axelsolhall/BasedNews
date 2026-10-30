@@ -66,6 +66,14 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
 - **MVP simplification:** equal weights until reach data is added.
 - **If wrong:** weights are data in the outlet registry. Low cost.
 - **Status:** accepted (2026-10-11)
+- **Decision (the maintainer, 2026-10-23) — the history's country centres:** each reference outlet weighs
+  log(Σ 0.5^(age/365 days)) over its comparisons so far (a comparison counts for both its outlets, dated by the day it
+  was judged for), and 0 below one — an outlet with no verdicts no longer drags its country's centre to its prior (the
+  UK in 2015–16: three of five reference outlets had no articles). The base cancels when the weights are normalised.
+  Applies only to the centre (`history_country_positions`, which the plane centres a country on); the planner keeps
+  the fixed registry weights. Code: `pipeline.history.positions.centre_weights`, `HALF_LIFE_DAYS`.
+  Proposed by Claude, open to review: a country with no judged reference outlet keeps the plain mean of its
+  outlets (their priors), so it still has a centre.
 
 ### A09 — Stop criterion: posterior sd ≤ target (default 0.15 on a unit-variance scale) or daily budget hit
 - **Why:** "spend until sure enough" is the USP. 0.15 is a placeholder.
@@ -1202,3 +1210,47 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   open the page (`cd frontend/prototypes && python3 -m http.server 4300`, /story-guided.html, "The data").
 - **If wrong:** a country's pairs counted differently (e.g. only its five largest brands' pairs, or within-country
   only) is one line in `count_day` and a re-count; the history/live seam is one rule in `make_weekly_data.main`.
+
+### A78 — External check (V2): which reference, which of our numbers, which years (2026-10-26)
+- **Assumption:** the history's positions are checked against three outside references, each compared where it is
+  comparable (`pipeline/history/external_check.py` → `reports/external_check.md`):
+  1. **Reuters Institute DNR 2017 audience leaning** (Fletcher, Cornia & Nielsen 2020, IJPP, suppl. tables 3–14:
+     audience self-placed left–right relative to the country, −.5…+.5) — 11 of our countries; compared **within
+     country** only (both sides centred per country, pooled).
+  2. **AllSides 2024** (`docs/experiments/e4_prereg.json`, as E4/E10) — US/UK.
+  3. **CHES 2019** party positions (trend file 1999–2024 V2), **vote-weighted mean per country** (lrecon ↔ econ,
+     galtan ↔ social) — 28 EU countries.
+- **Ours = the latest day's positions** for all three (Axel 2026-10-26: "I want the most current state"), not the
+  references' survey years (the first run used 2017/2019 averages).
+- **Name matches that are judgement calls:** France Télévisions News → franceinfo; Mediaset (inc. TgCom24) → tgcom24;
+  Mlada Fronta DNES → iDNES.cz; RMF FM → RMF24; TVN News → TVN24. Not matched: Notizie.Libero.it (a portal, not
+  Libero Quotidiano), Právo (Novinky.cz is a different brand), Le Parisien (offline-only score). Data:
+  `docs/reference/dnr2017_audience_leaning.csv`, `docs/reference/ches2019_country_means.csv`.
+- **Outlets with no history verdict by the end of the window are left out** (they sit at the prior, 0 ± 1).
+  Country positions are used as stored: a country whose reference outlet has no verdict still carries it at 0.
+- **What it is not:** DNR measures the AUDIENCE, CHES the ELECTORATE (parties), AllSides a rating — none is "the
+  outlet's position"; one DNR/AllSides axis vs our two. No thresholds set in advance (Axel's rule): numbers with 95 %
+  bootstrap intervals only.
+- **Test:** `PYTHONPATH=. uv run python -m pipeline.history.external_check`.
+- **If wrong:** a match is one CSV row; the window is LATEST_DAYS at the top of the module.
+
+### A79 — Trash: articles that can no longer be matched and are not worth comparing are deleted outright (2026-10-30)
+- **Rule (the maintainer, 2026-10-30):** an article that has left the window in which it can still be matched
+  (stories group the last 7 days, `MATCH_DAYS`) is **trash** if its swap value is below 0.25 (`SWAP_MIN`); of the rest,
+  each outlet keeps at most its **100 most uncertain per day** (`KEEP_PER_OUTLET_DAY`, by publish day). Trash is deleted
+  everywhere — row, text, vectors, story membership, headlines, normalize copies — and the lake's month files are
+  rewritten without it (nothing kept). Judged and archive-sample articles are never trash. Each article is decided
+  once; kept ones are remembered in `article_keep` and then follow A52 (text pruned after 14 days, row kept).
+- **Swap value** = the planner's measure: over the other outlets in the article's story (newest stored story run that
+  has it) and either axis, the largest Φ(−|μ_A − μ_B| / √(σ_A² + σ_B²)), from `prior_positions` = the history's final
+  positions (`python -m pipeline.history.prior --to <db>`). Claude's choices, open to review: **either axis** counts;
+  an outlet without a prior counts 0.5; an article in no stored story run counts 0 (trash) — on the first run this
+  trashes everything older than the stored runs; without `prior_positions` nothing is decided.
+- **Why:** live ingests ≈ 24,000 articles a day (A52 assumed 1,600); the hot database reached 5.4 GB and its upload
+  broke S3's 5 GiB single-PUT limit (refresh failing since 2026-10-30 06:00 UTC).
+- **Depends:** `pipeline/retention/run.py` (trash, swap_values, delete_trash), `pipeline/history/prior.py`,
+  `store.py` (prior_positions, article_keep). Prior sds are not grown over time yet (positions are frozen at the
+  history's last day until live judging refits them).
+- **Test:** `tests/test_retention.py::test_trash_past_the_match_window_by_swap_value_with_a_cap_per_outlet_and_day`;
+  eval: `python -m pipeline.retention.run` (dry run prints trashed/kept counts and the database size).
+- **If wrong:** the three constants at the top of `pipeline/retention/run.py`; "both axes" is one `max` → `min`.

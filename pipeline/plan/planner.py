@@ -217,8 +217,26 @@ def plan_joint_hier(
     budget_left: float | None = None,
     rng: np.random.Generator | None = None,
     quota: dict[str, int] | None = None,
+    block=None,
 ) -> list[ComparisonRequest]:
-    """plan_joint over the hierarchical posterior (A49): parameters are outlets, β and articles.
+    """The batch of iter_plan_joint_hier, as a list."""
+    return list(iter_plan_joint_hier(hposts, candidates, cfg, groups, budget_left, rng, quota, block))
+
+
+def iter_plan_joint_hier(
+    hposts: dict,
+    candidates: list[Candidate],
+    cfg: PlannerConfig | None = None,
+    groups: dict[str, dict[str, float]] | None = None,
+    budget_left: float | None = None,
+    rng: np.random.Generator | None = None,
+    quota: dict[str, int] | None = None,
+    block=None,
+):
+    """Each pick as soon as it is made: a pick depends only on the picks before it (fantasised), never on a verdict,
+    so its call can be asked while the rest of the batch is planned.
+
+    plan_joint over the hierarchical posterior (A49): parameters are outlets, β and articles.
 
     An article not judged yet enters with its prior variance σ_a² and no correlation with anything, so it says the most
     about its outlet; an article judged many times is pinned down, so judging it again moves the outlet little —
@@ -229,11 +247,14 @@ def plan_joint_hier(
     quota {outlet: k} (A69): first, while an outlet still owed comparisons has a pair available, the pick is the best
     pair involving such an outlet — whether or not it is among the most informative overall, past the target stop and
     past batch_size if the floor needs it; then the batch goes on as usual.
-    hposts: {axis: HierPosterior}. Returns requests tagged axis="both"."""
+    block: called after each scoring of all candidates, returns how many picks to take from that scoring before the
+    next (the maintainer, 2026-10-24: rescore as often as the judge's GPU allows, at least every 100 picks; each pick's
+    fantasised update is still applied, the scores are only refreshed less often). None: rescore after every pick.
+    hposts: {axis: HierPosterior}. Yields requests tagged axis="both"."""
     cfg = cfg or PlannerConfig()
     rng = rng or np.random.default_rng()
     if not candidates:
-        return []
+        return
     axes = list(hposts)
     h0 = hposts[axes[0]]
     n = h0.n
@@ -319,6 +340,7 @@ def plan_joint_hier(
         xSx[ax] = np.einsum("ri,rij,rj->r", vv, Sg, vv) + sig2[ax] * ((~valid[:, 3:]) * val[:, 3:] ** 2).sum(axis=1)
         p = 1 / (1 + np.exp(-(M[ax][safe] * vv).sum(axis=1)))
         W[ax] = p * (1 - p)
+    left, score, any_open = 0, None, False                                  # picks left from the last scoring
     while True:
         ok = available.copy()
         floor = None
@@ -330,28 +352,30 @@ def plan_joint_hier(
         if floor is None and len(chosen) >= cfg.batch_size:
             break
         stop_rule = cfg.target_sd > 0 and floor is None
-        if stop_rule:
-            reach = np.zeros(n, bool); reach[c_out[ok].ravel()] = True
-            reachable = (members & reach[None, :]).any(axis=1)
-        score = np.zeros(len(candidates))
-        any_open = False
-        for ax in axes:
-            Tx = T[ax]
+        if left <= 0:                                                       # score every candidate afresh
             if stop_rule:
-                tvar = (Tx[:, : n + 1] * V0).sum(axis=1)                    # v S v, v only on outlets and β
-                open_t = reachable & (np.sqrt(np.maximum(tvar, 0.0)) > cfg.target_sd)
-                if not open_t.any():
-                    continue
-                Tx = Tx[open_t]
-            any_open = True
-            vSx2 = np.square(X @ Tx.T).sum(axis=1)                          # Σ_targets (v S x)² per candidate
-            score += R[ax] * (W[ax] * vSx2) / (1.0 + W[ax] * xSx[ax])
+                reach = np.zeros(n, bool); reach[c_out[ok].ravel()] = True
+                reachable = (members & reach[None, :]).any(axis=1)
+            score = np.zeros(len(candidates))
+            any_open = False
+            for ax in axes:
+                Tx = T[ax]
+                if stop_rule:
+                    tvar = (Tx[:, : n + 1] * V0).sum(axis=1)                # v S v, v only on outlets and β
+                    open_t = reachable & (np.sqrt(np.maximum(tvar, 0.0)) > cfg.target_sd)
+                    if not open_t.any():
+                        continue
+                    Tx = Tx[open_t]
+                any_open = True
+                vSx2 = np.square(X @ Tx.T).sum(axis=1)                      # Σ_targets (v S x)² per candidate
+                score += R[ax] * (W[ax] * vSx2) / (1.0 + W[ax] * xSx[ax])
+            if cfg.mode == "variance_per_cost":
+                score = score / cost
+            elif cfg.mode == "random":
+                score = rng.random(len(candidates))
+            left = 1 if block is None else max(1, int(block()))
         if not any_open:
             break                                                           # every reachable target certain enough
-        if cfg.mode == "variance_per_cost":
-            score = score / cost
-        elif cfg.mode == "random":
-            score = rng.random(len(candidates))
         if floor is not None:
             ok = floor
         if budget_left is not None:
@@ -359,6 +383,7 @@ def plan_joint_hier(
         if not ok.any():
             break
         best = int(np.argmax(np.where(ok, score, -np.inf)))
+        left -= 1
         chosen.append(best); spent += cost[best]
         for o in c_out[best]:
             if o in owed:
@@ -367,6 +392,8 @@ def plan_joint_hier(
                     del owed[o]
         available[same_pair[pair_key[best]]] = False                        # a pair is bought once, in either kind
         gains.append(float(score[best]))                               # value at the moment it was picked
+        a, b, fa, fb = oriented[best]
+        yield ComparisonRequest(candidates[best].event_id, "both", a, b, fa, fb, gains[-1])
         # chosen articles become active parameters (prior variance σ_a², uncorrelated), then the fantasised update
         a, b, fa, fb = oriented[best]
         grew = False
@@ -387,11 +414,6 @@ def plan_joint_hier(
             S[ax] = _rank1_downdate(S[ax], k, s_)
             T[ax][:, :d] -= k * np.outer(V0 @ s_[: n + 1], s_[:d])
             xSx[ax] -= k * np.square(X @ s_)
-    out = []
-    for k, g in zip(chosen, gains):
-        a, b, fa, fb = oriented[k]
-        out.append(ComparisonRequest(candidates[k].event_id, "both", a, b, fa, fb, g))
-    return out
 
 
 def _rank1_downdate(S: np.ndarray, k: float, s: np.ndarray) -> np.ndarray:
@@ -403,3 +425,89 @@ def _rank1_downdate(S: np.ndarray, k: float, s: np.ndarray) -> np.ndarray:
 def _as_outlet_post(h):
     from pipeline.contracts import AxisPosterior
     return AxisPosterior(h.axis, h.outlets, h.mean[: h.n + 1], h.cov[: h.n + 1, : h.n + 1], h.n_obs)
+
+
+def iter_plan_independent(
+    hposts: dict,
+    candidates: list[Candidate],
+    cfg: PlannerConfig | None = None,
+    rng: np.random.Generator | None = None,
+    quota: dict[str, int] | None = None,
+):
+    """The planner as the maintainer specified it (2026-10-25): every outlet has its own score and uncertainty per axis,
+    comparing A with B sharpens only A and B (no other outlet, no country, nothing shared), and the pairs judged are
+    the ones most likely to be in the wrong order now: per axis Φ(−|μ_A − μ_B| / √(σ_A² + σ_B²)), the chance that their
+    order is inverted — two outlets far apart are never picked however uncertain they are. Summed over the axes,
+    each weighted by the pair's chance of an answer on it (A32/A70). After each pick A's and B's variances fall as
+    one Bradley–Terry comparison makes them (σ² − σ⁴·a²w / (1 + a²w(σ_A² + σ_B²)), w = p(1 − p)), so the same pair is
+    not picked again and again; scoring every candidate is a few vector operations, done before every pick.
+    quota {outlet: k} (A69): first, while an outlet still owed comparisons has a pair available, the best pair
+    involving such an outlet, past batch_size if the floor needs it. hposts: {axis: HierPosterior} — only the outlets'
+    own means and variances are read. Yields requests tagged axis="both"."""
+    from scipy.special import expit, ndtr
+    cfg = cfg or PlannerConfig()
+    rng = rng or np.random.default_rng()
+    if not candidates:
+        return
+    axes = list(hposts)
+    h0 = hposts[axes[0]]
+    oidx = {o: k for k, o in enumerate(h0.outlets)}
+    n = len(h0.outlets)
+    mu = {ax: np.asarray(hposts[ax].mean[:n], dtype=float) for ax in axes}
+    var = {ax: np.array([hposts[ax].cov[k, k] for k in range(n)], dtype=float) for ax in axes}
+    flip = (rng.random(len(candidates)) < 0.5) if cfg.randomise_order else np.zeros(len(candidates), bool)
+    oriented = [(c.outlet_b, c.outlet_a, c.article_b, c.article_a) if f else (c.outlet_a, c.outlet_b, c.article_a, c.article_b)
+                for c, f in zip(candidates, flip)]
+    ia = np.array([oidx[a] for a, _, _, _ in oriented])
+    ib = np.array([oidx[b] for _, b, _, _ in oriented])
+    disc = np.array([c.discrimination for c in candidates], dtype=float)
+    R = {ax: np.array([(c.relevance[k] if len(c.relevance) > k else 1.0) for c in candidates]) for k, ax in enumerate(axes)}
+    W = {}
+    for ax in axes:                                     # p(1 − p) at the current scores, held fixed (fantasised updates)
+        p = expit(disc * (mu[ax][ia] - mu[ax][ib]))
+        W[ax] = disc ** 2 * p * (1 - p)
+    pair_key = [frozenset((c.article_a, c.article_b)) for c in candidates]
+    same_pair: dict[frozenset, list[int]] = {}
+    for r, k in enumerate(pair_key):
+        same_pair.setdefault(k, []).append(r)
+    available = np.ones(len(candidates), bool)
+    owed = {oidx[o]: k for o, k in (quota or {}).items() if o in oidx and k > 0}
+    chosen = 0
+    while True:
+        ok = available.copy()
+        floor = None
+        if owed:
+            need = np.zeros(n, bool); need[list(owed)] = True
+            floor = ok & (need[ia] | need[ib])
+            if not floor.any():
+                owed, floor = {}, None
+        if floor is None and chosen >= cfg.batch_size:
+            break
+        if floor is None and cfg.target_sd > 0:            # A09/A68: stop once every outlet a pair can still reach
+            reach = np.zeros(n, bool); reach[ia[ok]] = True; reach[ib[ok]] = True     # is that certain
+            if not any((np.sqrt(var[ax][reach]) > cfg.target_sd).any() for ax in axes):
+                break
+        if floor is not None:
+            ok = floor
+        if not ok.any():
+            break
+        score = np.zeros(len(candidates))
+        for ax in axes:                                 # the chance that A and B are in the wrong order
+            score += R[ax] * ndtr(-np.abs(mu[ax][ia] - mu[ax][ib]) / np.sqrt(var[ax][ia] + var[ax][ib]))
+        if cfg.mode == "random":
+            score = rng.random(len(candidates))
+        best = int(np.argmax(np.where(ok, score, -np.inf)))
+        chosen += 1
+        a_k, b_k = ia[best], ib[best]
+        for o in (a_k, b_k):
+            if o in owed:
+                owed[o] -= 1
+                if owed[o] <= 0:
+                    del owed[o]
+        available[same_pair[pair_key[best]]] = False
+        for ax in axes:                                 # A and B sharpen; nobody else moves
+            va, vb, w = var[ax][a_k], var[ax][b_k], W[ax][best]
+            d = 1.0 + w * (va + vb)
+            var[ax][a_k], var[ax][b_k] = va - va ** 2 * w / d, vb - vb ** 2 * w / d
+        a, b, fa, fb = oriented[best]
+        yield ComparisonRequest(candidates[best].event_id, "both", a, b, fa, fb, float(score[best]))

@@ -58,6 +58,20 @@ def history_pairs(conn) -> tuple[Counter, Counter]:
     return Counter({k: v for k, v in by_o.items() if k[1] in whole}), Counter({k: v for k, v in by_c.items() if k[1] in whole})
 
 
+def comparisons(conn) -> tuple[Counter, str | None]:
+    """(outlet, week) → comparisons made by the history's judge: a judged pair counts once for each of its two outlets
+    (a country is the sum of its outlets), in the week of the day it was judged for; and the last day judged."""
+    n = Counter()
+    if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'history_progress'").fetchone():
+        return n, None
+    last = conn.execute("SELECT max(day) FROM history_progress").fetchone()[0]
+    for day, a, b, k in conn.execute("SELECT substr(event_id, 1, 10), first_outlet, second_outlet, count(*) FROM judge_calls "
+                                     "WHERE purpose = 'history' AND substr(event_id, 1, 10) <= ? GROUP BY 1, 2, 3", (last or "",)):
+        n[(a, week(day))] += k
+        n[(b, week(day))] += k
+    return n, last
+
+
 def live_pairs(conn, country: dict) -> tuple[Counter, Counter]:
     """The same counts from live's database: its candidates (one per article pair), in the week of the later article."""
     from pipeline.measure.run import candidates, relevance_so_far
@@ -86,6 +100,7 @@ def main():
     country = {o.id: o.country for o in outlets}
     hist = sqlite3.connect(f"file:{a.db}?mode=ro", uri=True, timeout=60)
     h_art, (h_po, h_pc) = articles(hist), history_pairs(hist)
+    h_cmp, judged_to = comparisons(hist)
     l_art, l_po, l_pc, live_from = Counter(), Counter(), Counter(), None
     if a.live_db:
         from pipeline import store
@@ -101,24 +116,27 @@ def main():
     for o in outlets:
         by_country.setdefault(o.country, []).append(
             {"id": o.id, "name": o.name, "tier": o.tier,
-             "articles": series(h_art, l_art, o.id), "pairs": series(h_po, l_po, o.id)})
+             "articles": series(h_art, l_art, o.id), "pairs": series(h_po, l_po, o.id),
+             "comparisons": [h_cmp.get((o.id, w), 0) for w in range(n)]})
     rows = []
     for c, _, r in COUNTRIES:
         os_ = by_country.get(c, [])
         rows.append({"id": c, "region": r, "pairs": series(h_pc, l_pc, c),
-                     "articles": [sum(o["articles"][w] for o in os_) for w in range(n)], "outlets": os_})
+                     "articles": [sum(o["articles"][w] for o in os_) for w in range(n)],
+                     "comparisons": [sum(o["comparisons"][w] for o in os_) for w in range(n)], "outlets": os_})
     weeks = sorted({w for _, w in h_pc})                 # the weeks whose seven days are all counted
     counted = ((FIRST + dt.timedelta(weeks=weeks[0])).isoformat(), (FIRST + dt.timedelta(weeks=weeks[-1] + 1)).isoformat()) \
         if weeks else (None, None)
     data = {"meta": {"first_week": FIRST.isoformat(), "weeks": n, "regions": REGIONS, "updated": dt.date.today().isoformat(),
                      "live_from": None if live_from is None else (FIRST + dt.timedelta(weeks=live_from)).isoformat(),
-                     "history_pairs_counted": list(counted)},
+                     "history_pairs_counted": list(counted), "comparisons_through": judged_to},
             "countries": rows}
     tmp = OUT.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, separators=(",", ":")))
     os.replace(tmp, OUT)
     print(f"{OUT}: {sum(len(c['outlets']) for c in rows)} outlets × {n} weeks · history pairs counted {counted[0]} → "
-          f"{counted[1]} · live from {data['meta']['live_from']} · {OUT.stat().st_size / 1e6:.1f} MB")
+          f"{counted[1]} · comparisons {sum(h_cmp.values()) // 2:,} pairs judged through {judged_to} · live from "
+          f"{data['meta']['live_from']} · {OUT.stat().st_size / 1e6:.1f} MB")
 
 
 if __name__ == "__main__":

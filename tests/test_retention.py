@@ -121,3 +121,45 @@ def test_export_has_aggregates_only_and_fits_the_budget(db, tmp_path):
     blob = json.dumps(data)
     for leak in ("full text", "summary", "https://", "T old-live"):            # A10: nothing from the articles
         assert leak not in blob
+
+
+def test_trash_past_the_match_window_by_swap_value_with_a_cap_per_outlet_and_day(tmp_path, monkeypatch):
+    """A79: past the 7-day window, an article whose best pair is < 25 % likely to be swapped is deleted everywhere; of
+    the rest each outlet keeps its 100 most uncertain per day; judged and in-window articles are never touched."""
+    monkeypatch.setattr(R, "KEEP_PER_OUTLET_DAY", 2)
+    conn = store.connect(tmp_path / "t.sqlite")
+    prior = {"a": 0.0, "b": 0.05, "far": 3.0}                         # a–b close (swap ≈ 0.4), a–far never swapped
+    conn.executemany("INSERT INTO prior_positions VALUES (?,?,?,?,?,?)",
+                     [(o, ax, m, 0.1, "2026-10-22", "history") for o, m in prior.items() for ax in P.AXES])
+    day = iso(9)
+    arts = {"a1": ("a", day, "ev1"), "b1": ("b", day, "ev1"),        # close pair: both worth keeping …
+            "a2": ("a", day, "ev2"), "b2": ("b", day, "ev2"),
+            "a3": ("a", day, "ev3"), "b3": ("b", day, "ev3"),        # … but the cap is 2 per outlet and day
+            "a4": ("a", day, "ev4"), "f4": ("far", day, "ev4"),      # far pair: trash
+            "solo": ("a", day, "ev5"),                               # alone in its story: trash
+            "judged": ("a", day, "ev4"),                              # judged: never trash
+            "fresh": ("a", iso(2), "ev6"), "fresh_far": ("far", iso(2), "ev6")}   # still matchable: untouched
+    for aid, (o, when, ev) in arts.items():
+        conn.execute("INSERT INTO articles (id, outlet_id, country, url, title, published, summary, ingested_at, text_source)"
+                     " VALUES (?,?,?,?,?,?,?,?,?)", (aid, o, "X", f"https://x/{aid}", aid, when, "s", when, "rss"))
+        store.save_embeddings(conn, "m", [aid], np.ones((1, 4), dtype=np.float32))
+    store.save_events(conn, "2026-10-29T00:00:00Z_a", {aid: ev for aid, (_, _, ev) in arts.items()})
+    conn.execute("INSERT INTO judge_calls (call_id, at, purpose, model, prompt_version, direction, first_article, "
+                 "second_article, first_outlet, second_outlet) VALUES ('c','x','measure','m','v4','positive','judged','elsewhere','a','far')")
+    conn.commit()
+
+    gone, kept = R.trash(conn)
+    assert {"a4", "f4", "solo"} <= set(gone) and "judged" not in gone and not {"fresh", "fresh_far"} & set(gone)
+    keep = dict(kept)
+    assert all(s >= R.SWAP_MIN for s in keep.values())
+    assert sum(k.startswith("a") for k in keep) == 2 and sum(k.startswith("b") for k in keep) == 2   # the cap
+    assert len({"a1", "a2", "a3"} & set(gone)) == 1 and len({"b1", "b2", "b3"} & set(gone)) == 1
+
+    R.delete_trash(conn, gone, kept, iso(0))
+    for t, col in R.ARTICLE_ROWS:
+        if not conn.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (t,)).fetchone():
+            continue
+        assert not conn.execute(f"SELECT COUNT(*) FROM {t} WHERE {col} IN ({','.join('?' * len(gone))})", gone).fetchone()[0]
+    assert R.trash(conn) == ([], [])                                # decided once: kept ones are not re-decided
+    conn.execute("DELETE FROM prior_positions")
+    assert R.trash(conn) == ([], [])                                # no prior: nothing is decided

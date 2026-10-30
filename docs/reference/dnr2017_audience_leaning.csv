@@ -1,0 +1,68 @@
+country,dnr_name,outlet,cross_platform,online
+United Kingdom,BBC News,bbc,0.00,-0.03
+United Kingdom,Sky News,skynews,0.10,0.09
+United Kingdom,Daily Mail/MailOnline,dailymail,0.18,0.15
+United Kingdom,The Guardian,guardian,-0.17,-0.17
+United Kingdom,The Telegraph,telegraph,0.15,0.13
+United States,Fox News,foxnews,0.24,0.28
+United States,NBC News,nbcnews,-0.15,-0.22
+United States,ABC News,abcnews,-0.06,-0.16
+United States,CBS News,cbsnews,-0.06,-0.11
+United States,New York Times,nyt,-0.25,-0.27
+United States,Washington Post,washingtonpost,-0.24,-0.23
+United States,NPR,npr,-0.26,-0.32
+United States,Breitbart News,breitbart,0.34,0.34
+Germany,ARD Tagesschau,tagesschau,-0.03,-0.07
+Germany,n-tv,ntv,0.02,0.02
+Germany,Der Spiegel,spiegel,-0.07,-0.05
+Germany,Bild,bild,0.06,0.05
+Germany,t-online,tonline,0.02,0.02
+Germany,Die Welt,welt,0.03,0.04
+Germany,Süddeutsche Zeitung,sz,-0.11,-0.11
+Germany,FAZ,faz,-0.03,0.00
+Spain,El Pais,elpais,-0.07,-0.08
+Spain,El Mundo,elmundo,0.01,0.11
+Spain,20 Minutos,20minutos,-0.04,-0.04
+Spain,ABC,abc-es,0.20,0.19
+Spain,Eldiario.es,eldiario,-0.12,-0.12
+Spain,La Vanguardia,lavanguardia,-0.06,-0.05
+Spain,OKDiario.com,okdiario,0.09,0.09
+Finland,Yle Uutiset,yle,-0.01,-0.04
+Finland,MTV Uutiset,mtv-fi,0.01,0.01
+Finland,Ilta-Sanomat,is,0.00,0.01
+Finland,Iltalehti,iltalehti,0.00,0.01
+Finland,Helsingin Sanomat,hs,0.02,-0.01
+France,BFMTV News,bfmtv,0.03,0.03
+France,TF1 News,tf1info,0.09,0.04
+France,France Télévisions News,franceinfo,-0.08,-0.15
+France,20 Minutes,20minutes-fr,-0.02,-0.01
+France,Le Monde,lemonde,-0.12,-0.16
+France,Le Figaro,lefigaro,0.13,0.13
+France,Libération,liberation,-0.22,-0.21
+France,France 24 News,france24,-0.10,-0.02
+Ireland,RTÉ News,rte-news-ire,0.01,0.02
+Ireland,Irish Independent,irish-independent-ire,0.03,0.03
+Ireland,Irish Times,the-irish-times-ire,-0.03,-0.02
+Ireland,Journal.ie,thejournal-ie-ire,-0.02,-0.02
+Ireland,BreakingNews.ie,breakingnews-ie-ire,-0.03,-0.03
+Italy,Rai News,rainews,-0.03,-0.07
+Italy,Mediaset (inc. TgCom24),tgcom24,0.10,0.13
+Italy,La Repubblica,repubblica,-0.15,-0.17
+Italy,ANSA,ansa,-0.04,-0.04
+Italy,Il Fatto Quotidiano,ilfatto,-0.12,-0.14
+Italy,Il Sole 24 Ore,ilsole24ore,0.03,-0.04
+Italy,La Stampa,lastampa,-0.07,-0.09
+Netherlands,NOS,nos-net,-0.01,-0.03
+Netherlands,RTL,rtl-nieuws-net,0.05,0.05
+Netherlands,Nu,nu-nl-net,0.02,0.02
+Netherlands,De Telegraaf,de-telegraaf-net,0.08,0.10
+Netherlands,Algemeen Dagblad,ad-net,-0.01,0.00
+Poland,TVN News,tvn24-pol,-0.07,-0.08
+Poland,Onet.pl News,onet-pol,0.00,0.00
+Poland,WP.pl News,wirtualna-polska-pol,0.02,0.02
+Poland,RMF FM,rmf24-pol,-0.02,0.02
+Poland,Interia.pl News,interia-pol,0.00,0.00
+Czechia,Seznam.cz/zpravy News,seznam-zpravy-cze,-0.01,-0.01
+Czechia,Mlada Fronta DNES,idnes-cz-cze,0.05,0.04
+Czechia,Aktualne.cz,aktualne-cz-cze,0.03,0.03
+Czechia,Prima News,cnn-prima-news-cze,-0.04,-0.05

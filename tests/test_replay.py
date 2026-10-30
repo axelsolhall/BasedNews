@@ -232,3 +232,240 @@ def test_the_day_is_planned_from_the_carried_positions_and_moves_them(conn, tmp_
                      min_per_week=0, posts={ax: s.posterior() for ax, s in states.items()})   # recorded, not saved
     _, _, again = replay.open_positions(conn, path)
     assert sum(s.n_obs for s in again.values()) > sum(n_obs.values())
+
+
+def test_judging_on_a_grouping_process_runs_gives_the_same_verdicts(tmp_path, monkeypatch):
+    """--ahead / --grouped: a grouping process groups and counts the days ahead of the judge (so the GPU is not idle
+    while a day is grouped), keeping each day's run until the judge has read it. The judge then asks exactly what it
+    asks when it groups each day itself — same pairs, same order of reading, same verdicts — and deletes each run once
+    its day is judged."""
+    import sys
+    import pipeline.embed.backend as EB
+    monkeypatch.setattr(EB, "get_encoder", lambda name: None)       # every article has its vector already
+    days = [DAY + dt.timedelta(days=k) for k in range(3)]
+
+    def world(name: str):
+        path = tmp_path / name / "h.sqlite"
+        path.parent.mkdir()
+        c = replay.prepare(store.connect(path))
+        rng = np.random.default_rng(3)
+        ids, vecs = [], []
+        for d, day in enumerate(days):
+            centres = rng.normal(size=(4, 24))
+            for s in range(4):
+                for k in range(4):
+                    aid = f"d{d}s{s}o{k}"
+                    c.execute("INSERT INTO articles (id, outlet_id, country, url, title, published, summary, text_source) "
+                              "VALUES (?,?,?,?,?,?,?,?)", (aid, OUTLETS[(s + k + d) % 6], "x", f"https://x/{aid}", f"S{d}.{s} {k}",
+                                                           f"{day.isoformat()}T{8 + s:02d}:{10 * k:02d}:00Z", "s", "history-meta"))
+                    ids.append(aid)
+                    vecs.append(centres[s] + 0.05 * rng.normal(size=24))
+        V = np.array(vecs); V /= np.linalg.norm(V, axis=1, keepdims=True)
+        store.save_embeddings(c, MODEL, ids, V.astype(np.float32))
+        c.commit()
+        return path, c
+
+    def run(path, *extra):
+        monkeypatch.setattr(sys, "argv", ["replay", "--db", str(path), "--embed-model", MODEL, "--threshold", "0.8",
+                                          "--start", days[0].isoformat(), "--end", days[-1].isoformat(), "--prefetched",
+                                          "--judge-fraction", "0.5", "--no-angle", *extra])
+        replay.main()
+
+    def asked(c):
+        return c.execute("SELECT c.first_article, c.second_article, c.direction, group_concat(j.axis || j.verdict) FROM judge_calls c "
+                         "JOIN judgments j USING (call_id) GROUP BY c.call_id ORDER BY c.rowid").fetchall()
+
+    a, ca = world("alone")
+    run(a)
+    b, cb = world("behind")
+    since = replay.utc_now_iso()
+    run(b, "--count-only", "--recount", "--ahead", "10")
+    assert cb.execute("SELECT count(DISTINCT run_id) FROM event_members").fetchone()[0] == 3     # all kept for the judge
+    run(b, "--grouped", since)
+    assert [tuple(r) for r in asked(cb)] == [tuple(r) for r in asked(ca)] and len(asked(ca)) > 0
+    assert cb.execute("SELECT count(*) FROM event_members").fetchone()[0] == 0                  # each deleted once judged
+    assert [r[0] for r in cb.execute("SELECT day FROM history_progress ORDER BY day")] == [d.isoformat() for d in days]
+
+
+def test_an_unreachable_judge_server_is_waited_for_never_recorded(conn, monkeypatch):
+    """The PC off or asleep: every attempt fails to connect. That is not a bad call — the day waits and asks again, and
+    nothing is recorded as failed (2026-10-23: 52,244 such calls were recorded as failures and 98 days were judged
+    without verdicts). A real bad answer is still recorded and the day goes on."""
+    monkeypatch.setattr(replay, "UNREACHABLE_WAIT", 0)
+    sim = SimulatedJudge(sorted(OUTLETS), seed=0)
+
+    class Flaky:
+        down = 3                                                            # the first three calls find no server
+
+        def compare_outlets(self, *a, **k):
+            if Flaky.down > 0:
+                Flaky.down -= 1
+                raise JudgeCallFailed("Connection error.", {"errors": [{"type": "APIConnectionError"}] * 5})
+            return sim.compare_outlets(*a, **k)
+
+    calls, _ = replay.judge_day(conn, DAY, Flaky(), max_calls=6, rng=np.random.default_rng(0), min_per_week=0)
+    assert calls == 6 and Flaky.down == 0
+    assert conn.execute("SELECT count(*) FROM judge_call_log WHERE status = 'failed'").fetchone()[0] == 0
+    assert conn.execute("SELECT count(*) FROM judge_calls").fetchone()[0] == 6
+    assert replay.unreachable(JudgeCallFailed("x", {"errors": [{"type": "APITimeoutError"}]}))
+    assert not replay.unreachable(JudgeCallFailed("x", {"errors": [{"type": "APIConnectionError"}, {"type": "BadRequestError"}]}))
+    assert not replay.unreachable(JudgeCallFailed("cut off", {"errors": []}))
+
+
+def test_the_planner_takes_a_block_of_picks_from_one_scoring(conn, tmp_path):
+    """The maintainer, 2026-10-24: score all candidates only as often as the GPU needs, at most every 100 picks. A
+    block takes its picks from one scoring (each pick's fantasised update still applied, a pair still bought once);
+    without a block every pick is scored afresh, as before."""
+    from pipeline.plan.planner import PlannerConfig, plan_joint_hier
+    _, _, states = replay.open_positions(conn, tmp_path / "p.npz")
+    posts = {ax: s.posterior() for ax, s in states.items()}
+    cands, _ = replay.day_candidates(conn, DAY)
+    cfg = PlannerConfig(mode="variance_per_cost", target_sd=0.0, batch_size=8)
+    scorings = []
+    blocked = plan_joint_hier(posts, cands, cfg, rng=np.random.default_rng(0), block=lambda: scorings.append(1) or 100)
+    each = plan_joint_hier(posts, cands, cfg, rng=np.random.default_rng(0))
+    assert len(blocked) == len(each) == 8 and len(scorings) == 1
+    pairs = [frozenset((r.first_article_id, r.second_article_id)) for r in blocked]
+    assert len(set(pairs)) == len(pairs)
+    sizes = iter(range(1, 100))                                       # 1, 2, 3 picks per scoring: 3 scorings for 6
+    scorings.clear()
+    plan_joint_hier(posts, cands, PlannerConfig(mode="variance_per_cost", target_sd=0.0, batch_size=6),
+                    rng=np.random.default_rng(0), block=lambda: scorings.append(1) or next(sizes))
+    assert len(scorings) == 3
+
+
+def test_the_feed_keeps_the_gpu_supplied_with_at_most_a_hundred_picks_a_scoring():
+    """k = parallel + rate × time per scoring − calls waiting, between 1 and 100: a full GPU's worth at the start, one
+    pick a scoring while enough wait, and never more than BLOCK_MAX."""
+    f = replay.Feed(parallel=64)
+    assert f() == 64                                                  # nothing waiting yet: fill the GPU
+    for _ in range(64):
+        f.sent()
+    assert f() == 1                                                   # 64 waiting, nothing answered: rescore after one
+    f.t0 -= 10.0
+    for _ in range(300):
+        f.answered()
+        f.sent()                                                       # 30 answers a second, 64 still waiting
+    f.last -= 2.0                                                      # a scoring takes 2 s: 60 more needed
+    assert 55 <= f() <= 65
+    assert replay.Feed(parallel=500)() == replay.BLOCK_MAX
+
+
+def test_a_days_last_block_is_recorded_the_next_day_and_never_bought_twice(conn):
+    """The maintainer, 2026-10-24: the calls still out when a day's plan is done run while the next day is prepared, so
+    the GPU does not wait for them. Its verdicts are recorded during the next day (after the positions that day is planned from: they
+    first count two days on), and its pairs are not offered again meanwhile."""
+    from concurrent.futures import ThreadPoolExecutor
+    sim = SimulatedJudge(sorted(OUTLETS), seed=0)
+
+    import itertools
+    import time
+    asked = itertools.count()
+
+    class Local:                                                       # a judge read like the real one (no outlets);
+        def compare(self, text_a, text_b, direction="positive"):      # from the fifth call on it is busy
+            if next(asked) >= 4:
+                time.sleep(0.5)
+            return sim.compare_outlets("nrk", "vg", 1.0, direction)
+
+    pool, carry = ThreadPoolExecutor(2), []
+    calls = lambda: conn.execute("SELECT count(*) FROM judge_calls").fetchone()[0]     # noqa: E731
+    n1, _ = replay.judge_day(conn, DAY, Local(), max_calls=8, rng=np.random.default_rng(0), min_per_week=0,
+                             parallel=2, pool=pool, carry=carry, keep_last=True)
+    assert n1 == 8 and 0 < len(carry) < 8 and calls() == 8 - len(carry)          # the last block is still out
+    out = {frozenset((it[0].first_article_id, it[0].second_article_id)) for it, _, _ in carry}
+    n2, _ = replay.judge_day(conn, DAY, Local(), max_calls=4, rng=np.random.default_rng(1), min_per_week=0,
+                             parallel=2, pool=pool, carry=carry, keep_last=False)
+    assert not carry and calls() == n1 + n2                                       # recorded, nothing lost
+    pairs = [frozenset(r) for r in conn.execute("SELECT first_article, second_article FROM judge_calls")]
+    assert len(set(pairs)) == len(pairs) and out <= set(pairs)                    # none bought twice
+
+
+def test_vectors_and_dates_worked_out_a_day_ahead_give_the_same_day(conn):
+    """Option a (the maintainer, 2026-10-24): the pairs' vectors and the articles' dates are worked out while the day
+    before is judged; once the pairs judged by then are cut out, the answer shares the model predicts and the day's
+    new pairs are the same as worked out on the day."""
+    from pipeline.plan import angle as AN
+    vec = lambda ids: store.load_embeddings(conn, MODEL, ids)                       # noqa: E731
+    cands, ctx = replay.day_candidates(conn, DAY)
+    prep_c = list(cands)
+    prep_ctx = {**ctx, "_pairs": AN.pair_vectors([(c.article_a, c.article_b) for c in prep_c], vec),
+                "_pub": dict(conn.execute("SELECT id, published FROM articles").fetchall())}
+    a, b = prep_c[3].article_a, prep_c[3].article_b                                 # judged meanwhile: cut out
+    conn.execute("INSERT INTO judge_calls (call_id, at, purpose, model, prompt_version, direction, event_id, first_article, "
+                 "second_article, first_outlet, second_outlet, text_kind) VALUES ('x','t','history','judge',?,'positive',"
+                 "?,?,?,?,?,'summary')", (P.PROMPT_VERSION, prep_c[3].event_id, a, b, prep_c[3].outlet_a, prep_c[3].outlet_b))
+
+    class Model:                                                                   # any model: the mean vector's first two values
+        def predict(self, X):
+            return 1 / (1 + np.exp(-X[:, :2]))
+
+    got, gctx = replay.finish_candidates(conn, (prep_c, prep_ctx))
+    want, _ = replay.day_candidates(conn, DAY)
+    assert [(c.event_id, c.article_a, c.article_b) for c in got] == [(c.event_id, c.article_a, c.article_b) for c in want]
+    assert all(frozenset((c.article_a, c.article_b)) != frozenset((a, b)) for c in got)
+    assert [c.relevance for c in AN.apply(got, Model(), vec, gctx["_pairs"])] == [c.relevance for c in AN.apply(want, Model(), vec)]
+    assert len(replay.new_pairs(conn, got, DAY, gctx["_pub"])) == len(replay.new_pairs(conn, want, DAY))
+
+
+def test_the_feed_reads_the_gpus_own_queue_when_it_can():
+    """2026-10-25: calls handed to the sending threads can sit on the Mac while the planner runs; the feed then thought
+    the GPU full and rescored after every pick. With the server's own count (running + waiting) it plans a big block
+    when the GPU runs short, a small one when it is full — and counts its own calls when the server cannot be read."""
+    f = replay.Feed(parallel=64, queue=lambda: 6.0)
+    for _ in range(64):
+        f.sent()                                                       # 64 sent, but only 6 reached the GPU
+    assert f() >= 58
+    assert replay.Feed(parallel=64, queue=lambda: 70.0)() == 1          # the GPU is full: rescore after one
+    g = replay.Feed(parallel=64, queue=lambda: None)
+    for _ in range(64):
+        g.sent()
+    assert g() == 1                                                    # unreadable: its own count, as before
+    assert replay.server_queue("http://127.0.0.1:9/v1")() is None      # nothing listening: None, never an error
+
+
+def test_rebuilding_from_the_verdicts_gives_the_positions_the_run_wrote(conn, tmp_path):
+    """replay rebuild (the maintainer, 2026-10-25): the independent model replayed over the saved verdicts, day by day
+    as the run saw them, gives the positions the run itself wrote — so the history judged before the switch and the
+    days judged after it are one consistent series."""
+    path = tmp_path / "positions.npz"
+    _, rowid, states = replay.open_positions(conn, path)
+    for k in range(2):
+        day = DAY + dt.timedelta(days=k)
+        replay.judge_day(conn, DAY, SimulatedJudge(sorted(OUTLETS), seed=k), max_calls=6, rng=np.random.default_rng(k),
+                         min_per_week=0, posts={ax: s.posterior() for ax, s in states.items()})
+        rowid = replay.advance(conn, states, rowid, day)
+        conn.execute("INSERT INTO history_progress (day, done_at) VALUES (?, ?)", (day.isoformat(), replay.utc_now_iso()))
+        conn.commit()
+        import time
+        time.sleep(1.1)                                     # the call log's times are to the second: days apart in it
+    ran = conn.execute("SELECT day, axis, outlet, mean, sd FROM history_positions ORDER BY 1, 2, 3").fetchall()
+    assert replay.rebuild(conn, path) == 2
+    again = conn.execute("SELECT day, axis, outlet, mean, sd FROM history_positions ORDER BY 1, 2, 3").fetchall()
+    assert len(ran) == len(again) > 0
+    bad = [(tuple(a), tuple(b)) for a, b in zip(ran, again) if a[:3] != b[:3] or abs(a[3] - b[3]) > 1e-9 or abs(a[4] - b[4]) > 1e-9]
+    assert not bad, bad[:3]
+
+
+def test_trim_discards_an_unfinished_day_so_the_database_matches_the_saved_state(conn, tmp_path):
+    """history_judge_stop.sh / start.sh: whatever was recorded after the last finished day (an unfinished day's calls,
+    the day before's last batch) is deleted, so the database matches the saved positions and the run resumes after
+    that day; the finished day's verdicts stay."""
+    from pipeline.history import positions as HP
+    path = tmp_path / "positions.npz"
+    _, rowid, states = replay.open_positions(conn, path)
+    replay.judge_day(conn, DAY, SimulatedJudge(sorted(OUTLETS), seed=0), max_calls=5, rng=np.random.default_rng(0),
+                     min_per_week=0, posts={ax: s.posterior() for ax, s in states.items()})
+    rowid = replay.advance(conn, states, rowid, DAY)
+    conn.execute("INSERT INTO history_progress (day, done_at) VALUES (?, ?)", (DAY.isoformat(), replay.utc_now_iso()))
+    conn.commit()
+    HP.save(path, DAY.isoformat(), rowid, states)
+    kept = conn.execute("SELECT count(*) FROM judge_calls").fetchone()[0]
+    replay.judge_day(conn, DAY, SimulatedJudge(sorted(OUTLETS), seed=1), max_calls=4, rng=np.random.default_rng(1),
+                     min_per_week=0, posts={ax: s.posterior() for ax, s in states.items()})   # the next day, unfinished
+    assert conn.execute("SELECT count(*) FROM judge_calls").fetchone()[0] == kept + 4
+    got = replay.trim(conn, path)
+    assert got["calls"] == 4 and got["verdicts"] == 8
+    assert conn.execute("SELECT count(*) FROM judge_calls").fetchone()[0] == kept
+    assert conn.execute("SELECT count(*) FROM judgments").fetchone()[0] == 2 * kept
+    assert replay.trim(conn, path)["calls"] == 0                       # nothing more to discard

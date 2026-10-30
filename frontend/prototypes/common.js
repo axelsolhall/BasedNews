@@ -28,7 +28,8 @@ export async function loadData(url = "demo-trends.json", palette = PALETTE, { re
   const world = {};
   for (const c of countries) world[c.id] = [];
   for (let t = 0; t < T; t++) {
-    const ox = mean(refs.map((o) => o.s[t][0])), oy = mean(refs.map((o) => o.s[t][1]));
+    const uncentred = !!raw.meta?.raw_scores;          // development: the model's own scores, nothing subtracted
+    const ox = uncentred ? 0 : mean(refs.map((o) => o.s[t][0])), oy = uncentred ? 0 : mean(refs.map((o) => o.s[t][1]));
     for (const c of countries) {
       if (c.s) {                    // the pilot's own country position and uncertainty (A74), only re-centred here
         world[c.id].push([c.s[t][0] - ox, c.s[t][1] - oy, c.s[t][2], c.s[t][3]]);
@@ -46,7 +47,8 @@ export async function loadData(url = "demo-trends.json", palette = PALETTE, { re
     const all = outlets.filter((o) => o.country === c.id);
     const r = all.filter((o) => o.tier === "reference");
     let k = 0;
-    const centre = (t) => c.s ? [c.s[t][0], c.s[t][1]] : [mean(r.map((q) => q.s[t][0])), mean(r.map((q) => q.s[t][1]))];
+    const centre = (t) => raw.meta?.raw_scores ? [0, 0]
+      : c.s ? [c.s[t][0], c.s[t][1]] : [mean(r.map((q) => q.s[t][0])), mean(r.map((q) => q.s[t][1]))];
     national[c.id] = all.map((o, i) => ({
       id: o.id, label: o.name, tier: o.tier,
       color: extraColor ? (o.tier === "reference" ? palette[k++ % palette.length] : extraColor) : palette[i % palette.length],
@@ -69,7 +71,7 @@ export function monthLabel(m) {                       // "2026-10" → "Oct 2026
 export class Plane {
   constructor(el, data, opts = {}) {
     this.data = data;
-    this.o = { ovals: true, labels: true, axisColor: "#999", textColor: "#333", frameColor: "#ddd", gridColor: null,
+    this.o = { maxPull: 0.3, ovals: true, labels: true, axisColor: "#999", textColor: "#333", frameColor: "#ddd", gridColor: null,
                dotRadius: 5, trailWidth: 2.4, font: "inherit", bg: "#fff",
                smooth: 2,          // display smoothing of the monthly series, in months (Gaussian sigma)
                fade: 1.5,          // how fast a trail fades with age (1 = linear)
@@ -136,16 +138,47 @@ export class Plane {
 
   // the box that holds every dot and its whole trail up to time t, padded, with a cap on how unequal the axes get
   fit(t) {
-    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
     const K = Math.floor(t);
-    for (const d of this.series()) {
+    // each line's own box (its dot and whole trail so far)
+    let boxes = this.series().map((d) => {
+      let bx0 = Infinity, bx1 = -Infinity, by0 = Infinity, by1 = -Infinity;
       for (let k = 0; k <= K; k++) {
         const [x, y] = d.sm[k];
-        x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+        bx0 = Math.min(bx0, x); bx1 = Math.max(bx1, x); by0 = Math.min(by0, y); by1 = Math.max(by1, y);
       }
       const [x, y] = at(d.sm, t);
-      x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+      return [Math.min(bx0, x), Math.max(bx1, x), Math.min(by0, y), Math.max(by1, y)];
+    });
+    // a line that alone stretches the view too far is left out of the fit (still drawn): drop the line whose
+    // removal shrinks the view's area the most, while that shrink is above maxPull (the maintainer, 2026-10-25:
+    // slightly off stays, very off goes — by how much it pulls the view, not by a count)
+    // first, lines whose farthest point reaches much further than the others' do (outliers among the reaches, so a
+    // few far lines that hold the corner together all go): reach in units of the dots' own spread around their median
+    const S0 = this.series(), med = (a) => { const s = [...a].sort((p, q) => p - q), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+    const dots = S0.map((d) => at(d.sm, t));
+    const mx = med(dots.map((p) => p[0])), my = med(dots.map((p) => p[1]));
+    const spx = Math.max(0.05, 1.4826 * med(dots.map((p) => Math.abs(p[0] - mx))));
+    const spy = Math.max(0.05, 1.4826 * med(dots.map((p) => Math.abs(p[1] - my))));
+    const reach = boxes.map((b) => Math.max(Math.abs(b[0] - mx) / spx, Math.abs(b[1] - mx) / spx,
+                                            Math.abs(b[2] - my) / spy, Math.abs(b[3] - my) / spy));
+    const rm = med(reach), cut = rm + 3 * 1.4826 * med(reach.map((r) => Math.abs(r - rm)));
+    const near = boxes.filter((_, i) => reach[i] <= cut);
+    if (near.length >= Math.max(2, Math.ceil(boxes.length * 0.8))) boxes = near;
+    const union = (bs) => bs.reduce((u, b) => [Math.min(u[0], b[0]), Math.max(u[1], b[1]), Math.min(u[2], b[2]), Math.max(u[3], b[3])],
+                                    [Infinity, -Infinity, Infinity, -Infinity]);
+    const area = (u) => Math.max(u[1] - u[0], 0.2) * Math.max(u[3] - u[2], 0.2);
+    const keepAtLeast = Math.max(2, Math.ceil(boxes.length * 0.8));
+    while (boxes.length > keepAtLeast) {
+      const all = area(union(boxes));
+      let best = -1, shrink = 0;
+      boxes.forEach((_, i) => {
+        const s = 1 - area(union(boxes.filter((__, j) => j !== i))) / all;
+        if (s > shrink) { shrink = s; best = i; }
+      });
+      if (best < 0 || shrink <= this.o.maxPull) break;
+      boxes = boxes.filter((_, j) => j !== best);
     }
+    let [x0, x1, y0, y1] = union(boxes);
     let sx = Math.max(x1 - x0, 0.2), sy = Math.max(y1 - y0, 0.2);
     sx = Math.max(sx, sy / this.o.maxStretch);
     sy = Math.max(sy, sx / this.o.maxStretch);
@@ -192,6 +225,13 @@ export class Plane {
       b.append("line").attr("x1", X(v)).attr("x2", X(v)).attr("y1", fy0).attr("y2", fy1).attr("stroke", grid).attr("stroke-opacity", 0.55);
     for (const v of d3.ticks(vy0, vy1, 6)) if (Y(v) > fy0 && Y(v) < fy1)
       b.append("line").attr("y1", Y(v)).attr("y2", Y(v)).attr("x1", fx0).attr("x2", fx1).attr("stroke", grid).attr("stroke-opacity", 0.55);
+    // the scores on the axes (the positions as the model holds them, relative to the centre shown)
+    const num = d3.format("~g");
+    for (const v of d3.ticks(vx0, vx1, 8)) if (X(v) > fx0 + 12 && X(v) < fx1 - 12)
+      b.append("text").text(num(v)).attr("x", X(v)).attr("y", fy1 - 4).attr("text-anchor", "middle")
+        .attr("fill", o.axisColor).attr("font-size", 10);
+    for (const v of d3.ticks(vy0, vy1, 6)) if (Y(v) > fy0 + 10 && Y(v) < fy1 - 10)
+      b.append("text").text(num(v)).attr("x", fx0 + 4).attr("y", Y(v) - 3).attr("fill", o.axisColor).attr("font-size", 10);
     if (X(0) > fx0 && X(0) < fx1)
       b.append("line").attr("x1", X(0)).attr("x2", X(0)).attr("y1", fy0).attr("y2", fy1).attr("stroke", o.axisColor).attr("stroke-dasharray", "3 4");
     if (Y(0) > fy0 && Y(0) < fy1)

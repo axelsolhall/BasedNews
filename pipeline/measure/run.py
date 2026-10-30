@@ -74,9 +74,9 @@ def rendered(art, hist, kind: str) -> str:
 
 def candidates(conn, settings, relevance, purpose="measure", countries=None, settle_hours: float = SETTLE_HOURS,
                now: dt.datetime | None = None, run: str | None = None,
-               published_after: str | None = None) -> tuple[list[Candidate], dict]:
+               published_after: str | None = None, exclude_judged: bool = True) -> tuple[list[Candidate], dict]:
     run, ev, hist, ties, stats = load_items(conn, settle_hours, now, run)
-    done = judged_pairs(conn, purpose)
+    done = judged_pairs(conn, purpose) if exclude_judged else set()      # off: the history loads a day ahead
     country = {o.id: o.country for o in load_outlets()}
     pin, pout = settings.price(settings.judge_model)
     cands, texts = [], {}
@@ -119,12 +119,16 @@ def fit(conn, outlet_ids, purpose="measure", hyper=None, since: str | None = Non
     inside the loop); None averages over the grid by evidence (used at the start and for the final positions).
     since: only verdicts on articles both published from that date on (the history's planner window).
     before: only verdicts recorded before that time (the history's positions recomputed as they were then)."""
-    window = "" if since is None else (" AND c.first_article IN (SELECT id FROM articles WHERE published >= :since)"
-                                       " AND c.second_article IN (SELECT id FROM articles WHERE published >= :since)")
+    # since: the judged pairs' own articles, looked up by id (an IN over every article published since was millions of
+    # ids for an early history day: the monthly spreads took 6–9 minutes, 2026-10-24)
+    join = "" if since is None else (" JOIN articles fa ON fa.id = c.first_article"
+                                     " JOIN articles sa ON sa.id = c.second_article")
+    window = "" if since is None else " AND fa.published >= :since AND sa.published >= :since"
     if before is not None:
         window += " AND c.at < :before"
     rows = conn.execute("""SELECT c.first_outlet, c.second_outlet, c.first_article, c.second_article, c.text_kind,
-                                  j.axis, j.first_wins FROM judgments j JOIN judge_calls c ON c.call_id = j.call_id
+                                  j.axis, j.first_wins FROM judgments j JOIN judge_calls c ON c.call_id = j.call_id"""
+                        + join + """
                            WHERE c.purpose = :purpose AND c.prompt_version = :version AND j.first_wins IS NOT NULL"""
                         + window, {"purpose": purpose, "version": P.PROMPT_VERSION, "since": since,
                                    "before": before}).fetchall()

@@ -106,11 +106,12 @@ def learn(conn, purpose: str, vectors: Vectors) -> AngleModel | None:
     return fit(X, Y) if len(X) >= MIN_LABELS else None
 
 
-def apply(cands: list, model: AngleModel | None, vectors: Vectors) -> list:
-    """Candidates with relevance = their own predicted chance of an answer per axis (unchanged without a model)."""
+def apply(cands: list, model: AngleModel | None, vectors: Vectors, pre: tuple | None = None) -> list:
+    """Candidates with relevance = their own predicted chance of an answer per axis (unchanged without a model).
+    pre: pair_vectors of exactly these candidates, worked out ahead (the history loads a day ahead)."""
     if model is None or not cands:
         return cands
-    X, ok = pair_vectors([(c.article_a, c.article_b) for c in cands], vectors)
+    X, ok = pre if pre is not None else pair_vectors([(c.article_a, c.article_b) for c in cands], vectors)
     probs = iter(model.predict(X)) if len(X) else iter(())
     return [dataclasses.replace(c, relevance=tuple(float(v) for v in next(probs))) if k else c
             for c, k in zip(cands, ok)]

@@ -17,7 +17,9 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import math
 import os
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -131,6 +133,57 @@ def update(s: AxisState, rows: list[tuple], cfg: BTConfig | None = None, floor: 
     s.n_obs += len(rows)
 
 
+GROWTH = 1.001                     # the maintainer, 2026-10-25: an outlet's variance × this each day (sd ≈ +20 %/year)…
+CLOSE_P = 0.2                      # …unless more than CLOSE_MAX outlets are "close" to it on that axis: the chance their
+CLOSE_MAX = 5                      # order is inverted at least CLOSE_P (it has plenty of chances to be compared)
+
+
+def grow(s: AxisState, days: int = 1) -> None:
+    """Uncertainty grows a tiny multiple a day, so an outlet left alone can move again — proportional, so a certain
+    outlet is not swamped and an uncertain one changes meaningfully — but not for an outlet with more than CLOSE_MAX
+    close outlets on this axis (P(order inverted) ≥ CLOSE_P), which gets compared often enough to converge (the
+    maintainer, 2026-10-25; replaces the variance floor of 2026-10-19)."""
+    if days <= 0:
+        return
+    from scipy.special import ndtr
+    n = s.n
+    mu, var = s.mean[:n], np.diag(s.cov)[:n].copy()
+    p_inv = ndtr(-np.abs(mu[:, None] - mu[None, :]) / np.sqrt(var[:, None] + var[None, :]))
+    np.fill_diagonal(p_inv, 0.0)
+    free = (p_inv >= CLOSE_P).sum(axis=1) <= CLOSE_MAX
+    s.cov[np.arange(n)[free], np.arange(n)[free]] = var[free] * GROWTH ** days
+
+
+def update_independent(s: AxisState, rows: list[tuple], floor: float = 0.0) -> None:
+    """The maintainer's model (2026-10-25): every outlet has its own score and uncertainty on this axis, and a verdict
+    moves only the two outlets it compares — no article lean, no first-position bias, nothing shared. Each verdict in
+    turn is one Bayesian Bradley–Terry update of A and B (a single Newton/Laplace step, as Glicko): with d = μ_A − μ_B,
+    p = σ(a·d), w = p(1 − p) and D = 1 + a²w(σ_A² + σ_B²), μ_A += σ_A²·a(y − p)/D, μ_B −= σ_B²·a(y − p)/D,
+    σ_A² −= σ_A⁴·a²w/D and σ_B² likewise — the same fall the planner expects. Movement over time comes from grow (no
+    variance floor: floor 0). The state's covariance stays diagonal (its β entry is never touched); rows as in update."""
+    if not rows:
+        return
+    n = s.n
+    oidx = {o: k for k, o in enumerate(s.outlets)}
+    if floor > 0:
+        lift = np.maximum(0.0, floor - np.diag(s.cov)[:n])
+        s.cov[np.arange(n), np.arange(n)] += lift
+    for oa, ob, _, _, _, _, a, first_wins in rows:
+        if oa not in oidx or ob not in oidx or oa == ob:
+            continue
+        i, j = oidx[oa], oidx[ob]
+        vi, vj = s.cov[i, i], s.cov[j, j]
+        p = float(sigmoid(a * (s.mean[i] - s.mean[j])))
+        w = p * (1 - p)
+        den = 1.0 + a * a * w * (vi + vj)
+        g = a * (float(first_wins) - p) / den
+        s.mean[i] += vi * g
+        s.mean[j] -= vj * g
+        s.cov[i, i] = vi - vi * vi * a * a * w / den
+        s.cov[j, j] = vj - vj * vj * a * a * w / den
+        s.n_obs += 1
+
+
 def drop_before(s: AxisState, day: str) -> None:
     """Marginalise out the articles published before `day` (they can no longer be compared)."""
     keep = [k for k, d in enumerate(s.born) if d >= day]
@@ -164,6 +217,53 @@ def new_verdicts(conn, purpose: str, after_rowid: int, a_full: float, a_summary:
     return out, max(last, after_rowid)
 
 
+HALF_LIFE_DAYS = 365.0              # A08: a comparison's worth in its outlet's centre weight halves every year
+
+
+def centre_weights(conn, day: str, groups: dict[str, dict[str, float]], purpose: str) -> dict[str, dict[str, float]]:
+    """A08 (the maintainer, 2026-10-23): each reference outlet's weight in its country's centre = log of its comparisons
+    so far, each counted 0.5^(age / 1 year) from the day it was judged for (a comparison counts for both outlets), and 0
+    below one (log < 0) — an outlet with no verdicts does not move its country's centre. The log's base cancels out
+    when the weights are normalised. Only the centre (the countries' positions): the planner keeps its own weights."""
+    rows = conn.execute("""SELECT o, d, count(*) FROM (
+                               SELECT first_outlet AS o, substr(event_id, 1, 10) AS d FROM judge_calls
+                               WHERE purpose = :p AND substr(event_id, 1, 10) <= :day
+                               UNION ALL
+                               SELECT second_outlet, substr(event_id, 1, 10) FROM judge_calls
+                               WHERE purpose = :p AND substr(event_id, 1, 10) <= :day) GROUP BY o, d""",
+                        {"p": purpose, "day": day}).fetchall()
+    t, worth = dt.date.fromisoformat(day), defaultdict(float)
+    for o, d, n in rows:
+        worth[o] += n * 0.5 ** ((t - dt.date.fromisoformat(d)).days / HALF_LIFE_DAYS)
+    return {c: {o: (math.log(worth[o]) if worth[o] > 1.0 else 0.0) for o in g} for c, g in groups.items()}
+
+
+class CentreWorth:
+    """centre_weights for a run that moves forward day by day, kept as a running sum instead of recounted from every
+    call each day (≈ 2 s a day once a few years were judged, 2026-10-25): yesterday's worths decay by
+    0.5^(days / HALF_LIFE_DAYS), and the calls recorded since (by rowid — a day's late calls, recorded the next day,
+    included) are added at their own age. Same weights as centre_weights, as long as no call judged for a later day
+    is recorded yet (true for the run itself; a recompute uses centre_weights)."""
+
+    def __init__(self, purpose: str):
+        self.purpose, self.day, self.rowid, self.worth = purpose, None, 0, defaultdict(float)
+
+    def weights(self, conn, day: str, groups: dict[str, dict[str, float]]) -> dict[str, dict[str, float]]:
+        t = dt.date.fromisoformat(day)
+        if self.day is not None and t != self.day:
+            f = 0.5 ** ((t - self.day).days / HALF_LIFE_DAYS)
+            for o in self.worth:
+                self.worth[o] *= f
+        for rid, a, b, d in conn.execute("SELECT rowid, first_outlet, second_outlet, substr(event_id, 1, 10) FROM judge_calls "
+                                          "WHERE purpose = ? AND rowid > ? ORDER BY rowid", (self.purpose, self.rowid)):
+            w = 0.5 ** ((t - dt.date.fromisoformat(d)).days / HALF_LIFE_DAYS)
+            self.worth[a] += w
+            self.worth[b] += w
+            self.rowid = rid
+        self.day = t
+        return {c: {o: (math.log(self.worth[o]) if self.worth[o] > 1.0 else 0.0) for o in g} for c, g in groups.items()}
+
+
 def record_day(conn, day: str, states: dict[str, AxisState], groups: dict[str, dict[str, float]] | None = None) -> None:
     """Every outlet's position on `day`, per axis, and every country's (A08: the weighted mean of its reference
     outlets, `groups`), its sd from the day's joint uncertainty — which only the state holds, so it is written now."""
@@ -180,6 +280,8 @@ def record_day(conn, day: str, states: dict[str, AxisState], groups: dict[str, d
             if not ks:
                 continue
             w = np.array([g[s.outlets[k]] for k in ks], dtype=float)
+            if w.sum() <= 0:                                 # none of its outlets judged yet: their plain mean (priors)
+                w = np.ones(len(ks))
             w /= w.sum()
             var = float(w @ s.cov[np.ix_(ks, ks)] @ w)
             rows.append((day, ax, c, float(w @ s.mean[ks]), float(np.sqrt(max(var, 0.0)))))

@@ -132,7 +132,7 @@ resource "aws_ecs_task_definition" "job" {
     stopTimeout = 120 # ADR-012: SIGTERM → the step ends, uploads nothing, releases its lease; SIGKILL only after 2 min
     command     = ["list"]
     environment = [
-      { name = "BASEDNEWS_STATE", value = "s3://${aws_s3_bucket.private.bucket}/prod" },
+      { name = "BASEDNEWS_STATE", value = "s3://${aws_s3_bucket.private.bucket}/${local.state_prefix}" },
       { name = "BASEDNEWS_SITE_BUCKET", value = "s3://${aws_s3_bucket.site.bucket}/data" },
       { name = "BASEDNEWS_PUBLISH_POSITIONS", value = var.publish_positions ? "1" : "0" },
       { name = "AWS_REGION", value = var.region },

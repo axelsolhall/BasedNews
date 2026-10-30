@@ -68,6 +68,13 @@ CREATE TABLE IF NOT EXISTS positions (
     fitted_at TEXT NOT NULL, prompt_version TEXT NOT NULL, outlet_id TEXT NOT NULL, axis TEXT NOT NULL,
     mean REAL, sd REAL, n_comparisons INTEGER, PRIMARY KEY (fitted_at, outlet_id, axis)
 );
+CREATE TABLE IF NOT EXISTS prior_positions (
+    outlet_id TEXT NOT NULL, axis TEXT NOT NULL, mean REAL NOT NULL, sd REAL NOT NULL, as_of TEXT NOT NULL,
+    source TEXT NOT NULL, PRIMARY KEY (outlet_id, axis)
+);
+CREATE TABLE IF NOT EXISTS article_keep (
+    article_id TEXT PRIMARY KEY, swap REAL NOT NULL, decided_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS headlines (
     article_id TEXT NOT NULL, title TEXT NOT NULL, first_seen TEXT, url TEXT, how TEXT NOT NULL,
     PRIMARY KEY (article_id, title)

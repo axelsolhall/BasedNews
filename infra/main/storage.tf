@@ -1,4 +1,9 @@
-# The private bucket: the hot SQLite file (db/), step records (runs/), the Parquet lake (lake/), the lock (db/LOCK).
+# The private bucket: the hot SQLite file (db/), step records (runs/), the Parquet lake (lake/), the lock (db/LOCK),
+# all under the jobs' state prefix (BASEDNEWS_STATE, jobs.tf).
+locals {
+  state_prefix = "prod"
+}
+
 resource "aws_s3_bucket" "private" {
   bucket = "${local.name}-private-${local.account}"
 }
@@ -28,7 +33,7 @@ resource "aws_s3_bucket_lifecycle_configuration" "private" {
   rule {
     id     = "database-versions"
     status = "Enabled"
-    filter { prefix = "db/" }
+    filter { prefix = "${local.state_prefix}/db/" }
     noncurrent_version_expiration { # every step uploads (≈ 100 versions a day × 0.13 GB): keep about one day
       noncurrent_days           = 1
       newer_noncurrent_versions = 24
@@ -37,14 +42,14 @@ resource "aws_s3_bucket_lifecycle_configuration" "private" {
   rule {
     id     = "step-records"
     status = "Enabled"
-    filter { prefix = "runs/" }
+    filter { prefix = "${local.state_prefix}/runs/" }
     expiration { days = 400 }
     noncurrent_version_expiration { noncurrent_days = 7 }
   }
   rule {
     id     = "lake"
     status = "Enabled"
-    filter { prefix = "lake/" }
+    filter { prefix = "${local.state_prefix}/lake/" }
     noncurrent_version_expiration { noncurrent_days = 30 }
   }
   rule {

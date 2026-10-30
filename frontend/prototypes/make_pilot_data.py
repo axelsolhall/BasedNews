@@ -57,7 +57,10 @@ def main():
     ctry = series(conn.execute(f"SELECT day, axis, country, mean, sd FROM history_country_positions WHERE day IN ({q})",
                                days), days, "country")
     data = {"meta": {"demo": False, "pilot": True, "updated": done[-1], "first": done[0], "bin_days": BIN_DAYS,
-                     "note": "2019 pilot: the replay's day-by-day positions (A74), one point per week"},
+                     "note": "the history replay's day-by-day positions (A74), one point per week",
+                     "label": "HISTORY DATA", "raw_scores": True,      # development: no centring on the plane
+                     "banner": f"History · {done[0]} → {done[-1]} · positions as the judge's verdicts moved them, a point a "
+                               "week; judging goes on"},
             "months": days, "regions": REGIONS,
             "countries": [{"id": c, "name": c, "iso": i, "region": r, "measured": c in ctry, "s": ctry.get(c)}
                           for c, i, r in COUNTRIES if c in ctry],

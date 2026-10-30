@@ -99,6 +99,9 @@ class OpenAIJudge:
 
 
 
+HTTP_TIMEOUT = 600                   # seconds for one request to the local server (the history replay sets 60)
+
+
 def local_client(timeout: float = 600):
     """The local server from .env (LOCAL_LLM_BASE_URL, LOCAL_LLM_API_KEY; docs/LOCAL_LLM.md)."""
     from openai import OpenAI
@@ -173,7 +176,7 @@ class ThresholdJudge(LocalJudge):
         import httpx
         env = {**_dotenv(), **os.environ}
         root = env["LOCAL_LLM_BASE_URL"].rstrip("/").removesuffix("/v1")
-        r = (self.http or httpx).post(f"{root}{path}", json=body, timeout=600,
+        r = (self.http or httpx).post(f"{root}{path}", json=body, timeout=HTTP_TIMEOUT,
                                       headers={"Authorization": f"Bearer {env['LOCAL_LLM_API_KEY']}"})
         r.raise_for_status()
         return r.json()
