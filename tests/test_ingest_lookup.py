@@ -33,3 +33,16 @@ def test_ingest_outlet_new_edit_and_unchanged(monkeypatch):
     assert sorted(set(asked)) == ["https://x/1", "https://x/2", "https://x/3"]
     assert [a.url for a in new] == ["https://x/3"] and not errors
     assert [(e.article_id, e.title) for e in edits] == [("c2", "Second, edited")]
+
+
+def test_ingest_outlet_skips_items_published_before_the_window(monkeypatch):
+    """A80: retention moves old articles out of the database, so an old item still in a feed must not come back."""
+    items = [{"url": "https://x/old", "title": "Old", "published": "2020-01-01T00:00:00Z"},
+             {"url": "https://x/new", "title": "New", "published": ingest.utc_now_iso()},
+             {"url": "https://x/undated", "title": "Undated"}]
+    monkeypatch.setattr(ingest.net, "fetch", lambda url: (b"", None))
+    monkeypatch.setattr(ingest, "parse_feed", lambda body: items)
+    monkeypatch.setattr(ingest, "fetch_text", lambda url: (None, "none"))
+    o = Outlet(id="a", name="A", country="SE", language="sv", homepage="https://x", feeds=("https://x/feed",))
+    new, _, _ = ingest.ingest_outlet(o, True, lambda urls: {})
+    assert [a.url for a in new] == ["https://x/new", "https://x/undated"]

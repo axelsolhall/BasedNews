@@ -7,6 +7,7 @@ Dedupe happens BEFORE downloading article pages (the old script downloaded every
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import hashlib
 import sqlite3
 from concurrent.futures import ThreadPoolExecutor
@@ -16,9 +17,13 @@ from pipeline import net, store
 from pipeline.contracts import Article, HeadlineVersion, Outlet
 from pipeline.ingest.extract import clean_text, fetch_text
 from pipeline.ingest.feeds import parse_feed, to_utc_iso, utc_now_iso
+from pipeline.job.steps import RECENT_DAYS
 from pipeline.sources.registry import load_outlets
 
 MIN_TEXT_CHARS = 300   # A19: below this we treat extraction as failed and fall back to the summary
+# A80: an item published before the window is skipped: no step would read it, and retention may already have moved
+# its URL out of the database, so it would otherwise come back as new
+MAX_AGE_DAYS = int(RECENT_DAYS)
 
 
 def article_id(url: str, title: str) -> str:
@@ -50,6 +55,7 @@ def ingest_outlet(o: Outlet, allow_text: bool, lookup=known_urls
     """New articles, feed errors, and headline edits: a known URL whose feed title changed (A34, no download).
     `lookup(urls)` returns the stored ones among this outlet's feed URLs (`known_urls`)."""
     new, errors, seen, edits = [], [], set(), []
+    too_old = (dt.datetime.now(dt.UTC) - dt.timedelta(days=MAX_AGE_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
     fetched = []
     for feed in o.feeds:
         try:
@@ -68,13 +74,16 @@ def ingest_outlet(o: Outlet, allow_text: bool, lookup=known_urls
                     edits.append(HeadlineVersion(art_id, title, utc_now_iso(), url, "feed_edit"))
                     titles.add(title.lower())
                 continue
+            published = to_utc_iso(it.get("published"))
+            if published and published < too_old:              # A80
+                continue
             seen.add(url)
             text, source = (fetch_text(url) if allow_text else (None, "none"))
             if not text or len(text) < MIN_TEXT_CHARS:
                 text, source = None, "summary" if it.get("summary") else "none"
             new.append(Article(
                 id=article_id(url, title), outlet_id=o.id, country=o.country, url=url, title=title,
-                published=to_utc_iso(it.get("published")) or utc_now_iso(),   # A39: undated → first seen
+                published=published or utc_now_iso(),                      # A39: undated → first seen
                 summary=clean_text(it.get("summary")),
                 full_text=text, feed_url=feed, ingested_at=utc_now_iso(), text_source=source,
             ))

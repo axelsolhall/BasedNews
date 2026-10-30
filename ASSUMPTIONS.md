@@ -1254,3 +1254,24 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
 - **Test:** `tests/test_retention.py::test_trash_past_the_match_window_by_swap_value_with_a_cap_per_outlet_and_day`;
   eval: `python -m pipeline.retention.run` (dry run prints trashed/kept counts and the database size).
 - **If wrong:** the three constants at the top of `pipeline/retention/run.py`; "both axes" is one `max` → `min`.
+
+### A80 — Articles leave the hot database after the window; their metadata lives only in the lake (2026-10-30)
+- **Rule (the maintainer, 2026-10-30):** permanent article metadata goes to an append-only collection; the hot database
+  holds only what a step can still use. Retention moves every live article older than `WINDOW_DAYS` (14) that no
+  verdict names: metadata (`ARTICLE_META`) and all its headlines are appended to the lake as
+  `<table>/month=YYYY-MM/moved-<time>.parquet` (read back, indexed in `lake_parts`), then all its rows are deleted
+  (`ARTICLE_ROWS` + `article_keep`). Judged articles stay (the fit's `since` looks up their publish dates; small) and
+  so do archive samples (`wayback-*`). `part.parquet` of `articles_meta` and `headlines` now holds only rows still in
+  the database (a month with none left is rewritten empty), so it and the `moved-*` files never overlap: the lake is
+  their union. Ingest skips feed items published before the window (`MAX_AGE_DAYS`): otherwise a URL moved out
+  would come back as new (≈ 0.25 % of items, 320 of 133,307 in the week to 2026-10-30).
+- **Why:** the hot database is one SQLite file uploaded whole after each job (S3 cannot append); keeping every
+  article's row forever grew it ≈ 3.6 GB a year (≈ 7,500 kept articles a day × 1.3 KB) toward the 5 GiB single-PUT
+  limit. Now its size is flat: 14 days of articles + judged ones + verdicts.
+- **Depends:** `pipeline/retention/run.py` (movable, move_out, SNAPSHOT_TABLES, lake_plan), `pipeline/store.py`
+  (lake_parts), `pipeline/ingest/run.py` (MAX_AGE_DAYS). The prod job starts from an empty lake folder and uploads
+  what it writes (`pipeline/job/storage.py`); the database is not saved when that upload fails (A52).
+- **Test:** `tests/test_retention.py::test_apply_archives_then_deletes_only_outside_the_window`,
+  `tests/test_ingest_lookup.py::test_ingest_outlet_skips_items_published_before_the_window`; on a copy of prod
+  (2026-10-30): 14,460 moved, integrity ok, 3,422.8 → 3,390.3 MB.
+- **If wrong:** stop moving = return `[]` from `movable`; the moved rows are in the lake to load back.

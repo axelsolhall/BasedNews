@@ -186,4 +186,8 @@ a second run has nothing to do), `measure` without a budget is refused. The site
 - [ ] Note: 300 v4 measure calls (2026-10-11 16:31–16:33) have no saved fit after them: that run stopped before its
       final fit. The export refits from all verdicts, so the site is unaffected; the retention refit check (A52) can
       compare again after the next measure run saves positions.
+- [ ] A80 (built 2026-10-30): articles past 14 days and never judged leave the database; metadata + headlines appended
+      to the lake (`moved-*.parquet`). Verified by Claude: 222 tests; on a copy of prod 14,460 moved, integrity ok.
+      Yours: after the next maintenance run, `aws s3 ls s3://<private>/prod/lake/articles_meta/ --recursive | grep moved`
+      lists the moved files, and the database size stays ≈ 3.4 GB over the following days.
 

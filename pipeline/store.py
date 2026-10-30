@@ -87,6 +87,10 @@ CREATE TABLE IF NOT EXISTS lake_files (
     table_name TEXT NOT NULL, month TEXT NOT NULL, rows INTEGER NOT NULL, sha256 TEXT NOT NULL, written_at TEXT NOT NULL,
     PRIMARY KEY (table_name, month)
 );
+CREATE TABLE IF NOT EXISTS lake_parts (
+    path TEXT PRIMARY KEY, table_name TEXT NOT NULL, month TEXT NOT NULL, rows INTEGER NOT NULL, sha256 TEXT NOT NULL,
+    written_at TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS job_runs (
     run_id TEXT NOT NULL, step TEXT NOT NULL, status TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT,
     duration_s REAL, commit_sha TEXT, args TEXT, counts_before TEXT, counts_after TEXT, gate TEXT, error TEXT,

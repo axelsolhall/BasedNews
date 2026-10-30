@@ -8,8 +8,10 @@
 1. Lake (ADR-010): monthly Parquet files, `<lake>/<table>/month=YYYY-MM/part.parquet`, for the tables kept forever
    (verdicts, positions, runs, job runs, spend, article metadata, headlines) and the judge call log (A51). A month is
    rewritten when its row count differs from the `lake_files` index; the call log is written once per closed month.
-   Every file is read back and checked before anything is deleted. Locally the lake is data/lake; in production the
-   job uploads it to the private bucket before the database (`pipeline/job/storage.py`).
+   Article metadata and headlines that leave the database are appended first (A80): `moved-<time>.parquet`, indexed
+   in `lake_parts`; their `part.parquet` holds only the rows still in the database. Every file is read back and
+   checked before anything is deleted. Locally the lake is data/lake; in production the job uploads it to the private
+   bucket before the database (`pipeline/job/storage.py`).
 2. Delete, only with --apply (outside production a backup copy of the database is made first):
    - text and summary of live articles older than WINDOW_DAYS, marked `pruned_at` (archive-sample articles keep
      theirs, A52);
@@ -19,6 +21,8 @@
    - cached text vectors not used for WINDOW_DAYS (A56);
    - normalize's undo copies of those articles' text (articles_text_backup, articles_shared_text);
    - the retired pre-pipeline scraper's rows (articles_legacy, A37; D8).
+   Before the lake (A80), only with --apply: live articles older than WINDOW_DAYS and never judged leave the database
+   for good — metadata and headlines appended to the lake, then every row of theirs deleted (ARTICLE_ROWS, article_keep).
 3. VACUUM, so the file actually shrinks.
 Eval (`verify`, also the job gate): database size, integrity, and a refit from the kept verdicts compared with the
 latest stored positions.
@@ -63,6 +67,15 @@ LAKE_TABLES = {
     "headlines": ("SELECT * FROM headlines", "substr(first_seen, 1, 7)"),
     "judge_call_log": ("SELECT * FROM judge_call_log", "substr(started_at, 1, 7)"),
 }
+# A80: articles leave the database. Their metadata and headlines are appended once, as `moved-<time>.parquet` (the
+# `_move` temp table), before the rows go; `part.parquet` of these two tables then holds only the rows still in the
+# database (a month with none left is rewritten empty), so the two never overlap and the lake is their union.
+SNAPSHOT_TABLES = ("articles_meta", "headlines")
+MOVE_TABLES = {
+    "articles_meta": (f"SELECT {ARTICLE_META} FROM articles WHERE id IN (SELECT id FROM _move)",
+                      "substr(coalesce(ingested_at, published), 1, 7)"),
+    "headlines": ("SELECT * FROM headlines WHERE article_id IN (SELECT id FROM _move)", "substr(first_seen, 1, 7)"),
+}
 ARROW = {"TEXT": pa.string(), "INTEGER": pa.int64(), "REAL": pa.float64(), "BLOB": pa.binary()}
 
 
@@ -98,6 +111,9 @@ def lake_plan(conn, now: dt.datetime | None = None) -> list[tuple[str, str, int]
                     plan.append((table, month, n))
             elif index.get((table, month)) != n:
                 plan.append((table, month, n))
+    for table in SNAPSHOT_TABLES:                          # A80: every row of the month moved out → an empty file
+        hot = _month_rows(conn, table)
+        plan += [(t, m, 0) for (t, m), n in sorted(index.items()) if t == table and n and m not in hot]
     return plan
 
 
@@ -243,6 +259,45 @@ def delete_trash(conn, ids: list[str], kept: list[tuple[str, float]], now: str) 
     return n
 
 
+def movable(conn, cut: str) -> list[str]:
+    """A80: live articles past the window (their text is pruned there, so no step reads them again) that no verdict
+    names; judged ones stay, as the fit's `since` looks up its articles' publish dates."""
+    return [r[0] for r in conn.execute(
+        "SELECT id FROM articles WHERE ingested_at < ? AND published < ? "
+        "AND (text_source IS NULL OR text_source NOT LIKE 'wayback-%') "
+        "AND id NOT IN (SELECT first_article FROM judge_calls WHERE first_article IS NOT NULL "
+        "               UNION SELECT second_article FROM judge_calls WHERE second_article IS NOT NULL)", (cut, cut))]
+
+
+def move_out(conn, ids: list[str], root: Path, now: str) -> dict[str, int]:
+    """Append the articles' metadata and headlines to the lake (read back), then delete every row of theirs."""
+    conn.execute("CREATE TEMP TABLE IF NOT EXISTS _move (id TEXT PRIMARY KEY)")
+    conn.execute("DELETE FROM _move")
+    conn.executemany("INSERT INTO _move VALUES (?)", [(i,) for i in ids])
+    stamp = now.replace("-", "").replace(":", "")
+    for table, (q, mexpr) in MOVE_TABLES.items():
+        cur = conn.execute(f"SELECT *, {mexpr} AS _month FROM ({q})")
+        cols = [d[0] for d in cur.description if d[0] != "_month"]
+        months: dict[str, list[dict]] = {}
+        for r in cur.fetchall():
+            months.setdefault(r["_month"], []).append({c: r[c] for c in cols})
+        for month, rows in sorted(months.items()):
+            path = root / table / f"month={month}" / f"moved-{stamp}.parquet"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            pq.write_table(pa.Table.from_pylist(rows, schema=_schema(conn, table, cols)), path, compression="zstd")
+            if pq.read_table(path).num_rows != len(rows):
+                raise RuntimeError(f"lake {path}: wrote {len(rows)} rows, read back another count")
+            conn.execute("INSERT OR REPLACE INTO lake_parts VALUES (?,?,?,?,?,?)",
+                         (path.relative_to(root).as_posix(), table, month, len(rows),
+                          hashlib.sha256(path.read_bytes()).hexdigest(), now))
+    n: dict[str, int] = {}
+    for table, col in (*ARTICLE_ROWS, ("article_keep", "article_id")):
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE name = ?", (table,)).fetchone():
+            n[table] = n.get(table, 0) + conn.execute(f"DELETE FROM {table} WHERE {col} IN (SELECT id FROM _move)").rowcount
+    conn.commit()
+    return n
+
+
 def _count(conn, sql: str, params: tuple) -> tuple[int, int]:
     """Rows an UPDATE/DELETE would touch and the bytes it frees (approximate: text and blob lengths)."""
     params = tuple(p for p in params if p != "{now}")
@@ -322,8 +377,15 @@ def main():
             n = delete_trash(conn, gone, kept, now)
             print("  deleted: " + " · ".join(f"{t} {k:,}" for t, k in n.items()))
 
-    plan = lake_plan(conn)
+    # A80 before the lake plan, so this run's part.parquet files already leave the moved rows out
     root = lake_dir()
+    ids = movable(conn, cut)
+    print(f"move out (A80): {len(ids):,} articles past the {args.days}-day window and never judged → lake, then deleted")
+    if args.apply and ids:
+        n = move_out(conn, ids, root, now)
+        print("  deleted: " + " · ".join(f"{t} {k:,}" for t, k in n.items()))
+
+    plan = lake_plan(conn)
     per_table: dict[str, list] = {}
     for t, m, n in plan:
         per_table.setdefault(t, []).append((m, n))

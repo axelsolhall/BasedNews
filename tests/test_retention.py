@@ -11,6 +11,7 @@ import pyarrow.parquet as pq
 import pytest
 
 from pipeline import store
+from pipeline.contracts import HeadlineVersion
 from pipeline.export import run as export
 from pipeline.judge import calllog
 from pipeline.judge import prompt as P
@@ -85,10 +86,20 @@ def test_dry_run_changes_nothing(db, monkeypatch, tmp_path):
 
 
 def test_apply_archives_then_deletes_only_outside_the_window(db, monkeypatch, tmp_path):
+    db.execute("INSERT INTO articles (id, outlet_id, country, url, title, published, full_text, ingested_at, text_source)"
+               " VALUES ('old-judged','nrk','Norway','https://x/j','T j',?,'full text',?,'trafilatura')", (iso(60), iso(60)))
+    db.execute("INSERT INTO judge_calls VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",      # not 'measure': the fit is unchanged
+               ("probe", iso(60), "probe", "gpt-test", P.PROMPT_VERSION, "positive", "ev:full", "old-judged", "new-live",
+                "nrk", "nrk", "full", 1, 1, 0.0, "{}"))
+    store.seed_headlines(db)
+    store.add_headline(db, HeadlineVersion("old-live", "T old-live, edited", iso(59), "https://x/old-live", "feed_edit"))
+    db.commit()
     run_main(monkeypatch, R, "--apply")
     c = store.connect()
     text = {r[0]: (r[1], r[2]) for r in c.execute("SELECT id, full_text IS NOT NULL, pruned_at FROM articles")}
-    assert text["old-live"][0] == 0 and text["old-live"][1]                   # text gone, marked
+    assert "old-live" not in text                                               # A80: moved out, every row
+    assert not c.execute("SELECT 1 FROM headlines WHERE article_id = 'old-live'").fetchone()
+    assert text["old-judged"][0] == 0 and text["old-judged"][1]                 # judged: stays, text gone, marked
     assert text["old-archive"][0] == 1 and text["new-live"][0] == 1             # archive sample and window kept
     assert {r[0] for r in c.execute("SELECT article_id FROM embeddings")} == {"old-archive", "new-live"}
     assert [r[0] for r in c.execute("SELECT DISTINCT run_id FROM event_members ORDER BY 1")] == \
@@ -103,6 +114,11 @@ def test_apply_archives_then_deletes_only_outside_the_window(db, monkeypatch, tm
     assert pq.read_table(lake / "judgments" / f"month={month(3)}" / "part.parquet").num_rows == 480
     meta = pq.read_table(lake / "articles_meta" / f"month={month(60)}" / "part.parquet")
     assert "full_text" not in meta.column_names and "summary" not in meta.column_names
+    assert sorted(meta.column("id").to_pylist()) == ["old-archive", "old-judged"]  # only rows still in the database
+    moved = [pq.read_table(lake / p) for (p,) in c.execute("SELECT path FROM lake_parts WHERE table_name = 'articles_meta'")]
+    assert [i for t in moved for i in t.column("id").to_pylist()] == ["old-live"]
+    heads = [pq.read_table(lake / p) for (p,) in c.execute("SELECT path FROM lake_parts WHERE table_name = 'headlines'")]
+    assert sorted(t for h in heads for t in h.column("title").to_pylist()) == ["T old-live", "T old-live, edited"]
     assert R.lake_plan(c) == []                                                 # a second run has nothing to write
     v = R.verify(c)
     assert v["integrity"] == "ok" and v["refit_max_abs_diff"] < 1e-9           # A52's eval: refit reproduces
