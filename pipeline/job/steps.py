@@ -30,8 +30,8 @@ STEPS: dict[str, Step] = {s.name: s for s in (
     Step("normalize", "pipeline.normalize.run", ("--days", RECENT_DAYS), gate=gates.normalize, needs_ml=True),
     Step("embed", "pipeline.embed.run", ("--days", RECENT_DAYS), gate=gates.embed, needs_ml=True),
     Step("stories", "pipeline.events.run", ("--days", "7"), gate=gates.stories),
-    Step("measure", "pipeline.measure.run", gate=gates.measure, paid=True),
-    Step("export", "pipeline.export.run", gate=gates.export, publishes=True),
+    Step("measure", "pipeline.measure.live", gate=gates.measure, paid=True),      # A82: the history's model, carried on
+    Step("export", "pipeline.export.frames", ("live",), gate=gates.export, publishes=True),   # A82: the site's frames
     Step("retention", "pipeline.retention.run", args=("--apply",), gate=gates.retention),   # archive, verify, delete (A52)
     Step("backfill", "pipeline.backfill.run"),
 )}

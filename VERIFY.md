@@ -190,4 +190,9 @@ a second run has nothing to do), `measure` without a budget is refused. The site
       to the lake (`moved-*.parquet`). Verified by Claude: 222 tests; on a copy of prod 14,460 moved, integrity ok.
       Yours: after the next maintenance run, `aws s3 ls s3://<private>/prod/lake/articles_meta/ --recursive | grep moved`
       lists the moved files, and the database size stays ≈ 3.4 GB over the following days.
+- [ ] A81–A83 (built 2026-11-01): wrap-up. Verified by Claude: tests (`tests/test_live.py`, `tests/test_frames.py`),
+      the history rebuilt without cn.nytimes, the threshold sweep (reports/threshold.md), the site played locally at
+      60 frames a second. Yours: (1) `terraform -chdir=infra/main apply` (judge on, publishing on, deploy may write
+      data/history); (2) push → CI uploads `site/`; (3) after the next 04:35 UTC judge run, the site's date line shows
+      that day and `aws s3 ls s3://<site>/data/ | grep live` lists live.json; (4) OpenAI spend stays ≈ $0.15 a day.
 

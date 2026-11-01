@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BasedNews</title>
+<meta name="description" content="Where the news of 41 countries leans, measured by an AI judge comparing how outlets frame the same events, 2015 to today.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="paper.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ccircle cx=%228%22 cy=%228%22 r=%226%22 fill=%22%23a3271f%22/%3E%3C/svg%3E">
+</head>
+<body>
+<header class="mast" id="mast">
+  <a data-part="logo" class="logo" href="#explore">BasedNews</a>
+  <p data-part="tagline" class="tagline">Where each country's news leans · and how sure we are</p>
+  <div data-part="rule" class="rule"><i></i><i></i></div>
+  <a data-part="brand" class="brand" href="#explore">BasedNews</a>
+  <nav data-part="nav" id="nav">
+    <div class="pill"></div>
+    <a data-target="explore" data-anchor="front" href="#explore">The map</a>
+    <a data-target="how" href="#how">How it works</a>
+    <a data-target="method" href="#method">Method</a>
+    <a data-target="data" href="#data">The data</a>
+    <a data-target="about" href="#about">About</a>
+  </nav>
+  <div data-part="dateline" class="dateline">&nbsp;</div>
+  <div data-part="barline" class="barline"></div>
+</header>
+<div class="mast-space"></div>
+<div class="progress" id="progress"></div>
+
+<section id="explore">
+  <div class="intro">
+    <p class="lede">An AI reads <em>the same story</em> in newsrooms across Europe and North America, compares how each one
+      frames it, and places every outlet on a map — with an oval for how sure it is.</p>
+    <span class="demo" data-note></span>
+  </div>
+  <div class="scrolly">
+    <div id="front" class="stage">
+      <div class="main">
+        <div class="kicker">The plane <b id="plane-title">Countries, relative to each other</b></div>
+        <button id="back" hidden>← All countries</button>
+        <div id="plane"></div>
+      </div>
+      <div class="side with-table">
+        <div class="kicker">The atlas <b>Pick a country</b></div>
+        <div id="map"></div>
+        <div id="table"></div>
+      </div>
+      <div class="ruler" id="slider">
+        <button data-play aria-label="Play"></button>
+        <div class="track"><input type="range" aria-label="Time"><div class="ticks" data-ticks></div></div>
+        <span data-month></span>
+      </div>
+    </div>
+    <div class="chapters">
+      <div class="chapter" data-ch="start"><div class="card"><span class="no">1</span>
+        <h3>2015: where the news stood</h3>
+        <p>Each dot is a country — the weighted average of its largest news brands — placed by how they frame the same
+           events. Colours are regions; the table under the map has every country.</p></div></div>
+      <div class="chapter tall" data-ch="drift"><div class="card"><span class="no">2</span>
+        <h3>Ten years of drift</h3>
+        <p>Keep scrolling: time runs with you. Each dot drags its history behind it like a string.</p>
+        <p class="when" id="when"></p></div></div>
+      <div class="chapter" data-ch="region"><div class="card"><span class="no">3</span>
+        <h3>Neighbours</h3>
+        <p>Pick a region above the table to compare neighbours — here, the Nordics. The board zooms to fit them.</p></div></div>
+      <div class="chapter" data-ch="country"><div class="card"><span class="no">4</span>
+        <h3 id="inside">Inside a country</h3>
+        <p>Open a country and its own outlets appear, placed relative to the country's position. The table lists them one
+           by one.</p></div></div>
+      <div class="chapter" data-ch="hollow"><div class="card"><span class="no">5</span>
+        <h3>The hollow dot</h3>
+        <p>Smaller outlets are measured too, and drawn hollow: they weigh little in their country's position.</p></div></div>
+      <div class="chapter" data-ch="judgment"><div class="card wide"><span class="no">6</span>
+        <h3>Behind every dot: comparisons like this</h3>
+        <p>The judge reads two articles about the same event — outlet names hidden — and says which frames it further
+           right or more conservatively, and why. Millions of these place the dots.</p>
+        <div id="judgments"></div></div></div>
+      <div class="chapter" data-ch="free"><div class="card"><span class="no">7</span>
+        <h3>Your turn</h3>
+        <p>Pick any country on the map or in the table, or drag the timeline. Hover a dot to follow it.</p></div></div>
+      <div class="chapter-end"></div>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="how">
+  <div class="no">01</div>
+  <div>
+    <h2>How it works</h2>
+    <p>Every hour BasedNews reads the feeds of the largest news brands in 41 countries, and every day it compares how
+       they report the same events. The years before go back to November 2015, rebuilt from the GDELT archive.</p>
+    <div class="steps">
+      <div><b>Collect</b>Outlets' news feeds, every hour. Robots.txt and opt-outs respected.</div>
+      <div><b>Match</b>Articles about the same event are grouped, whatever their language.</div>
+      <div><b>Compare</b>An AI judge sees two articles side by side — never the outlets' names — and picks per axis.</div>
+      <div><b>Place</b>Each verdict nudges the two outlets' scores, Elo-style, with an uncertainty that shrinks as they
+        are compared and grows a little while they are not.</div>
+    </div>
+  </div>
+</section>
+
+<section class="page" id="method">
+  <div class="no">02</div>
+  <div>
+    <h2>Method</h2>
+    <p>Positions are relative: the centre is the average of the countries shown, not a political centre. Open a country
+       and its outlets are placed relative to that country.</p>
+    <p>What is measured is the framing of the same event, not which stories an outlet chooses to cover. An outlet is
+       drawn only once it has enough comparisons behind it; below that its position is inconclusive and it is listed,
+       not placed. The history was judged by a fine-tuned open model on a local GPU, the live days by an OpenAI model,
+       both with the same prompt and the same update rule.</p>
+    <p>Prompts, assumptions, experiments and the comparison with outside ratings are public in
+       <a href="https://github.com/axelsolhall/BasedNews">the repository</a>. Article text is never republished.</p>
+  </div>
+</section>
+
+<section class="page" id="data">
+  <div class="no">03</div>
+  <div>
+    <h2>The data</h2>
+    <p>Every dot rests on two counts: the articles we hold, and the pairs among them — two outlets reporting the same
+       event — that the judge can compare. Week by week, since November 2015.</p>
+    <div id="weekly"></div>
+  </div>
+</section>
+
+<section class="page" id="about">
+  <div class="no">04</div>
+  <div>
+    <h2>About</h2>
+    <p>An open-source project by Axel Solhall. Code, data pipeline and method:
+       <a href="https://github.com/axelsolhall/BasedNews">github.com/axelsolhall/BasedNews</a>.</p>
+    <p>Hosting and the daily judge cost a few dollars a month.</p>
+    <footer>BasedNews</footer>
+  </div>
+</section>
+
+<script type="module">
+  import { start } from "./paper.js";
+  import { monthLabel } from "./common.js";
+  import { runStory } from "./story.js";
+  import { loadJudgments, judgmentBrowser } from "./judgment.js";
+  import { weeklyChart } from "./data.js";
+
+  weeklyChart(document.getElementById("weekly"));   // the data section: on its own, it only shares the colours
+
+  const ctx = await start({ regions: true, table: true, index: false, mapLayout: "europe" });
+  const { ui, plane, map, data, slider, table } = ctx;
+  const last = () => data.months.length - 1;
+  // the country the story opens: Sweden if it is drawn, else the one with the most outlets drawn
+  const inside = data.national.Sweden?.length >= 2 ? "Sweden"
+    : Object.entries(data.national).sort((a, b) => b[1].length - a[1].length)[0][0];
+  document.getElementById("inside").textContent = `Inside ${inside}`;
+  const extra = data.national[inside].find((o) => o.tier !== "reference") || data.national[inside].at(-1);
+  const when = document.getElementById("when");
+  const country = (id) => { if (plane.mode !== "country" || plane.country !== id) ui.open(id); };
+  const world = (t, region = null) => {
+    if (plane.mode !== "world") ui.open(null);
+    table.setRegion(region);
+    plane.highlight(null); map.highlight(null); table.mark(null);
+    if (t !== undefined) slider.set(t);
+  };
+  // a judgment on stage: same country → open it and light both outlets; otherwise light both countries
+  let story = null;
+  const showJudgment = (e) => {
+    if (!e) return;
+    const [a, b] = e.articles;
+    slider.set(last());
+    if (a.country === b.country && data.national[a.country]) {
+      country(a.country);
+      plane.highlight([a.outlet_id, b.outlet_id]); table.mark([a.outlet_id, b.outlet_id]);
+    } else {
+      world(last());
+      plane.highlight([a.country, b.country]); map.highlight([a.country, b.country]); table.mark([a.country, b.country]);
+    }
+  };
+  const browser = judgmentBrowser(document.getElementById("judgments"), (await loadJudgments()).filter((e) => e.featured),
+    { onShow: (e) => { if (story?.active() === "judgment") showJudgment(e); } });
+
+  story = runStory([...document.querySelectorAll(".chapter")], {
+    start: (u, enter) => { if (enter) world(0); },
+    drift: (u, enter) => {
+      if (enter) world();
+      const t = Math.min(last(), Math.max(0, u * 1.15 * last()));
+      slider.set(t);
+      when.textContent = monthLabel(data.months[Math.round(t)]);
+    },
+    region: (u, enter) => { if (enter) world(last(), 0); },
+    country: (u, enter) => { if (enter) { country(inside); slider.set(last()); plane.highlight(null); table.mark(null); } },
+    hollow: (u, enter) => { if (enter) { country(inside); slider.set(last()); plane.highlight(extra.id); table.mark(extra.id); } },
+    judgment: (u, enter) => { if (enter) showJudgment(browser.current?.()); },
+    free: (u, enter) => { if (enter) world(last()); },
+  }, { progress: { container: document.querySelector(".scrolly"), bar: document.getElementById("progress") } });
+</script>
+</body>
+</html>

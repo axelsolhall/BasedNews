@@ -65,33 +65,27 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - run: npx ng build
+      - name: the site's history frames decode (A82)
+        run: python3 -c "import json; m = json.load(open('site/data/history/manifest.json')); print(len(m['chunks']), 'year files,', len(m['entities']), 'entities')"
       - if: env.DEPLOY == 'true'
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
-      - name: upload the site (never touches data/, which the export job owns)
+      - name: upload the site (static, site/; never touches data/live*, which the judge job owns)
         if: env.DEPLOY == 'true'
         run: |
-          B=dist/basednews/browser
           S=s3://${{ vars.SITE_BUCKET }}
-          aws s3 sync $B $S --delete --exclude "data/*" --exclude "index.html" --exclude "assets/*" \
+          # year files are named by their content: cached for good, uploaded before the manifest that names them
+          aws s3 sync site/data/history $S/data/history --delete --exclude "*.json" \
             --cache-control "public,max-age=31536000,immutable"
-          aws s3 sync $B/assets $S/assets --delete --cache-control "public,max-age=300"
-          aws s3 cp $B/index.html $S/index.html --cache-control "no-cache"
-          aws cloudfront create-invalidation --distribution-id ${{ vars.CF_DISTRIBUTION_ID }} --paths "/index.html" "/assets/*"
+          aws s3 cp site/data/history/weekly.json $S/data/history/weekly.json --cache-control "public,max-age=3600"
+          aws s3 cp site/data/judgments.json $S/data/judgments.json --cache-control "public,max-age=3600"
+          aws s3 cp site/data/history/manifest.json $S/data/history/manifest.json --cache-control "no-cache"
+          aws s3 sync site $S --delete --exclude "data/*" --cache-control "public,max-age=300"
+          aws cloudfront create-invalidation --distribution-id ${{ vars.CF_DISTRIBUTION_ID }} --paths "/*"
 
   infra:
     runs-on: ubuntu-latest

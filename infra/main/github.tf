@@ -36,7 +36,8 @@ resource "aws_iam_role_policy" "deploy" {
       Resource = [aws_ecr_repository.job.arn] },
       { Effect = "Allow", Action = ["s3:ListBucket"], Resource = [aws_s3_bucket.site.arn] },
       { Effect = "Allow", Action = ["s3:PutObject", "s3:DeleteObject"], Resource = ["${aws_s3_bucket.site.arn}/*"] },
-      { Effect = "Deny", Action = ["s3:PutObject", "s3:DeleteObject"], Resource = ["${aws_s3_bucket.site.arn}/data/*"] },
+      # the judge job owns the live frames (A82); the history frames ship with the site
+      { Effect = "Deny", Action = ["s3:PutObject", "s3:DeleteObject"], Resource = ["${aws_s3_bucket.site.arn}/data/live*"] },
       { Effect = "Allow", Action = ["cloudfront:CreateInvalidation"], Resource = [aws_cloudfront_distribution.site.arn] },
     ]
   })

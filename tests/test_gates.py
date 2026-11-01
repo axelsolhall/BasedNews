@@ -100,7 +100,7 @@ def test_measure_gate_wants_every_paid_call_logged_and_the_budget_kept(conn):
         conn.execute("INSERT INTO judge_calls (call_id, at, purpose, model, prompt_version, direction) "
                      "VALUES (?,?,?,?,?,?)", (f"c{k}", ago(0.1), "measure", "gpt", "v4", "positive"))
         conn.execute("INSERT INTO judge_call_log (call_id, status, started_at) VALUES (?, 'ok', ?)", (f"c{k}", ago(0.1)))
-    conn.execute("INSERT INTO positions VALUES (?, 'v4', 'o', 'econ', 0, 1, 1)", (ago(0.05),))
+    conn.execute("INSERT INTO live_positions VALUES (?, 'econ', 'o', 0, 1)", (started[:10],))     # A82: the day's
     assert gates.measure(conn, ctx(conn, started_at=started, delta={"spend_usd": 0.1}, budget=0.15)).ok
     over = gates.measure(conn, ctx(conn, started_at=started, delta={"spend_usd": 0.3}, budget=0.15))
     assert not over.ok and "budget" in over.reason

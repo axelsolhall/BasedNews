@@ -760,9 +760,10 @@ def rebuild(conn, path: Path) -> int:
     groups = reference_groups(load_outlets())
     states = {ax: HP.start(outlets, ax, BTConfig().prior_sd, SIGMA_A_START) for ax in P.AXES}
     per_day = defaultdict(lambda: defaultdict(int))                     # judged-for day → outlet → comparisons
-    for o, d, k in conn.execute("""SELECT o, d, count(*) FROM (SELECT first_outlet AS o, substr(event_id, 1, 10) AS d
-                                   FROM judge_calls WHERE purpose = ? UNION ALL SELECT second_outlet,
-                                   substr(event_id, 1, 10) FROM judge_calls WHERE purpose = ?) GROUP BY o, d""",
+    calls = f"(SELECT * FROM judge_calls c WHERE c.purpose = ? AND {HP.not_foreign_call('c')})"   # A81
+    for o, d, k in conn.execute(f"""SELECT o, d, count(*) FROM (SELECT first_outlet AS o, substr(event_id, 1, 10) AS d
+                                   FROM {calls} UNION ALL SELECT second_outlet,
+                                   substr(event_id, 1, 10) FROM {calls}) GROUP BY o, d""",      # A81: no foreign editions
                                 (PURPOSE, PURPOSE)):
         per_day[d][o] += k
     worth, last, rowid = defaultdict(float), None, 0

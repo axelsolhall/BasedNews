@@ -119,7 +119,7 @@ def measure(conn, ctx) -> Gate:
     budget = ctx.get("budget_usd")
     attempts = cov["paid_calls"] + cov["failed"]
     fail_share = cov["failed"] / attempts if attempts else 0.0
-    new_fit = conn.execute("SELECT COUNT(*) FROM positions WHERE fitted_at >= ?", (ctx["started_at"],)).fetchone()[0]
+    new_fit = conn.execute("SELECT COUNT(*) FROM live_positions WHERE day = ?", (ctx["started_at"][:10],)).fetchone()[0]
     m = {**cov, "failed_share": round(fail_share, 3), "spent_usd": round(spent, 4), "budget_usd": budget,
          "positions_written": new_fit}
     rules = [(cov["logged"] == cov["paid_calls"], f"{cov['paid_calls'] - cov['logged']} paid calls without a log row (A51)"),
@@ -131,9 +131,14 @@ def measure(conn, ctx) -> Gate:
 
 
 def export(conn, ctx) -> Gate:
-    from pipeline.export.run import FILE, check, out_dir
-    res = check(out_dir() / FILE)
-    return Gate(res.pop("ok"), res, res.pop("reason", ""))
+    from pipeline.export.frames import check
+    from pipeline.export.run import out_dir
+    try:
+        said = check(out_dir())
+    except Exception as e:                                # a file that does not decode
+        return Gate(False, {}, f"site frames: {type(e).__name__}: {e}")
+    m = {"files": said}
+    return _check(m, [("live after" in said, "no live.json written")])
 
 
 def retention(conn, ctx) -> Gate:

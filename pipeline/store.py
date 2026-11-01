@@ -87,6 +87,14 @@ CREATE TABLE IF NOT EXISTS lake_files (
     table_name TEXT NOT NULL, month TEXT NOT NULL, rows INTEGER NOT NULL, sha256 TEXT NOT NULL, written_at TEXT NOT NULL,
     PRIMARY KEY (table_name, month)
 );
+CREATE TABLE IF NOT EXISTS live_positions (
+    day TEXT NOT NULL, axis TEXT NOT NULL, outlet TEXT NOT NULL, mean REAL NOT NULL, sd REAL NOT NULL,
+    PRIMARY KEY (day, axis, outlet)
+);
+CREATE TABLE IF NOT EXISTS live_country_positions (
+    day TEXT NOT NULL, axis TEXT NOT NULL, country TEXT NOT NULL, mean REAL NOT NULL, sd REAL NOT NULL,
+    PRIMARY KEY (day, axis, country)
+);
 CREATE TABLE IF NOT EXISTS lake_parts (
     path TEXT PRIMARY KEY, table_name TEXT NOT NULL, month TEXT NOT NULL, rows INTEGER NOT NULL, sha256 TEXT NOT NULL,
     written_at TEXT NOT NULL

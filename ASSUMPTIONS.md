@@ -1275,3 +1275,47 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   `tests/test_ingest_lookup.py::test_ingest_outlet_skips_items_published_before_the_window`; on a copy of prod
   (2026-10-30): 14,460 moved, integrity ok, 3,422.8 → 3,390.3 MB.
 - **If wrong:** stop moving = return `[]` from `movable`; the moved rows are in the lake to load back.
+
+### A81 — A foreign edition published under an outlet's name is not that outlet (2026-11-01)
+- **Rule:** verdicts on articles from another edition of an outlet are left out of its position — today only
+  `cn.nytimes.com`, the New York Times' Chinese edition (415 articles, 808 of the NYT's 1,191 history verdicts;
+  reports/outliers/README.md). `pipeline/history/positions.py` (FOREIGN_EDITIONS, foreign(), not_foreign_call(),
+  new_verdicts) and the history's comparison counts (replay.rebuild, prior.comparisons) skip them; the verdicts stay
+  stored.
+- **Why:** the maintainer's "cheap fixes only" before going public (2026-11-01): the NYT's history position was mostly the
+  Chinese edition's framing.
+- **Test:** `PYTHONPATH=. uv run python -m pipeline.history.replay rebuild` (positions from the verdicts, no judging);
+  the NYT's comparisons in `pipeline/measure/prior.json`.
+- **If wrong / more:** add a URL pattern to FOREIGN_EDITIONS and rebuild (no GPU).
+
+### A82 — Live judging continues the history's model; the site plays precomputed frames (2026-11-01)
+- **Live (the maintainer, 2026-11-01: "a site that is running and judging news as they come in"):** the daily judge job
+  runs `pipeline.measure.live`: the history's state (`pipeline/measure/prior.json`, its last day) carried on day by
+  day with the history's planner (iter_plan_independent, weekly floor A69) and update (update_independent, grow), on
+  the newest story run, until the planned calls' estimated cost reaches the day's budget (`daily_budget_usd`, $0.15).
+  Judge: OpenAI (`judge_model`), not the history's local Gemma LoRA — the maintainer's choice, so the live verdicts
+  come from another judge than the prior (same prompt). Positions per day in `live_positions` /
+  `live_country_positions`; `prior_positions` follows them (A79). Old `measure` verdicts (2026-10-11) are not used.
+- **Frames (the maintainer: "a file format that can be pre-computed and easily appended to, so the site simply plays
+  the file"):** `pipeline/export/frames.py` — int16 frames (x, y, sd x, sd y per entity), one a week plus the latest
+  day; countries relative to the shown countries' mean, outlets relative to their country. History: one file per
+  year named by content (immutable) + `manifest.json`, committed in `site/data/history/` and deployed by CI. Live:
+  `live.json` + `live-<hash>.bin`, rewritten by the judge job's export and uploaded to the site bucket's `data/`.
+  The page smooths for display over ≈ 2 months (as the prototypes did at a frame a month).
+- **Depends:** `pipeline/measure/live.py`, `pipeline/export/frames.py`, `pipeline/job/steps.py` (measure, export),
+  `pipeline/job/gates.py`, `pipeline/job/storage.py` (publish_site), `site/`, `.github/workflows/ci.yml`,
+  `infra/main/github.tf` (deploy may write `data/` except `data/live*`).
+- **Test:** `tests/test_live.py`, `tests/test_frames.py`; `uv run python -m pipeline.measure.live --dry-run`;
+  `python -m pipeline.export.frames check site/data/history`.
+- **If wrong:** another judge = `BASEDNEWS_JUDGE_MODEL`; another step = STEP_DAYS; the state restarts from the prior
+  by emptying `live_positions`.
+
+### A83 — An outlet is drawn only with enough history comparisons (2026-11-01)
+- **Rule (the maintainer, 2026-11-01):** "a big data project: we can disregard what is not big" — an outlet with fewer
+  than THRESHOLD comparisons in the history (A81 counts) is listed as inconclusive with its count, never drawn; a
+  country is drawn when one of its outlets is. The value is picked from the sweep in `reports/threshold.md` (outlets
+  kept vs agreement with AllSides and DNR), chosen after seeing it, and said so on the site and in the README.
+  Inclusion is fixed by the history's counts; live comparisons do not change it.
+- **Depends:** `pipeline/export/frames.py` (THRESHOLD, entities), `pipeline/history/threshold.py`.
+- **Test:** `PYTHONPATH=. uv run python -m pipeline.history.threshold`.
+- **If wrong:** change THRESHOLD and rerun `python -m pipeline.export.frames history`.

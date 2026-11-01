@@ -195,11 +195,28 @@ def drop_before(s: AxisState, day: str) -> None:
     s.born = [s.born[k] for k in keep]
 
 
+# A81: another edition published under the outlet's name (cn.nytimes.com, the NYT's Chinese edition: 808 of the NYT's
+# 1,191 history verdicts) is not that outlet's framing; verdicts on its articles never move a position
+FOREIGN_EDITIONS = ("%://cn.nytimes.com/%",)
+
+
+def foreign(alias: str) -> str:
+    """SQL: the article `alias` (a row of articles) is not from a foreign edition (A81)."""
+    return " AND ".join(f"{alias}.url NOT LIKE '{p}'" for p in FOREIGN_EDITIONS)
+
+
+def not_foreign_call(alias: str = "c") -> str:
+    """SQL: neither article of the judge call `alias` is from a foreign edition (A81) — by id, without joining every call
+    to its articles (millions of random reads on the history database)."""
+    ids = "SELECT id FROM articles WHERE " + " OR ".join(f"url LIKE '{p}'" for p in FOREIGN_EDITIONS)
+    return f"{alias}.first_article NOT IN ({ids}) AND {alias}.second_article NOT IN ({ids})"
+
+
 def new_verdicts(conn, purpose: str, after_rowid: int, a_full: float, a_summary: float,
                  until_at: str | None = None) -> tuple[dict, int]:
     """The verdicts recorded since `after_rowid` ({axis: rows for update}), and the last rowid read; until_at: only
-    those recorded by then (recompute: one replayed day at a time)."""
-    upto = "" if until_at is None else " AND c.at <= :until"
+    those recorded by then (recompute: one replayed day at a time). Foreign editions' articles are left out (A81)."""
+    upto = (" AND c.at <= :until" if until_at is not None else "") + f" AND {foreign('a')} AND {foreign('b')}"
     rows = conn.execute("""SELECT c.rowid AS rid, c.first_outlet, c.second_outlet, c.first_article, c.second_article,
                                   substr(a.published, 1, 10) AS pa, substr(b.published, 1, 10) AS pb, c.text_kind,
                                   j.axis, j.first_wins
@@ -208,8 +225,10 @@ def new_verdicts(conn, purpose: str, after_rowid: int, a_full: float, a_summary:
                            WHERE c.purpose = :p AND c.prompt_version = :v AND c.rowid > :after AND j.first_wins IS NOT NULL"""
                         + upto + " ORDER BY c.rowid",
                         {"p": purpose, "v": P.PROMPT_VERSION, "after": after_rowid, "until": until_at}).fetchall()
-    last = conn.execute("SELECT max(rowid) FROM judge_calls" + ("" if until_at is None else " WHERE at <= ?"),
-                        () if until_at is None else (until_at,)).fetchone()[0] or after_rowid
+    # only rows after after_rowid can raise the max: a rowid range, not a scan of every call (12.7 s a day on the
+    # 1.9 M-call history, ≈ 14 h for a rebuild, 2026-11-01)
+    last = conn.execute("SELECT max(rowid) FROM judge_calls WHERE rowid > ?" + ("" if until_at is None else " AND at <= ?"),
+                        (after_rowid,) if until_at is None else (after_rowid, until_at)).fetchone()[0] or after_rowid
     out: dict[str, list] = {ax: [] for ax in P.AXES}
     for r in rows:
         out[r["axis"]].append((r["first_outlet"], r["second_outlet"], r["first_article"], r["second_article"], r["pa"],
@@ -264,12 +283,15 @@ class CentreWorth:
         return {c: {o: (math.log(self.worth[o]) if self.worth[o] > 1.0 else 0.0) for o in g} for c, g in groups.items()}
 
 
-def record_day(conn, day: str, states: dict[str, AxisState], groups: dict[str, dict[str, float]] | None = None) -> None:
+def record_day(conn, day: str, states: dict[str, AxisState], groups: dict[str, dict[str, float]] | None = None,
+               prefix: str = "history") -> None:
     """Every outlet's position on `day`, per axis, and every country's (A08: the weighted mean of its reference
-    outlets, `groups`), its sd from the day's joint uncertainty — which only the state holds, so it is written now."""
-    conn.execute(POSITIONS)
-    conn.execute(COUNTRIES)
-    conn.executemany("INSERT OR REPLACE INTO history_positions VALUES (?,?,?,?,?)",
+    outlets, `groups`), its sd from the day's joint uncertainty — which only the state holds, so it is written now.
+    prefix: "history" (the replay) or "live" (pipeline.measure.live: the same tables, live_*, in the live database)."""
+    if prefix == "history":
+        conn.execute(POSITIONS)
+        conn.execute(COUNTRIES)
+    conn.executemany(f"INSERT OR REPLACE INTO {prefix}_positions VALUES (?,?,?,?,?)",
                      [(day, ax, o, float(s.mean[k]), float(np.sqrt(max(s.cov[k, k], 0.0))))
                       for ax, s in states.items() for k, o in enumerate(s.outlets)])
     rows = []
@@ -285,7 +307,7 @@ def record_day(conn, day: str, states: dict[str, AxisState], groups: dict[str, d
             w /= w.sum()
             var = float(w @ s.cov[np.ix_(ks, ks)] @ w)
             rows.append((day, ax, c, float(w @ s.mean[ks]), float(np.sqrt(max(var, 0.0)))))
-    conn.executemany("INSERT OR REPLACE INTO history_country_positions VALUES (?,?,?,?,?)", rows)
+    conn.executemany(f"INSERT OR REPLACE INTO {prefix}_country_positions VALUES (?,?,?,?,?)", rows)
 
 
 def save(path: Path, day: str, last_rowid: int, states: dict[str, AxisState]) -> None:

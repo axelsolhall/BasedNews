@@ -343,9 +343,13 @@ def upload_lake(bucket, lake: Path, run_id: str) -> str:
 
 
 def publish_site(out_dir: Path, site_url: str, client=None) -> list[str]:
-    """Upload the export's JSON files to the site bucket (A54 decides whether this is called)."""
+    """Upload the export's files to the site bucket: frames first, then the JSON that names them (A54 decides
+    whether this is called)."""
     bucket = open_bucket(site_url, client)
     done = []
+    for f in sorted(out_dir.glob("*.bin")):                  # A82: before live.json, which names them
+        bucket.put(f, f.name, content_type="application/octet-stream", cache_control=SITE_CACHE_CONTROL)
+        done.append(f.name)
     for f in sorted(out_dir.glob("*.json")):
         bucket.put(f, f.name, content_type="application/json", cache_control=SITE_CACHE_CONTROL)
         done.append(f.name)
