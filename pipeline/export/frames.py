@@ -37,7 +37,7 @@ from pipeline.sources.registry import load_outlets
 SCALE = 2e-4                      # int16 × SCALE: ±6.5 in model units, 0.0002 steps
 MISSING = -32768
 STEP_DAYS = 7
-THRESHOLD = 5000                  # A83: placeholder until the sweep (reports/threshold.md) picks it
+THRESHOLD = 5000                  # A83: picked from reports/threshold.md (2026-11-01)
 HISTORY_DB = Path("data/history/history.sqlite")
 HISTORY_OUT = Path("site/data/history")
 PRIOR = Path("pipeline/measure/prior.json")

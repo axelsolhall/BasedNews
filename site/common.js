@@ -530,7 +530,9 @@ export function timeSlider(root, months, onChange, { speed = 26 } = {}) {      /
     months.forEach((m, k) => {
       const prev = months[k - 1];
       let label = null;
-      if (!short) { if (prev?.slice(0, 4) !== m.slice(0, 4)) label = m.slice(0, 4); }       // the first point of a year
+      if (!short) {                                                                          // the first point of a year
+        if (prev?.slice(0, 4) !== m.slice(0, 4) && (prev || m.slice(5, 7) <= "06")) label = m.slice(0, 4);  // a late start: none
+      }
       else if (prev?.slice(0, 7) !== m.slice(0, 7))                                          // ... of a month
         label = !prev || m.slice(5, 7) === "01" ? m.slice(0, 4) : monthLabel(m.slice(0, 7)).split(" ")[0];
       if (!label) return;

@@ -192,7 +192,8 @@ a second run has nothing to do), `measure` without a budget is refused. The site
       lists the moved files, and the database size stays ≈ 3.4 GB over the following days.
 - [ ] A81–A83 (built 2026-11-01): wrap-up. Verified by Claude: tests (`tests/test_live.py`, `tests/test_frames.py`),
       the history rebuilt without cn.nytimes, the threshold sweep (reports/threshold.md), the site played locally at
-      60 frames a second. Yours: (1) `terraform -chdir=infra/main apply` (judge on, publishing on, deploy may write
+      60 frames a second (real frames: 573 × 209, 0.96 MB; threshold 5,000 → 168 of 228 outlets, AllSides ρ +0.84, DNR
+      ρ +0.52). Yours: (1) `terraform -chdir=infra/main apply` (judge on, publishing on, deploy may write
       data/history); (2) push → CI uploads `site/`; (3) after the next 04:35 UTC judge run, the site's date line shows
       that day and `aws s3 ls s3://<site>/data/ | grep live` lists live.json; (4) OpenAI spend stays ≈ $0.15 a day.
 

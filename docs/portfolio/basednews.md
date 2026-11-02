@@ -19,7 +19,7 @@ Bradley–Terry model of every outlet's position and uncertainty, and an active-
 comparisons where the order of two outlets is most in doubt. To cover 2015–2026 without ≈ $930 of API calls, I
 distilled the paid judge into a LoRA-tuned Gemma 4 12B on $3.58 of its verdicts and ran 1.9 M comparisons on a local
 RTX 5080. The pipeline runs serverless on AWS (Step Functions, Fargate, S3, CloudFront) for a few dollars a month,
-every step with its own quality gate. Positions agree with outside ratings (AllSides ρ ⟨ALLSIDES_RHO⟩).
+every step with its own quality gate. Positions agree with outside ratings (AllSides ρ +0.84).
 
 ## CV bullets
 - Built an end-to-end ML pipeline that measures the political framing of 228 news outlets in 41 countries from
@@ -28,22 +28,22 @@ every step with its own quality gate. Positions agree with outside ratings (AllS
   hard axis from κ 0.21 to 0.49, and served it with vLLM at ≈ 51,000 calls/hour on one consumer GPU.
 - Ran the production pipeline serverless on AWS (Terraform, Step Functions, Fargate, S3, CloudFront) for ≈ $1/month
   of compute, with a quality gate per step, self-healing state in S3 and CI/CD via GitHub Actions OIDC.
-- Validated against independent ratings (AllSides ρ ⟨ALLSIDES_RHO⟩; Reuters Institute DNR ρ ⟨DNR_RHO⟩) with
+- Validated against independent ratings (AllSides ρ +0.84; Reuters Institute DNR ρ +0.52) with
   pre-registered experiments and blind, pooled test sets.
 
 ## Numbers (with their source)
 | | | source |
 |---|---|---|
 | outlets · countries · languages | 228 · 41 · 30 | `data/outlets.json` |
-| history articles | ⟨ARTICLES⟩ M, 2015-11 → 2026-10 | `data/history/history.sqlite` |
+| history articles | 11.4 M, 2015-11 → 2026-10 | `data/history/history.sqlite` |
 | history verdicts | 1,923,417 | `judge_calls`, purpose `history` |
 | live articles | ≈ 24,000 a day | ingest records, 2026-10-24 → 30 |
-| drawn on the site | ⟨SHOWN⟩ outlets (≥ ⟨THRESHOLD⟩ comparisons) | `reports/threshold.md` |
-| agreement | AllSides ρ ⟨ALLSIDES_RHO⟩ · DNR ρ ⟨DNR_RHO⟩ | `reports/threshold.md`, `reports/external_check.md` |
+| drawn on the site | 168 outlets (≥ 5,000 comparisons) | `reports/threshold.md` |
+| agreement | AllSides ρ +0.84 · DNR ρ +0.52 | `reports/threshold.md`, `reports/external_check.md` |
 | local judge | κ 0.21 → 0.49 (social axis, vs gpt-5.4-mini) · ≈ 51,000 calls/hour | `docs/experiments/e13_results.md`, `docs/LOCAL_LLM.md` |
 | training labels | $3.58 of gpt-5.4-mini verdicts (3,085) | `docs/experiments/e11_results.md` |
 | cost | ≈ $1/month AWS compute · ≈ $2.50 embeddings · ≤ $4.50 live judging | `docs/PIPELINE.md` (costs) |
-| tests | ⟨TESTS⟩ | `uv run python -m pytest -q` |
+| tests | 228 | `uv run python -m pytest -q` |
 
 ## Skills it shows
 LLM evaluation and distillation (LoRA, vLLM) · Bayesian modelling (Bradley–Terry, Laplace updates) · active learning ·

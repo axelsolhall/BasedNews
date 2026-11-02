@@ -1316,6 +1316,7 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   country is drawn when one of its outlets is. The value is picked from the sweep in `reports/threshold.md` (outlets
   kept vs agreement with AllSides and DNR), chosen after seeing it, and said so on the site and in the README.
   Inclusion is fixed by the history's counts; live comparisons do not change it.
+- **Value (2026-11-01): 5,000.** The maintainer's suggested figure; it draws 168 of 228 outlets (74 %), AllSides ρ +0.84 [+0.48, +0.97] (10), DNR within-country ρ +0.52 [+0.15, +0.77] (57 outlets, 11 countries). Agreement is flat from 500 to 10,000 with overlapping intervals, so the sweep does not separate those values; it falls above 15,000 as outlets drop out.
 - **Depends:** `pipeline/export/frames.py` (THRESHOLD, entities), `pipeline/history/threshold.py`.
 - **Test:** `PYTHONPATH=. uv run python -m pipeline.history.threshold`.
 - **If wrong:** change THRESHOLD and rerun `python -m pipeline.export.frames history`.
