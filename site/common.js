@@ -42,8 +42,9 @@ export async function loadFrames(base = new URL("data/", document.baseURI), pale
   };
   for (const buf of parts) unpack(buf, ents.map((e) => e.id));
   if (live) unpack(live.buf, live.entities);
-  for (const s of series) {                           // a gap (never in practice): the nearest known frame
-    let last = s.find(Boolean);
+  for (const s of series) {                           // A83: an entity exists from its first frame (s.from) on; the
+    s.from = s.findIndex(Boolean);                     // frames before hold that first one only so the maths stays
+    let last = s[s.from];                              // simple: they are never drawn nor fitted (Plane.shown)
     for (let k = 0; k < T; k++) s[k] ? (last = s[k]) : (s[k] = last);
   }
   const regions = man.regions;
@@ -60,7 +61,7 @@ export async function loadFrames(base = new URL("data/", document.baseURI), pale
       color: extraColor ? (o.tier === "reference" ? palette[k++ % palette.length] : extraColor) : palette[i % palette.length],
       s: series[index.get(o.id)] }));
   }
-  const meta = { updated: months[T - 1], first: man.first, historyLast: man.last, threshold: man.threshold, stepDays: man.step_days,
+  const meta = { updated: months[T - 1], first: man.first, historyLast: man.last, threshold: man.threshold, benchmarks: man.benchmarks, stepDays: man.step_days,
                  inconclusive: man.inconclusive, liveDays: live?.days.length || 0 };
   return { months, regions, countries, byCountry, world, national, meta };
 }
@@ -144,10 +145,14 @@ export class Plane {
     this.dirty = true;
   }
 
+  // the lines that exist at time t: an entity enters at its first measured frame (A83), never before
+  shown(t) { return this.series().filter((d) => t >= d.from); }
+
   // the box that holds every dot and its whole trail up to time t, padded, with a cap on how unequal the axes get
   fit(t) {
+    if (!this.shown(t).length) return this.goal || [-0.5, 0.5, -0.5, 0.5];
     // each line's own box (its dot and whole trail so far): the running box up to the last whole frame, and the dot
-    let boxes = this.series().map((d) => {
+    let boxes = this.shown(t).map((d) => {
       const K = 4 * Math.max(0, Math.min(d.sm.length - 1, Math.floor(t))), b = d.box, [x, y] = at(d.sm, t);
       return [Math.min(b[K], x), Math.max(b[K + 1], x), Math.min(b[K + 2], y), Math.max(b[K + 3], y)];
     });
@@ -156,7 +161,7 @@ export class Plane {
     // slightly off stays, very off goes — by how much it pulls the view, not by a count)
     // first, lines whose farthest point reaches much further than the others' do (outliers among the reaches, so a
     // few far lines that hold the corner together all go): reach in units of the dots' own spread around their median
-    const S0 = this.series(), med = (a) => { const s = [...a].sort((p, q) => p - q), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+    const S0 = this.shown(t), med = (a) => { const s = [...a].sort((p, q) => p - q), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
     const dots = S0.map((d) => at(d.sm, t));
     const mx = med(dots.map((p) => p[0])), my = med(dots.map((p) => p[1]));
     const spx = Math.max(0.05, 1.4826 * med(dots.map((p) => Math.abs(p[0] - mx))));
@@ -207,7 +212,7 @@ export class Plane {
   }
 
   draw() {
-    const t = this.t, o = this.o, S = this.series(), T = this.data.months.length;
+    const t = this.t, o = this.o, S = this.shown(this.t), T = this.data.months.length;
     const m = { l: 18, r: 78, t: 34, b: 38 };            // room for axis names and for labels right of the dots
     const fx0 = 6, fy0 = 22, fx1 = this.w - 6, fy1 = this.h - 24;
     const [vx0, vx1, vy0, vy1] = this.view;
@@ -263,12 +268,12 @@ export class Plane {
     // and thinner — instead of one stroke per segment (tens of thousands a frame over eleven years of weeks)
     const BANDS = 12;
     for (const d of S) {
-      const sub = d.sub, tt = Math.min(t, d.sm.length - 1) * sub, on = H.has(d.id), P = d.poly;
-      if (tt <= 0) continue;
-      const end = at(d.sm, t), last = Math.floor(tt);
+      const sub = d.sub, tt = Math.min(t, d.sm.length - 1) * sub, on = H.has(d.id), P = d.poly, s0 = d.from * sub;
+      if (tt <= s0) continue;                              // the trail starts where the entity entered
+      const end = at(d.sm, t), last = Math.floor(tt), span = tt - s0;
       c.strokeStyle = d.color;
       for (let k = 0; k < BANDS; k++) {
-        const qa = Math.floor((tt * k) / BANDS), qb = Math.min(last, Math.ceil((tt * (k + 1)) / BANDS));
+        const qa = s0 + Math.floor((span * k) / BANDS), qb = Math.min(last, s0 + Math.ceil((span * (k + 1)) / BANDS));
         const age = (t - (qa + qb) / 2 / sub) / Math.max(1, T - 1);
         c.globalAlpha = (o.faint + (0.9 - o.faint) * Math.pow(1 - age, o.fade)) * (on ? 1 : ca) * dim(d);
         c.lineWidth = o.trailWidth * (on ? 1.2 : cw) * (0.45 + 0.55 * (1 - age));
@@ -358,7 +363,7 @@ function prepare(d, sigma) {
   }
   const n = (T - 1) * sub + 1, poly = new Float64Array(2 * n);
   for (let q = 0; q < n; q++) { const p = at(sm, q / sub); poly[2 * q] = p[0]; poly[2 * q + 1] = p[1]; }
-  return { ...d, sm, box, poly, sub };
+  return { ...d, sm, box, poly, sub, from: Math.max(0, d.s.from ?? 0) };
 }
 
 // Gaussian smoothing over months, renormalised at the ends (display only: the series stays as measured)

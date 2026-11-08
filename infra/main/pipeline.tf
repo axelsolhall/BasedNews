@@ -8,7 +8,7 @@ locals {
     refresh     = { steps = ["ingest"], cron = "cron(5 * * * ? *)", enabled = var.refresh_enabled }
     process     = { steps = ["normalize", "embed", "stories"], cron = "cron(35 2 * * ? *)", enabled = var.refresh_enabled } # A63
     feeds       = { steps = ["sources"], cron = "cron(30 3 * * ? *)", enabled = var.refresh_enabled }
-    judge       = { steps = ["measure", "export"], cron = "cron(35 4 * * ? *)", enabled = var.judge_enabled }
+    judge       = { steps = ["measure", "showcase", "export"], cron = "cron(35 4 * * ? *)", enabled = var.judge_enabled }
     maintenance = { steps = ["retention"], cron = "cron(35 5 * * ? *)", enabled = var.maintenance_enabled }
   }
   # per-step extras: the paid step carries its budget (A48); retention deletes only in production (A52)
@@ -20,7 +20,8 @@ locals {
     sg           = aws_security_group.jobs.id
     distribution = aws_cloudfront_distribution.site.id
   }
-  step_env  = { measure = [{ Name = "BASEDNEWS_RUN_BUDGET_USD", Value = var.daily_budget_usd }] }
+  step_env = { measure = [{ Name = "BASEDNEWS_RUN_BUDGET_USD", Value = var.daily_budget_usd }],
+  showcase = [{ Name = "BASEDNEWS_RUN_BUDGET_USD", Value = "0.02" }] } # A85: one call a day
   step_args = { retention = ["--apply"] }
 
   task_state = { for step in distinct(flatten([for j in local.jobs : j.steps])) : step => {
@@ -45,7 +46,7 @@ locals {
     # the lock of a crashed attempt within 5 min. Not the paid step: a retry would start a second daily budget (A48).
     Retry = concat(
       [{ ErrorEquals = ["ECS.AmazonECSException"], IntervalSeconds = 60, MaxAttempts = 2, BackoffRate = 2 }],
-      step == "measure" ? [] : [{ ErrorEquals = ["States.TaskFailed"], IntervalSeconds = 120, MaxAttempts = 1 }]
+      contains(["measure", "showcase"], step) ? [] : [{ ErrorEquals = ["States.TaskFailed"], IntervalSeconds = 120, MaxAttempts = 1 }]
     )
   } }
 }

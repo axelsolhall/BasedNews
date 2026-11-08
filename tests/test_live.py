@@ -96,7 +96,9 @@ def test_a_day_judges_within_budget_moves_positions_and_writes_frames(db, monkey
     f = F.decode((tmp_path / "site" / meta["file"]).read_bytes(), len(meta["entities"]))
     assert f.shape == (1, len(meta["entities"]), 4)
     k = meta["entities"].index("Norway")
-    assert np.allclose(f[0, k, :2], 0, atol=2 * F.SCALE)               # the only shown country is the world's centre
+    raw = dict(conn.execute("SELECT axis, mean FROM live_country_positions WHERE day = ? AND country = 'Norway'", (today,)))
+    ox, oy = F.origin(prior, [{"id": "Norway", "kind": "c"}])[None]   # one fixed point: the country where it is today
+    assert np.allclose(f[0, k, :2], [raw["econ"] - ox, raw["social"] - oy], atol=2 * F.SCALE)
     assert "live after" in F.check(tmp_path / "site")
 
 

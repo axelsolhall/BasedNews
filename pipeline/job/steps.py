@@ -31,6 +31,7 @@ STEPS: dict[str, Step] = {s.name: s for s in (
     Step("embed", "pipeline.embed.run", ("--days", RECENT_DAYS), gate=gates.embed, needs_ml=True),
     Step("stories", "pipeline.events.run", ("--days", "7"), gate=gates.stories),
     Step("measure", "pipeline.measure.live", gate=gates.measure, paid=True),      # A82: the history's model, carried on
+    Step("showcase", "pipeline.measure.showcase", gate=gates.showcase, paid=True),  # A85: the day's example, not measured
     Step("export", "pipeline.export.frames", ("live",), gate=gates.export, publishes=True),   # A82: the site's frames
     Step("retention", "pipeline.retention.run", args=("--apply",), gate=gates.retention),   # archive, verify, delete (A52)
     Step("backfill", "pipeline.backfill.run"),
@@ -40,6 +41,6 @@ JOBS: dict[str, tuple[str, ...]] = {
     "refresh": ("ingest",),                                    # hourly: feeds keep only their latest items
     "process": ("normalize", "embed", "stories"),              # daily, before the judge: only the judge reads stories (A63)
     "feeds": ("sources",),                                     # daily: feed health once a day is enough
-    "judge": ("measure", "export"),                            # daily, new pairs as they appear (A58); paid: carries a budget
+    "judge": ("measure", "showcase", "export"),                # daily, new pairs as they appear (A58); paid: carries a budget
     "maintenance": ("retention",),                             # daily, after the judge job
 }

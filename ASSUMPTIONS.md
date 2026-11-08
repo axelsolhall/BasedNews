@@ -1317,7 +1317,8 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
   kept vs agreement with AllSides and DNR), chosen after seeing it, and said so on the site and in the README.
   Inclusion is fixed by the history's counts; live comparisons do not change it.
 - **Value (2026-11-01): 5,000.** The maintainer's suggested figure; it draws 168 of 228 outlets (74 %), AllSides ρ +0.84 [+0.48, +0.97] (10), DNR within-country ρ +0.52 [+0.15, +0.77] (57 outlets, 11 countries). Agreement is flat from 500 to 10,000 with overlapping intervals, so the sweep does not separate those values; it falls above 15,000 as outlets drop out.
-- **Depends:** `pipeline/export/frames.py` (THRESHOLD, entities), `pipeline/history/threshold.py`.
+- **Revised (the maintainer, 2026-11-08):** a country is drawn when its outlets' comparisons *sum* to THRESHOLD (two outlets of 2,500 show their country, not themselves), and every country and outlet enters the frames from the first frame its comparisons so far (by event day) reach THRESHOLD (`frames.since`), so the map fills in as the evidence does. Every country and outlet is drawn on one global scale around one fixed point (`frames.origin`: the average country on the history's last day, from prior.json), in the world view and a country's view alike — so a dot moves only when its own score does, never because another outlet moved or entered (the maintainer, 2026-11-08). All 41 countries enter between 2016-02 and 2016-04; outlets between 2016 and 2026-09. The page shows the agreement at THRESHOLD (manifest `benchmarks`, from `threshold.sweep`).
+- **Depends:** `pipeline/export/frames.py` (THRESHOLD, entities, since), `pipeline/history/threshold.py`.
 - **Test:** `PYTHONPATH=. uv run python -m pipeline.history.threshold`.
 - **If wrong:** change THRESHOLD and rerun `python -m pipeline.export.frames history`.
 
@@ -1332,3 +1333,16 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
 - **Depends:** `pipeline/retention/run.py` (PAGE_SIZE, main), `tests/test_retention.py`.
 - **Test:** after a maintenance run, `PRAGMA page_size` on the stored database is 16384 and its size is ≈ 3 GB.
 - **If wrong:** set PAGE_SIZE back to 4096 (or 8192); the next maintenance rewrites the file.
+
+### A85 — One judgment a day for the site's example card (2026-11-08)
+- **Rule (the maintainer, 2026-11-08):** each judge run makes one more OpenAI call for the card "Behind every dot": the
+  newest story whose drawn outlets (A83) span the most countries (then the most outlets), never one shown before; the
+  pair is two drawn outlets of different countries farthest apart today (prior_positions), full text first. Prompt v4r
+  = the live v4 prompt asked also for one short reason per axis. Purpose `showcase`: no position reads it. The card is
+  stored as shown (headline, link, date, verdicts, reasons; never text, A10) in `showcase`, exported as
+  data/live-judgments.json; the page shows the newest ten, then fills with the October 2026 test-run examples.
+- **Cost:** one call ≈ $0.002 (budget $0.02 a run, step `showcase`, no automatic retry); inside the monthly AI cap.
+- **Depends:** `pipeline/measure/showcase.py`, `pipeline/judge/prompt.py` (v4r), `pipeline/job/steps.py`,
+  `pipeline/job/gates.py` (showcase), `pipeline/export/frames.py` (main live), `infra/main/pipeline.tf`, `site/judgment.js`.
+- **Test:** `tests/test_showcase.py`; on a real day `uv run python -m pipeline.measure.showcase --dry-run`.
+- **If wrong:** change pick() (the story or pair rule) or drop the step from the judge job; the seed examples remain.

@@ -112,6 +112,18 @@ def stories(conn, ctx) -> Gate:
                       (multi >= MIN_MULTI_OUTLET_STORIES, f"only {multi} stories with ≥ 2 outlets")])
 
 
+def showcase(conn, ctx) -> Gate:
+    """A85: at most one example a day, within its budget; none (no eligible story) is fine."""
+    spent = ctx["delta"].get("spend_usd", 0.0)
+    budget = ctx.get("budget_usd")
+    n = conn.execute("SELECT COUNT(*) FROM showcase WHERE day = ?", (ctx["started_at"][:10],)).fetchone()[0]
+    m = {"examples_today": n, "spent_usd": round(spent, 4), "budget_usd": budget}
+    rules = [(n <= 1, f"{n} examples today (one a day)")]
+    if budget is not None:
+        rules.append((spent <= budget + BUDGET_SLACK_USD, f"spent ${spent:.2f} > budget ${budget:.2f}"))
+    return _check(m, rules)
+
+
 def measure(conn, ctx) -> Gate:
     from pipeline.judge.calllog import coverage
     cov = coverage(conn, ctx["started_at"])

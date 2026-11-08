@@ -54,6 +54,7 @@ export async function start({ mapZoom = false, index = true, table = false, regi
   const pill = new PillNav(document.getElementById("nav"), { color:"#1b1a17", hillColor:"#cfc6b6", onColor:"#f6f2ea", offColor:"#1b1a17",
     offset: BAR, stops: () => [[0, morph.span], ...stops()] });
   dateline(data);
+  benchmarks(data, document.getElementById("bench"));
   morph.measure();                                     // the date's text arrives after the first measure: place it again
   return { data, plane, map, ui, morph, pill, slider: ui.slider, table: tbl };
 }
@@ -65,5 +66,26 @@ function dateline(data) {
   if (line) line.innerHTML = `${f({ weekday: "long" })} ${f({ day: "numeric" })} ${f({ month: "long" })} ${f({ year: "numeric" })}<b>LIVE</b>`;
   const note = document.querySelector("[data-note]");
   if (note) note.textContent = `${data.months[0].slice(0, 4)} → ${f({ day: "numeric", month: "short", year: "numeric" })} · ` +
-    `a point a week · outlets with fewer than ${data.meta.threshold.toLocaleString("en")} comparisons are not drawn`;
+    `a point a week · a country or outlet appears once it has ${data.meta.threshold.toLocaleString("en")} comparisons`;
+}
+
+// agreement with outside ratings, on the outlets drawn (manifest.benchmarks: pipeline.history.threshold.sweep)
+function benchmarks(data, root) {
+  const b = data.meta.benchmarks;
+  if (!root || !b) return;
+  const at = b.rows.find((r) => r.min === data.meta.threshold), all = b.rows.find((r) => r.min === 0);
+  if (!at) return;
+  const n = (v) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(2)}`;
+  const tile = (r, name, what, who) => r.rho ? `<div class="bm"><b>${n(r.rho[0])}</b><span class="bm-name">${name}</span>
+    <span class="bm-what">${what}</span><span class="bm-ci">95 % interval ${n(r.rho[1])} to ${n(r.rho[2])} · ${who}</span></div>` : "";
+  root.innerHTML = `<h3>Checked against outside ratings</h3>
+    <div class="bm-row">
+      ${tile(at.allsides, "AllSides", "US and UK outlets' bias, rated by experts and readers", `${at.allsides.n} outlets`)}
+      ${tile(at.dnr, "Reuters Institute Digital News Report", "each outlet's audience, left to right, compared within its country",
+             `${at.dnr.n} outlets in ${at.dnr.countries} countries`)}
+    </div>
+    <p class="bm-note">Spearman rank correlation of each outlet's position (economic + social) on ${b.day} with the outside
+      rating: +1 is the same order, 0 no relation. On the ${at.kept} outlets drawn; with all ${at.of}, it is
+      ${n(all.allsides.rho[0])} and ${n(all.dnr.rho[0])}. BasedNews measures how the same event is framed, not which
+      stories are chosen nor who reads them, so agreement has a ceiling below 1.</p>`;
 }

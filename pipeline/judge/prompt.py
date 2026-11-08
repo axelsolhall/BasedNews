@@ -112,6 +112,15 @@ Social axis
 Answer each question with "A" or "B". If one article leans even slightly more, pick it.
 Use "na" only when the event has no angle at all on that axis (for example a football result on the economic axis)."""
 
+# v4r (2026-11-08, A85): v4 asked also for one short reason per axis — the site's daily example (pipeline.measure.showcase)
+# only; never measured, so v4's verdicts stay comparable. Same questions, same answer letters.
+SYSTEM_V4R = SYSTEM_V4 + """
+Give one short reason per axis that points to the text; call the articles "Article A" and "Article B"."""
+SCHEMA_V4R = {"type": "object", "additionalProperties": False, "required": list(AXES),
+              "properties": {ax: {"type": "object", "additionalProperties": False, "required": ["verdict", "reason"],
+                                  "properties": {"verdict": {"type": "string", "enum": ["A", "B", "na"]},
+                                                 "reason": {"type": "string"}}} for ax in AXES}}
+
 QUESTIONS_V3 = {"negative": {"econ": "Which article's framing is more economically LEFT: A or B?",
                              "social": "Which article's framing is more LIBERAL: A or B?"},
                 "positive": {"econ": "Which article's framing is more economically RIGHT: A or B?",
@@ -130,13 +139,14 @@ SCHEMA = {
 
 
 def schema(version: str = PROMPT_VERSION) -> dict:
-    return {"v4": SCHEMA_V3, "v3": SCHEMA_V3, "v2": SCHEMA_V2}.get(version, SCHEMA)
+    return {"v4r": SCHEMA_V4R, "v4": SCHEMA_V3, "v3": SCHEMA_V3, "v2": SCHEMA_V2}.get(version, SCHEMA)
 
 
 def messages(text_a: str, text_b: str, direction: str = "positive", version: str = PROMPT_VERSION) -> list[dict]:
-    if version in ("v3", "v4"):
+    if version in ("v3", "v4", "v4r"):
         q = QUESTIONS_V3[direction]
-        return [{"role": "system", "content": SYSTEM_V4 if version == "v4" else SYSTEM_V3},
+        system = {"v4": SYSTEM_V4, "v4r": SYSTEM_V4R}.get(version, SYSTEM_V3)
+        return [{"role": "system", "content": system},
                 {"role": "user", "content": f"Article A\n\n{text_a}\n\n---\n\nArticle B\n\n{text_b}\n\n---\n\n"
                                             f"econ: {q['econ']}\nsocial: {q['social']}"}]
     if version == "v2":

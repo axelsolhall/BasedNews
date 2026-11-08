@@ -95,6 +95,10 @@ CREATE TABLE IF NOT EXISTS live_country_positions (
     day TEXT NOT NULL, axis TEXT NOT NULL, country TEXT NOT NULL, mean REAL NOT NULL, sd REAL NOT NULL,
     PRIMARY KEY (day, axis, country)
 );
+-- A85: the site's daily example, kept as shown (headlines, links, verdicts, reasons) so it outlives its articles
+CREATE TABLE IF NOT EXISTS showcase (
+    call_id TEXT PRIMARY KEY, day TEXT NOT NULL, example TEXT NOT NULL
+);
 CREATE TABLE IF NOT EXISTS lake_parts (
     path TEXT PRIMARY KEY, table_name TEXT NOT NULL, month TEXT NOT NULL, rows INTEGER NOT NULL, sha256 TEXT NOT NULL,
     written_at TEXT NOT NULL

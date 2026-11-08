@@ -58,7 +58,8 @@ nav .pill { position:absolute; z-index:0; border-radius:999px; }
                 border-radius:50%; cursor:pointer; font-size:13px; }
 .ruler button[data-state=playing]::after { content:"❚❚"; } .ruler button:not([data-state=playing])::after { content:"▶"; }
 .track { flex:1; padding-top:9px; }
-.ruler [data-month] { font:700 24px/38px Fraunces, serif; min-width:124px; text-align:right; }
+.ruler [data-month] { font:700 24px/38px Fraunces, serif; flex:none; width:164px; text-align:right; white-space:nowrap;
+  font-variant-numeric:tabular-nums; }   /* fixed: a date's width must never resize the track while it plays */
 .ticks { position:relative; height:18px; margin:4px 9px 0; }
 .ticks span { position:absolute; transform:translateX(-50%); font-size:11px; color:var(--muted); padding-top:6px; }
 .ticks span::before { content:""; position:absolute; top:0; left:50%; width:1px; height:5px; background:var(--muted); }
@@ -207,3 +208,16 @@ footer { margin-top:40px; padding-top:14px; border-top:3px double var(--ink); co
 /* inconclusive outlets under a country's table (A83) */
 .tb-note { font-size: 12px; color: #8a8273; margin: 10px 2px 0; line-height: 1.45; }
 .page a { color: inherit; }
+
+/* benchmarks (Method) */
+#bench h3 { font:700 24px/1.2 Fraunces, serif; margin:30px 0 14px; }
+.bm-row { display:grid; grid-template-columns:1fr 1fr; gap:0; border-top:1px solid var(--rule); max-width:760px; }
+.bm { display:flex; flex-direction:column; gap:3px; padding:16px 22px 16px 0; }
+.bm + .bm { padding-left:22px; border-left:1px solid var(--rule); }
+.bm b { font:700 54px/1 Fraunces, serif; color:var(--accent); letter-spacing:-1px; font-variant-numeric:tabular-nums; }
+.bm-name { font-weight:600; font-size:15px; margin-top:6px; }
+.bm-what { font-size:14px; line-height:1.45; color:#3a3833; }
+.bm-ci { font-size:12.5px; color:var(--muted); margin-top:4px; }
+.page .bm-note { font-size:13.5px; line-height:1.6; color:var(--muted); margin-top:12px; max-width:760px; }
+@media (max-width: 760px) { .bm-row { grid-template-columns:1fr; } .bm + .bm { padding-left:0; border-left:0; border-top:1px solid var(--rule); } }
+.tb-row.tb-wait { opacity:.35; }

@@ -114,10 +114,12 @@ export class CountryTable {
     for (const d of this.plane.series()) {
       const r = this.rows.querySelector(`[data-id="${CSS.escape(d.id)}"]`);
       if (!r) continue;
+      r.classList.toggle("tb-wait", t < d.from);         // not measured yet at t (A83): an empty row
+      if (t < d.from) { for (const k of [1, 2, 3]) r.children[k].innerHTML = ""; continue; }
       const p = at(d.sm, t), hollow = d.tier !== "reference";
       r.children[1].innerHTML = strip(p[0], p[2], x0, x1, d.color, hollow);
       r.children[2].innerHTML = strip(p[1], p[3], y0, y1, d.color, hollow);
-      r.children[3].innerHTML = glyph(d.sm, t, d.color);
+      r.children[3].innerHTML = glyph(d.sm, t, d.color, d.from);
     }
   }
 }
@@ -132,9 +134,9 @@ function strip(v, sd, lo, hi, color, hollow) {
 }
 
 // the shape of a dot's path from the first month to t, in its own box
-function glyph(sm, t, color) {
-  const pts = [], step = Math.max(1, Math.ceil(t / 60));            // ≈ 60 points: enough for a 58 px glyph
-  for (let u = 0; u <= t; u += step) pts.push(at(sm, u));
+function glyph(sm, t, color, from = 0) {
+  const pts = [], step = Math.max(1, Math.ceil((t - from) / 60));   // ≈ 60 points: enough for a 58 px glyph
+  for (let u = from; u <= t; u += step) pts.push(at(sm, u));
   pts.push(at(sm, t));
   const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
   const x0 = Math.min(...xs), y0 = Math.min(...ys), k = Math.min(52 / (Math.max(...xs) - x0 || 1), 26 / (Math.max(...ys) - y0 || 1));
