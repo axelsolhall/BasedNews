@@ -54,6 +54,7 @@ export async function start({ mapZoom = false, index = true, table = false, regi
   const pill = new PillNav(document.getElementById("nav"), { color:"#1b1a17", hillColor:"#cfc6b6", onColor:"#f6f2ea", offColor:"#1b1a17",
     offset: BAR, stops: () => [[0, morph.span], ...stops()] });
   dateline(data);
+  morph.measure();                                     // the date's text arrives after the first measure: place it again
   return { data, plane, map, ui, morph, pill, slider: ui.slider, table: tbl };
 }
 
