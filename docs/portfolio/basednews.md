@@ -42,7 +42,7 @@ every step with its own quality gate. Positions agree with outside ratings (AllS
 | agreement | AllSides ρ +0.84 · DNR ρ +0.52 | `reports/threshold.md`, `reports/external_check.md` |
 | local judge | κ 0.21 → 0.49 (social axis, vs gpt-5.4-mini) · ≈ 51,000 calls/hour | `docs/experiments/e13_results.md`, `docs/LOCAL_LLM.md` |
 | training labels | $3.58 of gpt-5.4-mini verdicts (3,085) | `docs/experiments/e11_results.md` |
-| cost | ≈ $1/month AWS compute · ≈ $2.50 embeddings · ≤ $4.50 live judging | `docs/PIPELINE.md` (costs) |
+| cost | ≈ $1/month AWS compute · ≈ $2.50 embeddings · ≤ $4.50 live judging | `README.md` (§ 5, costs) |
 | tests | 228 | `uv run python -m pytest -q` |
 
 ## Skills it shows
