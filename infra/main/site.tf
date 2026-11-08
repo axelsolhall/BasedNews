@@ -1,4 +1,4 @@
-# CloudFront on its own HTTPS address (*.cloudfront.net) until a domain is bought (ADR-010, 2026-10-12).
+# CloudFront on its own HTTPS address (*.cloudfront.net), and on var.domain once domain.tf has its certificate.
 resource "aws_cloudfront_origin_access_control" "site" {
   name                              = "${local.name}-site"
   origin_access_control_origin_type = "s3"
@@ -53,5 +53,12 @@ resource "aws_cloudfront_distribution" "site" {
     geo_restriction { restriction_type = "none" }
   }
 
-  viewer_certificate { cloudfront_default_certificate = true }
+  aliases = local.cert_on ? local.hosts : [] # domain.tf
+
+  viewer_certificate {
+    cloudfront_default_certificate = !local.cert_on
+    acm_certificate_arn            = local.cert_on ? aws_acm_certificate_validation.site[0].certificate_arn : null
+    ssl_support_method             = local.cert_on ? "sni-only" : null
+    minimum_protocol_version       = local.cert_on ? "TLSv1.2_2021" : null
+  }
 }

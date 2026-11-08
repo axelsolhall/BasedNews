@@ -1,5 +1,5 @@
 output "site_url" {
-  value = "https://${aws_cloudfront_distribution.site.domain_name}"
+  value = local.cert_on ? "https://${var.domain}" : "https://${aws_cloudfront_distribution.site.domain_name}"
 }
 
 # Copy these six into GitHub → Settings → Secrets and variables → Actions → Variables (not secrets; none is secret).

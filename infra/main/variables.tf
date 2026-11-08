@@ -68,3 +68,15 @@ variable "killswitch_usd" {
   type        = number
   default     = 15
 }
+
+variable "domain" {
+  description = "the site's own domain, e.g. basednews.info; empty: only the *.cloudfront.net address (domain.tf)"
+  type        = string
+  default     = ""
+}
+
+variable "domain_ready" {
+  description = "true once output cloudflare_records are added at Cloudflare: waits for the certificate, then the aliases"
+  type        = bool
+  default     = false
+}
