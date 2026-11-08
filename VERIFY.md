@@ -196,4 +196,6 @@ a second run has nothing to do), `measure` without a budget is refused. The site
       ρ +0.52). Yours: (1) `terraform -chdir=infra/main apply` (judge on, publishing on, deploy may write
       data/history); (2) push → CI uploads `site/`; (3) after the next 04:35 UTC judge run, the site's date line shows
       that day and `aws s3 ls s3://<site>/data/ | grep live` lists live.json; (4) OpenAI spend stays ≈ $0.15 a day.
-
+- [ ] A84 (built 2026-11-06): 16 KB pages. Verified by Claude: a copy of production rebuilt 4.69 → 3.65 GB, integrity
+      ok; `tests/test_retention.py`. Yours: after the next 05:35 UTC maintenance, it succeeded and the stored
+      database is ≈ 3 GB (`aws s3 ls s3://<private>/prod/db/ --human-readable`).

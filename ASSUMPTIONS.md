@@ -1320,3 +1320,15 @@ Reference IDs in code where the dependency is non-obvious (e.g. `# A07`).
 - **Depends:** `pipeline/export/frames.py` (THRESHOLD, entities), `pipeline/history/threshold.py`.
 - **Test:** `PYTHONPATH=. uv run python -m pipeline.history.threshold`.
 - **If wrong:** change THRESHOLD and rerun `python -m pipeline.export.frames history`.
+
+### A84 — The database uses 16 KB pages (2026-11-06)
+- **Why:** with SQLite's default 4 KB pages a 512-dimension vector row (≈ 2.1 KB) fills a page alone, so `text_vectors`
+  and `embeddings` used ≈ 4.1 KB a row — ≈ 1.4 GB of a 4.69 GB production database was empty page space. Maintenance's
+  cleanup reached 4.11 GB, failed the 4 GB gate and was not saved (2026-11-05, 11-06). A copy of production rebuilt with
+  16 KB pages: 4.69 GB → 3.65 GB, integrity ok (before the day's deletions).
+- **Rule:** retention's VACUUM sets `PRAGMA page_size = PAGE_SIZE` (16,384); a page size changes only by VACUUM outside
+  WAL, so it leaves WAL for the VACUUM and returns to it. It needs the only open connection (the job runner closes its own
+  before a step).
+- **Depends:** `pipeline/retention/run.py` (PAGE_SIZE, main), `tests/test_retention.py`.
+- **Test:** after a maintenance run, `PRAGMA page_size` on the stored database is 16384 and its size is ≈ 3 GB.
+- **If wrong:** set PAGE_SIZE back to 4096 (or 8192); the next maintenance rewrites the file.

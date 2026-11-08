@@ -94,8 +94,11 @@ def test_apply_archives_then_deletes_only_outside_the_window(db, monkeypatch, tm
     store.seed_headlines(db)
     store.add_headline(db, HeadlineVersion("old-live", "T old-live, edited", iso(59), "https://x/old-live", "feed_edit"))
     db.commit()
+    db.close()                                   # A84: leaving WAL to change the page size needs the only connection
     run_main(monkeypatch, R, "--apply")
     c = store.connect()
+    assert c.execute("PRAGMA page_size").fetchone()[0] == R.PAGE_SIZE                     # A84
+    assert c.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
     text = {r[0]: (r[1], r[2]) for r in c.execute("SELECT id, full_text IS NOT NULL, pruned_at FROM articles")}
     assert "old-live" not in text                                               # A80: moved out, every row
     assert not c.execute("SELECT 1 FROM headlines WHERE article_id = 'old-live'").fetchone()

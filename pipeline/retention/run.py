@@ -53,6 +53,7 @@ KEEP_STORY_RUNS = 2         # the latest run feeds the planner; one more as a fa
 MATCH_DAYS = 7              # stories group only the last 7 days (steps.py): an older article can never be matched again
 SWAP_MIN = 0.25             # A79: below this chance of its best pair being in the wrong order, an article is trash
 KEEP_PER_OUTLET_DAY = 100   # A79: and each outlet keeps at most its 100 most uncertain articles per day
+PAGE_SIZE = 16384           # A84: seven 2 KB vector rows a page instead of one
 LAKE = Path("data/lake")
 ARTICLE_META = "id, outlet_id, country, url, title, published, ingested_at, text_source, canonical_id, kind, genre, pruned_at"
 # table → (SELECT …, month expression); judgments take the month of their call
@@ -412,7 +413,11 @@ def main():
     for name, (sql, params) in ops.items():
         conn.execute(sql, tuple(now if p == "{now}" else p for p in params))
     conn.commit()
+    # A84: 16 KB pages — a 2 KB vector row fills a 4 KB page alone; a page size changes only by VACUUM outside WAL
+    conn.execute("PRAGMA journal_mode=DELETE")
+    conn.execute(f"PRAGMA page_size={PAGE_SIZE}")
     conn.execute("VACUUM")
+    conn.execute("PRAGMA journal_mode=WAL")
     v = verify(conn)
     print(f"done: database {size0 / 1e6:.1f} → {v['db_bytes'] / 1e6:.1f} MB · integrity {v['integrity']} · "
           f"refit vs stored positions: {v['refit_max_abs_diff']} ({v['refit_note']})")
